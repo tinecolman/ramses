@@ -213,6 +213,7 @@ subroutine update_time(ilevel)
   ! turb_energy_loc is the sum of turbulent energy injected across all levels on this proc
   ! turb_energy_tot is the sum of turbulent energy injected across all levels and all procs
   real(kind=dp) :: turb_energy_loc, turb_energy_tot
+  integer::mpi_err
 #endif
   integer::i,itest
 

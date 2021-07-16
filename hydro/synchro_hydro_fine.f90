@@ -49,6 +49,9 @@ subroutine synchro_hydro_fine(ilevel,dteff,which_force)
      end do
      ! End loop over cells
 
+  end do
+  ! End loop over grids
+
 #if USE_TURB==1
      if(which_force == 2) then
         ! Multiply the volumic energy computed in synchydrofine1
@@ -62,8 +65,6 @@ subroutine synchro_hydro_fine(ilevel,dteff,which_force)
      end if
 #endif
 
-  end do
-  ! End loop over grids
 
 111 format('   Entering synchro_hydro_fine for level',i2)
 
