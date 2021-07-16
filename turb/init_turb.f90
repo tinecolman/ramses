@@ -43,6 +43,10 @@ subroutine init_turb
    allocate(afield_now(1:NDIM,0:TGRID_X,0:TGRID_Y,0:TGRID_Z),&
             &stat=all_stat(4))
 
+   ! Allocate array for the energy added by the turbulent kick
+   allocate(turb_energy(levelmin:nlevelmax))
+   turb_energy(:) = 0.
+
    if (any(all_stat /= 0)) stop 'Out of memory in init_turb!'
 
    ! Set grid spacing

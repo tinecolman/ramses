@@ -11,15 +11,20 @@ subroutine synchro_hydro_fine(ilevel,dteff,which_force)
   implicit none
   integer::ilevel
   real(dp)::dteff
-  integer::which_force !gravity=1, turbulence=2
+  integer::which_force ! gravity=1, turbulence=2
   !-------------------------------------------------------------------
   ! Update velocity  from gravitational acceleration
   !-------------------------------------------------------------------
-  integer::ncache,ngrid,i,igrid,iskip,ind
+  integer::ncache,ngrid,i,igrid,iskip,ind,nx_loc
   integer,dimension(1:nvector),save::ind_grid,ind_cell
 
 #if USE_TURB==1
+  real(dp)::dx,dx_loc,scale,vol_loc
+
   if(.not. (poisson.or.turb))return
+
+  ! Initialize turbulent energy at this level
+  if(which_force == 2) turb_energy(ilevel) = 0.0
 #else
   if(.not. poisson)return
   if(numbtot(1,ilevel)==0)return
@@ -40,9 +45,22 @@ subroutine synchro_hydro_fine(ilevel,dteff,which_force)
         do i=1,ngrid
            ind_cell(i)=ind_grid(i)+iskip
         end do
-        call synchydrofine1(ind_cell,ngrid,dteff,which_force)
+        call synchydrofine1(ind_cell,ngrid,dteff,which_force,ilevel)
      end do
      ! End loop over cells
+
+#if USE_TURB==1
+     if(which_force == 2) then
+        ! Multiply the volumic energy computed in synchydrofine1
+        ! by the volume of a cell
+        dx = 0.5**ilevel
+        nx_loc = (icoarse_max - icoarse_min + 1)
+        scale = boxlen / dble(nx_loc)
+        dx_loc = dx * scale
+        vol_loc = dx_loc**NDIM
+        turb_energy(ilevel) = turb_energy(ilevel) * vol_loc
+     end if
+#endif
 
   end do
   ! End loop over grids
@@ -54,7 +72,7 @@ end subroutine synchro_hydro_fine
 !################################################################
 !################################################################
 !################################################################
-subroutine synchydrofine1(ind_cell,ncell,dteff,which_force)
+subroutine synchydrofine1(ind_cell,ncell,dteff, which_force, ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
@@ -63,7 +81,7 @@ subroutine synchydrofine1(ind_cell,ncell,dteff,which_force)
 #endif
   implicit none
   integer::ncell
-  integer::which_force !gravity=1, turbulence=2
+  integer::which_force ! gravity=1, turbulence=2
   real(dp)::dteff
   integer,dimension(1:nvector)::ind_cell
   !-------------------------------------------------------------------
@@ -76,20 +94,31 @@ subroutine synchydrofine1(ind_cell,ncell,dteff,which_force)
   integer::neul=ndim+2,nndim=ndim
 #endif
   real(dp),dimension(1:nvector),save::pp
+  integer :: ilevel
 
 #if USE_TURB==1
-  ! check for 2D turbulence
-  !PH 12/10/2019 suppresses forcing along z-direction as large scale galactic forcing is within the plane
+  ! These variables are used to compute the energy added by the kick
+  real(dp) :: energy_before, energy_after
+  energy_before = 0.0
+  energy_after  = 0.0
+
+  ! Check for 2D turbulence
+  ! Supresses forcing along z-direction as large scale galactic forcing is within the plane
   if ((which_force==2) .and. (turb2D)) nndim = ndimturb
 #endif
 
   ! Compute internal + magnetic + radiative energy
   do i=1,ncell
+#if USE_TURB==1
+     ! Compute energy before the kick
+     energy_before = energy_before + uold(ind_cell(i),neul)
+#endif
      pp(i)=uold(ind_cell(i),neul)
   end do
   do idim=1,nndim
      do i=1,ncell
-        pp(i)=pp(i)-0.5d0*uold(ind_cell(i),idim+1)**2/max(uold(ind_cell(i),1),smallr)
+        ! remove kinetic energy
+        pp(i)=pp(i)-0.5*uold(ind_cell(i),idim+1)**2/max(uold(ind_cell(i),1),smallr)
      end do
   end do
   do i=1,ncell
@@ -137,7 +166,20 @@ subroutine synchydrofine1(ind_cell,ncell,dteff,which_force)
   end do
   do i=1,ncell
      uold(ind_cell(i),neul)=pp(i)
+#if USE_TURB==1
+     ! Compute energy after the kick
+     energy_after = energy_after + uold(ind_cell(i),neul)
+#endif
   end do
+
+
+#if USE_TURB==1
+  if(which_force == 2) then
+     ! Computed the added *volumic* energy
+     ! Conversion into energy is made in synchro_hydro_fine
+     turb_energy(ilevel) = turb_energy(ilevel) + (energy_after - energy_before)
+  end if
+#endif
 
 end subroutine synchydrofine1
 !################################################################

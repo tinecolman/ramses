@@ -21,6 +21,8 @@ module turb_commons
                                        ! of Ornstein-Uhlenbeck process, initial
                                        ! power spectrum and projection
 
+  real(dp), allocatable :: turb_energy(:)   ! Total of turbulent energy injected at time = t
+
   character(len=256) :: turb_file_last    ! filename for 'last' field
   character(len=256) :: turb_file_next    ! filename for 'last' field
   character(len=256) :: turb_file_header  ! filename for header file

@@ -210,6 +210,9 @@ subroutine update_time(ilevel)
 #endif
 #if USE_TURB==1
   real(kind=dp) :: cur_turb_rms
+  ! turb_energy_loc is the sum of turbulent energy injected across all levels on this proc
+  ! turb_energy_tot is the sum of turbulent energy injected across all levels and all procs
+  real(kind=dp) :: turb_energy_loc, turb_energy_tot
 #endif
   integer::i,itest
 
@@ -362,9 +365,22 @@ subroutine update_time(ilevel)
 #if USE_TURB==1
   if (turb) then
      call turb_check_time
+
+     ! Sum energy injected on all levels
+     turb_energy_loc = sum(turb_energy)
+
+#ifndef WITHOUTMPI
+     call MPI_ALLREDUCE(turb_energy_loc, turb_energy_tot, 1, MPI_DOUBLE_PRECISION, MPI_SUM,&
+          &MPI_COMM_WORLD, mpi_err)
+#else
+     ! Sum energy across prossessors
+     turb_energy_tot = turb_energy_loc
+#endif
      if (myid==1) then
         call current_turb_rms(cur_turb_rms)
         write (6,*) ' Current turbulent rms: ', cur_turb_rms
+        ! Output turbulent energy injected at this step
+        write (6,*) ' Total turbulent energy: ', turb_energy_tot
      end if
   end if
 #endif
