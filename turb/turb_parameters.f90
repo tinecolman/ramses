@@ -50,5 +50,14 @@ module turb_parameters
 
   real(dp) :: turb_min_rho=1d-50  ! Minimum density for turbulence
 
+  real(dp) :: turb_kx_min=-TURB_GS/2        ! Minimum driving mode in the x direction
+  real(dp) :: turb_kx_max=TURB_GS/2        ! Maximum driving mode in the x direction
+  real(dp) :: turb_ky_min=-TURB_GS/2        ! Minimum driving mode in the y direction
+  real(dp) :: turb_ky_max=TURB_GS/2        ! Maximum driving mode in the y direction
+  real(dp) :: turb_kz_min=-TURB_GS/2        ! Minimum driving mode in the z direction
+  real(dp) :: turb_kz_max=TURB_GS/2        ! Maximum driving mode in the z direction
+  real(dp) :: turb_k_min=0         ! Minimum total driving mode, taken into account after selecting modes in each direction
+  real(dp) :: turb_k_max=TURB_GS         ! Maximum total driving mode
+
 end module turb_parameters
 #endif

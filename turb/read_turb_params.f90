@@ -8,12 +8,16 @@ subroutine read_turb_params(nml_ok)
   ! Local variables
   !--------------------------------------------------
   integer       :: ierr          ! Error variable
+  integer, dimension(6) :: k_limit ! array for looping over kmin and kmax
+  integer       :: i
 
   !--------------------------------------------------
   ! Namelist definitions
   !--------------------------------------------------
   namelist/turb_params/turb, turb_seed, turb_type, instant_turb, comp_frac,&
-       & forcing_power_spectrum, turb_T, turb_Ndt, turb_rms, turb_min_rho
+       & forcing_power_spectrum, turb_T, turb_Ndt, turb_rms, turb_min_rho,&
+       & turb_kx_min, turb_kx_max, turb_ky_min, turb_ky_max, turb_kz_min, turb_kz_max,&
+       & turb_k_min, turb_k_max
 
   !--------------------------------------------------
   ! Read namelist; check variables that have been loaded
@@ -55,6 +59,31 @@ subroutine read_turb_params(nml_ok)
      write (*,*) "Turbulent forcing rms acceleration must be > 0.0!"
      nml_ok = .FALSE.
   end if
+
+  k_limit = (/ turb_kx_min, turb_ky_min, turb_kz_min, turb_kx_max, turb_ky_max, turb_kz_max /)
+  do i=1,6
+     if (k_limit(i) < (-TURB_GS/2) .OR. k_limit(i) > (TURB_GS/2)) then
+        write (*,*) "Minimal and maximum turbulent forcing mode must be between 0 and ", TURB_GS/2,"!"
+        nml_ok = .FALSE.
+     end if
+  end do
+
+  if (turb_k_min < 0.0_dp .OR. turb_k_min > (TURB_GS*sqrt(3.0_dp))) then
+     write (*,*) "Minimal and maximum total turbulent forcing mode must be between 0 and ", TURB_GS*sqrt(3.0_dp),"!"
+     nml_ok = .FALSE.
+  end if
+
+  do i=1,3
+     if (k_limit(i) > k_limit(i+3)) then
+        write (*,*) "Maximal turbulent forcing mode must larger or equal to minimal mode!"
+        nml_ok = .FALSE.
+     end if
+  end do
+
+   if (turb_k_min > turb_k_max) then
+        write (*,*) "Maximal turbulent forcing mode must larger or equal to minimal mode!"
+        nml_ok = .FALSE.
+   end if
 
 87 continue
 
