@@ -58,6 +58,8 @@ module turb_parameters
   real(dp) :: turb_kz_max=TURB_GS/2        ! Maximum driving mode in the z direction
   real(dp) :: turb_k_min=0         ! Minimum total driving mode, taken into account after selecting modes in each direction
   real(dp) :: turb_k_max=TURB_GS         ! Maximum total driving mode
+  logical  :: turb1D=.false.             ! drive only in the x direction (vy=vz=0)
+  logical  :: turb2D=.false.             ! drive only in the x and y direction (vz=0)
 
 end module turb_parameters
 #endif

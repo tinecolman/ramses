@@ -17,7 +17,7 @@ subroutine read_turb_params(nml_ok)
   namelist/turb_params/turb, turb_seed, turb_type, instant_turb, comp_frac,&
        & forcing_power_spectrum, turb_T, turb_Ndt, turb_rms, turb_min_rho,&
        & turb_kx_min, turb_kx_max, turb_ky_min, turb_ky_max, turb_kz_min, turb_kz_max,&
-       & turb_k_min, turb_k_max
+       & turb_k_min, turb_k_max, turb1D, turb2D
 
   !--------------------------------------------------
   ! Read namelist; check variables that have been loaded
