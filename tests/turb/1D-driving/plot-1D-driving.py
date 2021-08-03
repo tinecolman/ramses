@@ -66,4 +66,4 @@ ax[0,0].legend()
 fig.savefig('1D-driving.pdf',bbox_inches='tight')
 
 # Check results against reference solution
-visu_ramses.check_solution(data["data"],'1D_driving', threshold=1e-30, overwrite=False)
+visu_ramses.check_solution(data["data"],'1D-driving', threshold=1e-30, overwrite=False)
