@@ -105,7 +105,7 @@ subroutine calc_power_spectrum(k, power_spectrum)
               power_spectrum = 0
               return
            end if
-           power_spectrum = k_mag**(-2)
+           power_spectrum = k_mag**(turb_power_law_slope)
 
         case('parabolic')
            ! 'parabola' large-scale modes power spectrum
