@@ -17,7 +17,7 @@ subroutine read_turb_params(nml_ok)
   namelist/turb_params/turb, turb_seed, turb_type, instant_turb, comp_frac,&
        & forcing_power_spectrum, turb_T, turb_Ndt, turb_rms, turb_min_rho,&
        & turb_kx_min, turb_kx_max, turb_ky_min, turb_ky_max, turb_kz_min, turb_kz_max,&
-       & turb_k_min, turb_k_max, turb1D, turb2D
+       & turb_k_min, turb_k_max, turb1D, turb2D, turb_parabolic_center, turb_parabolic_width
 
   !--------------------------------------------------
   ! Read namelist; check variables that have been loaded
@@ -83,6 +83,11 @@ subroutine read_turb_params(nml_ok)
    if (turb_k_min > turb_k_max) then
         write (*,*) "Maximal turbulent forcing mode must larger or equal to minimal mode!"
         nml_ok = .FALSE.
+   end if
+
+   if ((forcing_power_spectrum=='parabolic') .and. (turb_parabolic_width > turb_parabolic_center)) then
+      write (*,*) "The width of the parabolic turbulence spectrum should not be larger than the center value!"
+      nml_ok = .FALSE.
    end if
 
 87 continue

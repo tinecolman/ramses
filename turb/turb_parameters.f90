@@ -60,6 +60,10 @@ module turb_parameters
   real(dp) :: turb_k_max=TURB_GS         ! Maximum total driving mode
   logical  :: turb1D=.false.             ! drive only in the x direction (vy=vz=0)
   logical  :: turb2D=.false.             ! drive only in the x and y direction (vz=0)
+  real(dp) :: turb_parabolic_center=2    ! center of parabola spectrum b, P = 1 - a (k-b)**2
+  real(dp) :: turb_parabolic_width=1     ! determines the zero point of the parabola
+                                         ! width = sqrt(1/a)
+                                         ! width <= center to satisfy P>=0
 
 end module turb_parameters
 #endif

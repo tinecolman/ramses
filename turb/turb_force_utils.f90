@@ -82,7 +82,16 @@ subroutine calc_power_spectrum(k, power_spectrum)
    else if ((k(3) < turb_kz_min) .OR. (k(3) > turb_kz_max)) then
       power_spectrum = 0
       return
+   else if (k(1)==0 .AND. k(2)==0 .AND. k(3)==0) then
+      power_spectrum = 0
+      return
    else
+      k_mag = sqrt(real(sum(k**2),dp)) 
+      if ((k_mag < turb_k_min) .OR. (k_mag > turb_k_max)) then
+         power_spectrum = 0
+         return
+      end if
+
      ! determine strenght of each mode based on total wave vector
      select case(forcing_power_spectrum)
         case('power_law')
@@ -92,7 +101,6 @@ subroutine calc_power_spectrum(k, power_spectrum)
               return
            end if
 
-           k_mag = sqrt(real(sum(k**2),dp))
            if (k_mag > (TURB_GS/2)) then
               power_spectrum = 0
               return
@@ -102,21 +110,19 @@ subroutine calc_power_spectrum(k, power_spectrum)
         case('parabolic')
            ! 'parabola' large-scale modes power spectrum
            power_spectrum = 0._dp
-           k_mag = sqrt(real(sum(k**2),dp))
-           if ((k_mag > 1.0_dp) .AND. (k_mag < 3.0_dp)) then
-               power_spectrum = 1.0 - (k_mag-2.0)**2
+           if ((k_mag > (turb_parabolic_center - turb_parabolic_width)) .AND. (k_mag < (turb_parabolic_center + turb_parabolic_width))) then
+                power_spectrum = 1.0 - (1/(turb_parabolic_width**2)) * (k_mag-turb_parabolic_center)**2
            end if
 
         case('konstandin')
            ! forcing between k=1 (max) and k=1 (zero) as in Konstandin 2015
            power_spectrum = 0._dp
-           k_mag = sqrt(real(sum(k**2),dp))
            if ((k_mag >= 0.999999999999999_dp) .AND. (k_mag < 2.0_dp)) then
                power_spectrum = 2.0 - (k_mag)
            end if
 
         case('uniform')
-            power_spectrum = 1
+           power_spectrum = 1
 
         !case('custom')
         ! IMPLEMENT YOU FAVORITE FUNCTION HERE
