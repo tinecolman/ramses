@@ -59,16 +59,17 @@ g_star=1 !isothermal
 turb=.true.
 turb_type=1         ! 1=forced evolving, 2=forced fixed, 3=decaying
 turb_seed=1         ! -1 = random
-comp_frac=0.5       ! compressive fraction
+comp_frac=1       ! compressive fraction
 instant_turb=.true.
-forcing_power_spectrum='uniform'
+forcing_power_spectrum='parabolic'
 turb_T=1
 turb_Ndt=100       ! Number of timesteps per autocorr. time
 turb_rms=1
-turb_kx_min=2
-turb_kx_max=2
-turb_ky_min=0
-turb_ky_max=0
-turb_kz_min=0
-turb_kz_max=0
+turb_kx_min=-3
+turb_kx_max=3
+turb_ky_min=-3
+turb_ky_max=3
+turb_kz_min=-3
+turb_kz_max=3
+turb_k_max=3
 /

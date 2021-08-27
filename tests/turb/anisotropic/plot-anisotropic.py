@@ -1,13 +1,16 @@
-# REMARK: it is normal the reference value for density is negative. This is the sum of the log of the cell densities.
-
 import matplotlib as mpl
 mpl.use('Agg')
-import numpy as np
 import matplotlib.pyplot as plt
-import visu_ramses
+from matplotlib.colors import LogNorm
+import matplotlib.cm as cmx
+import numpy as np
 from scipy.interpolate import griddata
+import visu_ramses
 
-fig, ax = plt.subplots(nrows=4, ncols=3, figsize=(12, 8))
+def my_proj(var, axis):
+    #return np.max(var, axis=axis)
+    return np.sum(var, axis=axis)
+
 
 # Load RAMSES output
 data = visu_ramses.load_snapshot(2)
@@ -41,53 +44,64 @@ z2 = griddata(points,vx ,(grid_x,grid_y,grid_z),method='nearest')
 z3 = griddata(points,vy ,(grid_x,grid_y,grid_z),method='nearest')
 z4 = griddata(points,vz ,(grid_x,grid_y,grid_z),method='nearest')
 
-rho_proj1 = np.sum(z1, axis=1) #proj along x-axis
-rho_proj2 = np.sum(z1, axis=0) #proj along y-axis
-rho_proj3 = np.sum(z1, axis=2) #proj along z-axis
-vx_proj = np.sum(z2, axis=1)
-vy_proj = np.sum(z3, axis=0)
-vz_proj = np.sum(z4, axis=2)
+fig, ax = plt.subplots(nrows=4, ncols=3, figsize=(8, 8), sharex=True, sharey=True)
 
-im1 = ax[0,0].imshow(rho_proj1, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax])
-im2 = ax[0,1].imshow(rho_proj2.T, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax])
-im3 = ax[0,2].imshow(rho_proj3, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax])
-im4 = ax[1,0].imshow(vx_proj  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im5 = ax[1,1].imshow(vx_proj.T  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im6 = ax[1,2].imshow(vx_proj  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im7 = ax[2,0].imshow(vy_proj  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im8 = ax[2,1].imshow(vy_proj.T  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im9 = ax[2,2].imshow(vy_proj  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im10 = ax[3,0].imshow(vz_proj  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im11 = ax[3,1].imshow(vz_proj.T  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
-im12 = ax[3,2].imshow(vz_proj  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='magma')
+fig_rho, ax_rho = plt.subplots(nrows=1, ncols=1, figsize=(3, 3))
 
 
-cb = []
-cb.append(plt.colorbar(im1, ax=ax[0,0], label='Density'))
-cb.append(plt.colorbar(im2, ax=ax[0,1], label='Density'))
-cb.append(plt.colorbar(im3, ax=ax[0,2], label='Density'))
-cb.append(plt.colorbar(im4, ax=ax[1,0], label='Velocity_x'))
-cb.append(plt.colorbar(im5, ax=ax[1,1], label='Velocity_x'))
-cb.append(plt.colorbar(im6, ax=ax[1,2], label='Velocity_x'))
-cb.append(plt.colorbar(im7, ax=ax[2,0], label='Velocity_y'))
-cb.append(plt.colorbar(im8, ax=ax[2,1], label='Velocity_y'))
-cb.append(plt.colorbar(im9, ax=ax[2,2], label='Velocity_y'))
-cb.append(plt.colorbar(im10, ax=ax[3,0], label='Velocity_z'))
-cb.append(plt.colorbar(im11, ax=ax[3,1], label='Velocity_z'))
-cb.append(plt.colorbar(im12, ax=ax[3,2], label='Velocity_z'))
+# plot density maps
+rho_init = 0.28954719470909174
 
-for i in [0,1]:
-    ax[i,0].set_xlabel('y')
+rho_proj1 = my_proj(z1, axis=1) #proj along x-axis
+rho_proj2 = my_proj(z1, axis=0) #proj along y-axis
+rho_proj3 = my_proj(z1, axis=2) #proj along z-axis
+#rho_proj1 = z1[int(nx/2),:,:]
+#rho_proj2 = z1[:,int(nx/2),:]
+#rho_proj3 = z1[:,:,int(nx/2)]
+
+im1 = ax[0,0].imshow(rho_proj1, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], norm=LogNorm())#vmin=rho_init*0.1, vmax=rho_init*10))
+im2 = ax[0,1].imshow(rho_proj2.T, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], norm=LogNorm())#vmin=rho_init*0.1, vmax=rho_init*10))
+im3 = ax[0,2].imshow(rho_proj3, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], norm=LogNorm())#vmin=rho_init*0.1, vmax=rho_init*10))
+
+im3_rho = ax_rho.imshow(rho_proj3, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], norm=LogNorm())#vmin=rho_init*0.1, vmax=rho_init*10))
+
+# plot velocity projections
+#vlim=12.5
+vlim=2
+im4 = ax[1,0].imshow(my_proj(z2, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im5 = ax[1,1].imshow(my_proj(z2, axis=0).T  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax],cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im6 = ax[1,2].imshow(my_proj(z2, axis=2)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im7 = ax[2,0].imshow(my_proj(z3, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im8 = ax[2,1].imshow(my_proj(z3, axis=0).T  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im9 = ax[2,2].imshow(my_proj(z3, axis=2) , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im10 = ax[3,0].imshow(my_proj(z4, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im11 = ax[3,1].imshow(my_proj(z4, axis=0).T  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im12 = ax[3,2].imshow(my_proj(z4, axis=2) , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+
+# add colorbars
+plt.colorbar(im3, ax=ax[0,2], label='density')
+plt.colorbar(im6, ax=ax[1,2], label='Velocity_x')
+plt.colorbar(im9, ax=ax[2,2], label='Velocity_y')
+plt.colorbar(im12, ax=ax[3,2], label='Velocity_z')
+
+plt.colorbar(im3_rho, ax=ax_rho, label='density')
+
+# labels
+ax[3,0].set_xlabel('y')
+ax[3,1].set_xlabel('x')
+ax[3,2].set_xlabel('x')
+
+
+for i in range(4):
     ax[i,0].set_ylabel('z')
-    ax[i,1].set_xlabel('x')
     ax[i,1].set_ylabel('z')
-    ax[i,2].set_xlabel('x')
     ax[i,2].set_ylabel('y')
 
-for c in cb:
-    c.ax.yaxis.set_label_coords(-1.1, 0.5)
+plt.subplots_adjust(hspace=0.2, wspace=0.0)
 
 fig.savefig('anisotropic.pdf',bbox_inches='tight')
+fig_rho.savefig('rho.png',bbox_inches='tight')
+
 
 # Check results against reference solution
 visu_ramses.check_solution(data["data"],'anisotropic', threshold=1e-30, overwrite=True)
