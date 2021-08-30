@@ -16,8 +16,7 @@ gamma=1.666667
 courant_factor=0.8
 scheme='muscl'
 slope_type=1
-riemann='hlld'
-riemann2d='hlld'
+riemann='hllc'
 pressure_fix=.true.
 beta_fix=0.5
 /
@@ -41,13 +40,20 @@ noutput=2
 tout=0.0,0.25
 /
 
-&PHYSICS_PARAMS
+&UNITS_PARAMS
 units_density=1.50492957435d-20
 units_time=3.1556926d13
 units_length=3.0857d18
+/
+
+&COOLING_PARAMS
 isothermal=.true.
-T2_star=10.
-mu_gas=2.37
+T2max=4.2194
+/
+
+&SF_PARAMS
+T2_star=4.2194
+g_star=1 !isothermal
 /
 
 &TURB_PARAMS

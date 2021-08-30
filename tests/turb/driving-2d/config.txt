@@ -1,1 +1,1 @@
-FLAGS: NDIM=3 PATCH=../patch/hydro/isothermal SOLVER=mhd USE_TURB=1
+FLAGS: NDIM=3 PATCH= SOLVER=hydro USE_TURB=1
