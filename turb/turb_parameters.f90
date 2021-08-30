@@ -50,8 +50,22 @@ module turb_parameters
 
   real(dp) :: turb_min_rho=1d-50  ! Minimum density for turbulence
 
-  logical  :: turb2D=.false.      !do 2D forcing (in the XY plane)
   integer  :: ndimturb=3          ! number of dimension of the turbulent driving
+  real(dp) :: turb_kx_min=-TURB_GS/2        ! Minimum driving mode in the x direction
+  real(dp) :: turb_kx_max=TURB_GS/2        ! Maximum driving mode in the x direction
+  real(dp) :: turb_ky_min=-TURB_GS/2        ! Minimum driving mode in the y direction
+  real(dp) :: turb_ky_max=TURB_GS/2        ! Maximum driving mode in the y direction
+  real(dp) :: turb_kz_min=-TURB_GS/2        ! Minimum driving mode in the z direction
+  real(dp) :: turb_kz_max=TURB_GS/2        ! Maximum driving mode in the z direction
+  real(dp) :: turb_k_min=0         ! Minimum total driving mode, taken into account after selecting modes in each direction
+  real(dp) :: turb_k_max=TURB_GS         ! Maximum total driving mode
+  logical  :: turb1D=.false.             ! drive only in the x direction (forcing y = forcing z=0)
+  logical  :: turb2D=.false.             ! drive only in the x and y direction (forcing z=0)
+  real(dp) :: turb_power_law_slope=-2    ! slope of the power law spectrum P=k**slope
+  real(dp) :: turb_parabolic_center=2    ! center of parabola spectrum b, P = 1 - a (k-b)**2
+  real(dp) :: turb_parabolic_width=1     ! determines the zero point of the parabola
+                                         ! width = sqrt(1/a)
+                                         ! width <= center to satisfy P>=0
 
 end module turb_parameters
 #endif

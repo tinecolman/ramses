@@ -69,50 +69,77 @@ subroutine calc_power_spectrum(k, power_spectrum)
    real(kind=dp), intent(out) :: power_spectrum ! Power value
    real(kind=dp)              :: k_mag          ! Wavevector magnitude
 
-   ! Remark that the components of k are between -TURB_GS and TURB_GS
-   ! with k=1 corresponding to the box size
-   select case(forcing_power_spectrum)
-      case('power_law')
-         ! alpha^-2 power spectrum
-         if (all(k==0)) then
-            power_spectrum = 0
-            return
-         end if
+   ! Remark that the components of k are between -TURB_GS/2 and TURB_GS/2
+   ! with k=1 corresponding to the box size (?)
 
-         k_mag = sqrt(real(sum(k**2),dp))
-         if (k_mag > (TURB_GS/2)) then
-            power_spectrum = 0
-            return
-         end if
-         power_spectrum = k_mag**(-2)
+   ! select modes for each direction
+   if ((k(1) < turb_kx_min) .OR. (k(1) > turb_kx_max)) then
+      power_spectrum = 0
+      return
+   else if ((k(2) < turb_ky_min) .OR. (k(2) > turb_ky_max)) then
+      power_spectrum = 0
+      return
+   else if ((k(3) < turb_kz_min) .OR. (k(3) > turb_kz_max)) then
+      power_spectrum = 0
+      return
+   else if (k(1)==0 .AND. k(2)==0 .AND. k(3)==0) then
+      power_spectrum = 0
+      return
+   else
+      k_mag = sqrt(real(sum(k**2),dp)) 
+      if ((k_mag < turb_k_min) .OR. (k_mag > turb_k_max)) then
+         power_spectrum = 0
+         return
+      end if
 
-      case('parabolic')
-         ! 'parabola' large-scale modes power spectrum
-         power_spectrum = 0._dp
-         k_mag = sqrt(real(sum(k**2),dp))
-         if ((k_mag > 1.0_dp) .AND. (k_mag < 3.0_dp)) then
-             power_spectrum = 1.0 - (k_mag-2.0)**2
-         end if
+     ! determine strenght of each mode based on total wave vector
+     select case(forcing_power_spectrum)
+        case('power_law')
+           ! alpha^-2 power spectrum
+           if (all(k==0)) then
+              power_spectrum = 0
+              return
+           end if
 
-      case('konstandin')
-         ! forcing between k=1 (max) and k=1 (zero) as in Konstandin 2015
-         power_spectrum = 0._dp
-         k_mag = sqrt(real(sum(k**2),dp))
-         if ((k_mag >= 0.999999999999999_dp) .AND. (k_mag < 2.0_dp)) then
-             power_spectrum = 2.0 - (k_mag)
-         end if
+           if (k_mag > (TURB_GS/2)) then
+              power_spectrum = 0
+              return
+           end if
+           power_spectrum = k_mag**(turb_power_law_slope)
 
-      case('test')
-         power_spectrum = 0._dp
-         if (k(1)==1 .AND. k(2)==0 .AND. k(3)==0) then
-            power_spectrum = 1.0
-         end if
+        case('parabolic')
+           ! 'parabola' large-scale modes power spectrum
+           power_spectrum = 0._dp
+           if ((k_mag > (turb_parabolic_center - turb_parabolic_width)) .AND. (k_mag < (turb_parabolic_center + turb_parabolic_width))) then
+                power_spectrum = 1.0 - (1/(turb_parabolic_width**2)) * (k_mag-turb_parabolic_center)**2
+           end if
 
-      case default
-         write (6,*) "Unknown forcing_power_spectrum!"
-         write (6,*) "Use 'power_law', 'parabolic', 'konstandin' or 'test'"
-         stop
-      end select
+        case('konstandin')
+           ! forcing between k=1 (max) and k=1 (zero) as in Konstandin 2015
+           power_spectrum = 0._dp
+           if ((k_mag >= 0.999999999999999_dp) .AND. (k_mag < 2.0_dp)) then
+               power_spectrum = 2.0 - (k_mag)
+           end if
+
+        case('uniform')
+           power_spectrum = 1
+
+        !case('custom')
+        ! IMPLEMENT YOU FAVORITE FUNCTION HERE
+
+        !case('test')
+        !   power_spectrum = 0._dp
+        !   if (k(1)==1 .AND. k(2)==0 .AND. k(3)==0) then
+        !      power_spectrum = 1.0
+        !   end if
+
+        case default
+           write (6,*) "Unknown forcing_power_spectrum!"
+           write (6,*) "Use 'power_law', 'parabolic', 'konstandin', 'uniform' or 'test'"
+           stop
+        end select
+
+   end if
 
 end subroutine calc_power_spectrum
 
