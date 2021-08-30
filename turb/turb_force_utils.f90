@@ -666,22 +666,9 @@ subroutine turb_force_calc(ncache, x_cell, rho, aturb)
       !aturb(1,ok_cell(i)) = sign(1.0_dp, 0.5_dp - (r(1,i)/turb_gs_real))
    end do
 #else
-   ! remove force in unwanted directions
-   if(turb1D) then
-      do i=1,nok
-         aturb(1,ok_cell(i)) = dr1(1,i)
-         aturb(2:3,ok_cell(i)) = 0
-      end do 
-   else if(turb2D) then
-      do i=1,nok
-         aturb(1:2,ok_cell(i)) = dr1(1:2,i)
-         aturb(3,ok_cell(i)) = 0
-      end do 
-   else
-      do i=1,nok
-         aturb(:,ok_cell(i)) = dr1(:,i)
-      end do
-   endif
+   do i=1,nok
+      aturb(:,ok_cell(i)) = dr1(:,i)
+   end do
 #endif
 
 end subroutine turb_force_calc
