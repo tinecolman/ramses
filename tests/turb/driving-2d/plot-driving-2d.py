@@ -47,8 +47,8 @@ z4 = griddata(points,vz ,(grid_x,grid_y,grid_z),method='nearest')
 fig, ax = plt.subplots(nrows=3, ncols=4, figsize=(12, 6), sharex=True, sharey=True)
 
 # plot density maps
-rho_proj1 = my_proj(z1, axis=0) #proj along x-axis
-rho_proj2 = my_proj(z1, axis=1) #proj along y-axis
+rho_proj1 = my_proj(z1, axis=1) #proj along x-axis
+rho_proj2 = my_proj(z1, axis=0) #proj along y-axis, not sure why these are reversed
 rho_proj3 = my_proj(z1, axis=2) #proj along z-axis
 im1 = ax[0,0].imshow(rho_proj1, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], norm=LogNorm())#vmin=rho_init*0.1, vmax=rho_init*10))
 im2 = ax[1,0].imshow(rho_proj2, origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], norm=LogNorm())#vmin=rho_init*0.1, vmax=rho_init*10))
@@ -57,14 +57,14 @@ im3 = ax[2,0].imshow(rho_proj3, origin="lower", aspect='equal', extent=[xmin, xm
 
 # plot velocity projections
 vlim=2
-im4 = ax[0,1].imshow(my_proj(z2, axis=0)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
-im5 = ax[1,1].imshow(my_proj(z2, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax],cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im4 = ax[0,1].imshow(my_proj(z2, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im5 = ax[1,1].imshow(my_proj(z2, axis=0)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax],cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
 im6 = ax[2,1].imshow(my_proj(z2, axis=2)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
-im7 = ax[0,2].imshow(my_proj(z3, axis=0)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
-im8 = ax[1,2].imshow(my_proj(z3, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im7 = ax[0,2].imshow(my_proj(z3, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im8 = ax[1,2].imshow(my_proj(z3, axis=0)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
 im9 = ax[2,2].imshow(my_proj(z3, axis=2) , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
-im10 = ax[0,3].imshow(my_proj(z4, axis=0)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
-im11 = ax[1,3].imshow(my_proj(z4, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im10 = ax[0,3].imshow(my_proj(z4, axis=1)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
+im11 = ax[1,3].imshow(my_proj(z4, axis=0)  , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
 im12 = ax[2,3].imshow(my_proj(z4, axis=2) , origin="lower", aspect='equal', extent=[xmin, xmax, ymin, ymax], cmap='coolwarm')#, vmin=-vlim, vmax=vlim)
 
 # add colorbars
@@ -91,8 +91,8 @@ ax[0,3].set_title('velocity_z')
 for j in range(4):
     ax[0,j].set_xlabel('y') # x proj
     ax[0,j].set_ylabel('z')
-    ax[1,j].set_xlabel('x') # y proj
-    ax[1,j].set_ylabel('z')
+    ax[1,j].set_xlabel('z') # y proj
+    ax[1,j].set_ylabel('x')
     ax[2,j].set_xlabel('x') # z proj
     ax[2,j].set_ylabel('y')
 
