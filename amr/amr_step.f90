@@ -337,6 +337,7 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDIM==3
         if(sink)call update_sink(ilevel)
 #endif
+        ! TC: turbulence field update should be done here instead of being included in update_time
      end if
   else
      call update_time(ilevel)
