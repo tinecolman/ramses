@@ -10,6 +10,9 @@ subroutine write_turb_fields(output_dir)
    character(len=1)             :: c           ! Mostly pointless variable
    character(len=17)            :: turb_last_time_z ! turb_last_time in hex
    character(len=17)            :: turb_next_time_z ! turb_next_time in hex
+   character(len=256)           :: turb_file_spectrum  ! filename for power spectrum
+   integer       :: i, j, k                ! Loop variables
+   integer       :: k_vec(1:3)             ! Wavevector
 
    write(file_ext,"(I0)") 0 ! For compatibility with Seren
 
@@ -18,6 +21,7 @@ subroutine write_turb_fields(output_dir)
    turb_file_last = 'turb_last.'//trim(file_ext)//'.dat'
    turb_file_next = 'turb_next.'//trim(file_ext)//'.dat'
    turb_file_header = trim(output_dir)//'turb_fields.dat'
+   turb_file_spectrum = trim(output_dir)//'turb_power_spectrum.dat'
 
    write(turb_last_time_z, '(X,Z16)') turb_last_time
    write(turb_next_time_z, '(X,Z16)') turb_next_time
@@ -51,6 +55,35 @@ subroutine write_turb_fields(output_dir)
    open(ilun,file=turb_file_header,status="unknown",access='stream',&
         &form="formatted")
    write(ilun,*) trim(file_buffer)
+   close(ilun)
+
+   ! write turbulence power spectrum
+   open(ilun,file=turb_file_spectrum,status="unknown",access='stream',&
+        &form="formatted")
+   write(ilun,*) "# k_x, k_y, k_z, P(k)"
+
+   do k=0,TGRID_Z
+     if (k > TURB_GS / 2) then
+       k_vec(3) = k - TURB_GS
+     else
+       k_vec(3) = k
+     end if
+     do j=0,TGRID_Y
+       if (j > TURB_GS / 2) then
+         k_vec(2) = j - TURB_GS
+       else
+         k_vec(2) = j
+       end if
+       do i=0,TGRID_X
+         if (i > TURB_GS / 2) then
+           k_vec(1) = i - TURB_GS
+         else
+           k_vec(1) = i
+         end if
+         write(ilun,*) k_vec, power_spec(i,j,k)
+       end do
+     end do
+   end do
    close(ilun)
 
 end subroutine write_turb_fields
