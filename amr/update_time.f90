@@ -365,6 +365,8 @@ subroutine update_time(ilevel)
 
 #if USE_TURB==1
   if (turb) then
+     ! TC: why is this here? this makes no sense.?
+     !     this calculates the next field and should be in amrstep, before update time so we have the correct rms
      call turb_check_time
 
      ! Sum energy injected on all levels

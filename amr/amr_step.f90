@@ -337,6 +337,7 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDIM==3
         if(sink)call update_sink(ilevel)
 #endif
+        ! TC: turbulence field update should be done here instead of being included in update_time
      end if
   else
      call update_time(ilevel)
@@ -433,7 +434,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Still need a chemistry call if RT is defined but not
      ! actually doing radiative transfer (i.e. rt==false):
                                call timer('cooling','start')
-     if(hydro .and. (neq_chem.or.cooling.or.T2_star>0.0))call cooling_fine(ilevel)
+     if(hydro .and. (neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos))call cooling_fine(ilevel)
   endif
   ! Regular updates and book-keeping:
   if(ilevel==levelmin) then
@@ -449,7 +450,7 @@ recursive subroutine amr_step(ilevel,icount)
 #else
                                call timer('cooling','start')
   if((hydro).and.(.not.static_gas)) then
-    if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
+    if(neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos)call cooling_fine(ilevel)
   endif
 #endif
 
@@ -625,7 +626,7 @@ subroutine rt_step(ilevel)
      call rt_set_uold(ilevel)
 
                                call timer('cooling','start')
-     if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
+     if(neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos)call cooling_fine(ilevel)
                                call timer('radiative transfer','start')
 
      do ivar=1,nrtvar

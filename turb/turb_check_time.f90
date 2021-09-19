@@ -1,4 +1,7 @@
 #if USE_TURB==1
+! TC: this function name is terrible, it has nothing to do with time.
+!     here the turbulence field is updated
+!     rename to evolve_turb_field
 subroutine turb_check_time
    use amr_commons
    use turb_commons

@@ -19,6 +19,7 @@
 subroutine find_conj_pair(i,j,k,ii,jj,kk)
    use turb_commons
    implicit none
+   ! Helper function to find Hermitian pair
    integer, intent(in)     :: i,j,k         ! Grid coordinates
    integer, intent(out)    :: ii,jj,kk      ! Hermitian pair
 
@@ -34,6 +35,7 @@ end subroutine find_conj_pair
 subroutine find_unitk(i,j,k,limit,unitk)
    use turb_commons
    implicit none
+   ! Helper function to find the unit vector in direction i,j,k
    integer, intent(in)         :: i,j,k,limit
    integer                     :: ii,jj,kk
    real (kind=dp), intent(out) :: unitk(1:NDIM)
@@ -65,11 +67,12 @@ end subroutine find_unitk
 subroutine calc_power_spectrum(k, power_spectrum)
    use turb_commons
    implicit none
+   ! Calculate the power spectrum for vector k, based on options chosen in the namelist
    integer, intent(in)        :: k(1:3)         ! Wavevector
    real(kind=dp), intent(out) :: power_spectrum ! Power value
    real(kind=dp)              :: k_mag          ! Wavevector magnitude
 
-   ! Remark that the components of k are between -TURB_GS/2 and TURB_GS/2
+   ! Remark that the components of k are in range [-TURB_GS/2 + 1, TURB_GS/2]
    ! with k=1 corresponding to the box size (?)
 
    ! select modes for each direction
@@ -92,11 +95,11 @@ subroutine calc_power_spectrum(k, power_spectrum)
          return
       end if
 
-     ! determine strenght of each mode based on total wave vector
-     select case(forcing_power_spectrum)
+      ! determine strenght of each mode based on total wave vector
+      select case(forcing_power_spectrum)
         case('power_law')
-           ! alpha^-2 power spectrum
            if (all(k==0)) then
+              ! k = (0,0,0)
               power_spectrum = 0
               return
            end if
@@ -115,7 +118,7 @@ subroutine calc_power_spectrum(k, power_spectrum)
            end if
 
         case('konstandin')
-           ! forcing between k=1 (max) and k=1 (zero) as in Konstandin 2015
+           ! forcing between k=1 (max) and k=2 (zero) as in Konstandin 2015
            power_spectrum = 0._dp
            if ((k_mag >= 0.999999999999999_dp) .AND. (k_mag < 2.0_dp)) then
                power_spectrum = 2.0 - (k_mag)
@@ -135,10 +138,9 @@ subroutine calc_power_spectrum(k, power_spectrum)
 
         case default
            write (6,*) "Unknown forcing_power_spectrum!"
-           write (6,*) "Use 'power_law', 'parabolic', 'konstandin', 'uniform' or 'test'"
+           write (6,*) "Use 'power_law', 'parabolic', 'konstandin', 'uniform' or implement a 'custom' function"
            stop
-        end select
-
+      end select
    end if
 
 end subroutine calc_power_spectrum
@@ -234,6 +236,7 @@ subroutine add_turbulence(turb_field, dt)
       do j=0,TGRID_Y
          do i=0,TGRID_X
 #if defined(HERMITIAN_FIELD)
+            ! TC: why is this before cycle?
             hermitian_pair = .FALSE.
 #endif
             ! Check there is any power in this mode, else cycle
@@ -547,6 +550,7 @@ subroutine power_rms_norm(power_in, P)
 
 end subroutine power_rms_norm
 
+! TC: should be renamed turb_force_interpolation to avoid confusion with calc_turb_forcing
 subroutine turb_force_calc(ncache, x_cell, rho, aturb)
    use turb_commons
    implicit none
@@ -695,6 +699,7 @@ subroutine current_turb_rms(rms_val)
    integer                     :: i, j, k
    real (kind=dp)              :: asqd
 
+   ! calculate the rms forcing to output to the
    rms_val = 0.0
    do k=0,TGRID_Z
       do j=0,TGRID_Y
@@ -705,6 +710,7 @@ subroutine current_turb_rms(rms_val)
       end do
    end do
 
+   ! TC: is this still ok for turb2D? 
    rms_val = sqrt(rms_val / (turb_gs_real**NDIM))
 
 end subroutine current_turb_rms
