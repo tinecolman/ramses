@@ -108,7 +108,7 @@ function artheta4(Tray,igrp)
 
   use const
   use radiation_parameters, only : nu_min_hz,nu_max_hz,eray_min
-  use cooling_module      , only : kb,clight,hplanck
+  use constants           , only : kb,c_cgs,hplanck
 
   implicit none
 
@@ -118,7 +118,7 @@ function artheta4(Tray,igrp)
 
   pi=acos(-one)
 
-  constant = (eight*pi*kb**4)/(clight*hplanck)**3
+  constant = (eight*pi*kb**4)/(c_cgs*hplanck)**3
 
   xmin = hplanck*nu_min_hz(igrp)/(kb*Tray)
   xmax = hplanck*nu_max_hz(igrp)/(kb*Tray)
@@ -184,7 +184,7 @@ function deriv_artheta4(Tray,igrp)
 
   use const
   use radiation_parameters, only : nu_min_hz,nu_max_hz,eray_min,deray_min
-  use cooling_module      , only : kb,clight,hplanck
+  use constants           , only : kb,c_cgs,hplanck
 
   implicit none
 
@@ -195,7 +195,7 @@ function deriv_artheta4(Tray,igrp)
 
   pi = acos(-one)
 
-  constant = (eight*pi*kb**4)/(clight*hplanck)**3
+  constant = (eight*pi*kb**4)/(c_cgs*hplanck)**3
 
   xmin = hplanck*nu_min_hz(igrp)/(kb*Tray)
   xmax = hplanck*nu_max_hz(igrp)/(kb*Tray)
@@ -545,14 +545,14 @@ end subroutine create_groups
 function hz2ev(nu)
 
   use amr_parameters, only : dp
-  use cooling_module      , only : hplanck,ev
+  use constants     , only : hplanck,eV2erg
 
   implicit none
   
   real(dp), intent(in) :: nu
   real(dp)             :: hz2eV
   
-  hz2eV = nu*hplanck/ev
+  hz2eV = nu*hplanck/eV2erg
 
 end function hz2ev
 
@@ -568,14 +568,14 @@ end function hz2ev
 function ev2hz(nu)
 
   use amr_parameters, only : dp
-  use cooling_module      , only : hplanck,ev
+  use constants     , only : hplanck,eV2erg
 
   implicit none
   
   real(dp), intent(in) :: nu
   real(dp)             :: ev2hz
   
-  ev2hz = nu*ev/hplanck
+  ev2hz = nu*eV2erg/hplanck
 
 end function ev2hz
 
@@ -593,7 +593,6 @@ end function ev2hz
 subroutine tabulate_art4
 
   use amr_parameters      , only : dp
-  use cooling_module      , only : kb,ev
   use radiation_parameters, only : ngrp,Ninv_art4,inverse_art4_T,inverse_art4_E,dEr_inv_art4
 
   implicit none
@@ -648,7 +647,7 @@ end subroutine tabulate_art4
 function BPlanck(nu,T)
 
   use amr_parameters, only : dp
-  use cooling_module, only : kb,clight,hplanck
+  use constants     , only : kb,c_cgs,hplanck
   use coeff_xi      , only : limhigh
   use const
 
@@ -660,9 +659,9 @@ function BPlanck(nu,T)
   pi=acos(-one)
 
   if((hplanck*nu/(kb*T)) > limhigh)then
-     BPlanck = (eight*pi*hplanck*nu**3)/clight**3 * exp(-hplanck*nu/(kb*T))
+     BPlanck = (eight*pi*hplanck*nu**3)/c_cgs**3 * exp(-hplanck*nu/(kb*T))
   else
-     BPlanck = (eight*pi*hplanck*nu**3)/clight**3 / ( exp(hplanck*nu/(kb*T)) - one )
+     BPlanck = (eight*pi*hplanck*nu**3)/c_cgs**3 / ( exp(hplanck*nu/(kb*T)) - one )
   endif
 
 end function BPlanck
@@ -799,7 +798,7 @@ end function av
 subroutine cal_Hr(E,F,Hr)
 
   use amr_parameters      , only : ndim,dp
-  use cooling_module      , only : clight
+  use constants           , only : c_cgs
   use radiation_parameters, only : irad_trans_model,irad_trans_model_p1,irad_trans_model_m1
   use const
 
@@ -824,13 +823,13 @@ subroutine cal_Hr(E,F,Hr)
 
      fx = zero ; fy = zero ; fz = zero
 
-                   fx = F(1)/(clight*E) 
-     if(ndim.gt.1) fy = F(2)/(clight*E)
-     if(ndim.gt.2) fz = F(3)/(clight*E)
+                   fx = F(1)/(c_cgs*E) 
+     if(ndim.gt.1) fy = F(2)/(c_cgs*E)
+     if(ndim.gt.2) fz = F(3)/(c_cgs*E)
 
      normef = 0.
      do i = 1,ndim
-        normef = normef + (F(i)/clight/E)**2
+        normef = normef + (F(i)/c_cgs/E)**2
      enddo
      normef = sqrt(normef)
 

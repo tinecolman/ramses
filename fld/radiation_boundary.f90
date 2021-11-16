@@ -5,7 +5,6 @@
 subroutine make_boundary_diffusion(ilevel,igroup)
   use amr_commons
   use hydro_commons
-  use cooling_module,ONLY:kB,mH,clight
   use radiation_parameters
   use units_commons
   implicit none
@@ -33,6 +32,12 @@ subroutine make_boundary_diffusion(ilevel,igroup)
   real(dp),dimension(1:nvector,1:ndim),save::xx
   real(dp),dimension(1:nvector,1:nvar+3),save::uu
   real(dp)::dd,t2,t2r,cal_Teg,usquare,emag,erad_loc,eps,ekin,Cv,rho
+
+#if USE_FLD==1
+  real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_kappa=1/scale_l
+#endif
 
   if(.not. simple_boundary)return
 
@@ -220,7 +225,6 @@ end subroutine make_boundary_diffusion
 subroutine make_boundary_diffusion_tot(ilevel)
   use amr_commons,only:boundary,son,ncoarse,nbor,xg
   use hydro_commons
-  use cooling_module,ONLY:kB,mH,clight
   use radiation_parameters
   use const
   use units_commons
@@ -237,7 +241,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
   integer,dimension(1:nvector),save::ind_cell,ind_cell_ref
 
   real(dp)::dx,dx_loc,scale
-  real(dp)::rosseland_ana,planck_ana
+  real(dp)::rosseland_ana
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:twotondim,1:3)::xc
   real(dp),dimension(1:nvector,1:ndim),save::xx
@@ -250,6 +254,12 @@ subroutine make_boundary_diffusion_tot(ilevel)
 #endif
   real(dp)::sum_dust
   
+#if USE_FLD==1
+  real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_kappa=1/scale_l
+#endif
+
   If(.not. simple_boundary)return
 
   ! Mesh size at level ilevel

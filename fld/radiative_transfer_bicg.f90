@@ -3,13 +3,13 @@ subroutine diffusion_cg (ilevel,Nsub)
   use amr_parameters, only : verbose, ndim
   use cloud_module, only: rt_feedback
   use hydro_commons
-  use rt_hydro_commons !hybrid RT
   use radiation_parameters
-  use rt_cooling_module !hybrid RT
   use const
   use units_commons
 #ifdef RT
   use pm_commons !hybrid RT, needs sink quantities                                                  
+  use rt_hydro_commons !hybrid RT
+  use rt_cooling_module !hybrid RT
 #endif
   implicit none
 #ifndef WITHOUTMPI
@@ -76,11 +76,16 @@ subroutine diffusion_cg (ilevel,Nsub)
   real(dp)::bcell2,bx,by,bz,jsquare,jx,jy,jz,etaohmdiss,betaad,ionisrate
 #endif
 
+  real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+
 #ifdef RT
   real(dp)::scale_Np,scale_Fp !hybrid RT
   call rt_units(scale_Np,scale_Fp)
 #endif
 
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_kappa=1/scale_l
+  
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
   if(bicg_to_cg)then
@@ -1044,11 +1049,11 @@ end subroutine cmp_matrix_and_vector_coeff_fld
 !###########################################################
 !###########################################################
 
+#if USE_M_1==1
 subroutine cmp_matrix_and_vector_coeff_m1(ilevel)
   !------------------------------------------------------------------
   ! This routine computes the matrix A to vect_in and create vect_out
   !------------------------------------------------------------------
-#if USE_M_1==1
   use amr_commons,only:active,ncoarse,nbor,son,myid
   use amr_parameters, only : ndim
   use hydro_commons
@@ -1795,10 +1800,10 @@ subroutine cmp_matrix_and_vector_coeff_m1(ilevel)
      end do ! twotodim
   end do ! ncache
 
-#endif
   return
 
 end subroutine cmp_matrix_and_vector_coeff_m1
+#endif
 
 !###########################################################
 !###########################################################
@@ -2356,7 +2361,7 @@ end subroutine cmp_energy
 !################################################################
 function cmp_temp(this)
   use hydro_commons
-  use cooling_module,ONLY:kB,mH,clight
+!  use constants,only:kB,mH
   use radiation_parameters
   use const
   use units_commons
@@ -2437,14 +2442,14 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
 
   use hydro_parameters,only:nvar
   use hydro_commons
-  use rt_hydro_commons !hybrid RT
   use radiation_parameters
-  use rt_cooling_module !hybrid RT
   use cloud_module, only : rt_feedback
   use units_commons
   use const
 #ifdef RT
-  use pm_commons !hybrid RT, needs sink quantities                                                  
+  use pm_commons !hybrid RT, needs sink quantities
+  use rt_hydro_commons !hybrid RT
+  use rt_cooling_module !hybrid RT
 #endif
 
   implicit none
@@ -2463,6 +2468,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
 #ifdef RT
   real(dp)::scale_Np,scale_Fp !hybrid RT
 #endif
+
+  real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_kappa=1/scale_l
 
 #ifdef RT
   call rt_units(scale_Np,scale_Fp)
@@ -2567,6 +2576,10 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   real(dp)::rho,Told,Trold,cal_Teg,cmp_temp,rosseland_ana,lambda,lambda_fld,R,nu_surf,surf_loc
   integer::igroup,irad
   real(dp),dimension(nvar_bicg)::C_g,C_d,phi_g,phi_c,phi_d,nu_g,nu_c,nu_d
+
+  real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_kappa=1/scale_l
 
   surf_loc = dx_loc**(ndim-1)
 

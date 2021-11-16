@@ -60,7 +60,6 @@ module radiation_parameters
   real(dp),dimension(1:10)::dtdiff_params=1d10       ! Conduction time step behaviour
   real(dp),dimension(1:10)::rosseland_params=1.0     ! Rosseland opacity coefficient's parameters
   real(dp),dimension(1:10)::planck_params=1.0        ! Planck opacity coefficient's parameters
-  real(dp)::mu_gas=1.0d0
   real(dp)::min_optical_depth=1.d-6        ! set the minimum optical depth in the cell (it may accelerate convergence in optically thin regions)
 
   ! Variables needed for BICG scheme

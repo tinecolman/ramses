@@ -17,7 +17,7 @@ subroutine compute_valp
   
 #if USE_M_1==1
 
-  use cooling_module, only : clight
+  use constants, only : c_cgs
   use radiation_parameters, only : valp,n_points
   use const
 
@@ -224,7 +224,7 @@ end function interpol_valp
 subroutine cal_Dedd(E,F,Dedd,Dedd_dE,Dedd_dF)
 
   use amr_parameters      , only : ndim
-  use cooling_module      , only : clight
+  use constants           , only : c_cgs
   use radiation_parameters, only : irad_trans_model,irad_trans_model_p1,irad_trans_model_m1
   use const
 
