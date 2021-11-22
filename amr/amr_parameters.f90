@@ -75,6 +75,10 @@ module amr_parameters
   logical::unbind=.false.     ! Enable particle unbinding for the clump finder
   logical::make_mergertree=.false. ! Make on the fly mergertrees
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
+  logical::FLD=.false.        ! Enable FLD module
+#if USE_FLD==1
+  logical ::dt_control=.false.! Impose a time step using dtdiff_params in FLD module
+#endif
 
   ! Mesh parameters
   integer::nx=1,ny=1,nz=1                  ! Number of coarse cells in each dimension
@@ -92,7 +96,7 @@ module amr_parameters
   integer::nbileafnodes=2                  ! Max number of leaf (terminal) nodes
   real(dp)::bisec_tol=0.05d0               ! Tolerance for bisection load balancing
 
-                                 ! Step parameters
+  ! Step parameters
   integer::nrestart=0            ! New run or backup file number
   integer::nrestart_quad=0       ! Restart with double precision Hilbert keys
   real(dp)::trestart=0           ! Restart time
@@ -112,6 +116,7 @@ module amr_parameters
   logical::output_now=.false.    ! write output next step
   real(dp)::walltime_hrs=-1      ! Wallclock time for submitted job
   real(dp)::minutes_dump=1       ! Dump an output minutes before walltime ends
+  logical::write_conservative=.false. ! if .true., uold is dumped in the outputs
 
   ! Lightcone parameters
   real(dp)::thetay_cone=12.5d0
@@ -181,6 +186,7 @@ module amr_parameters
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
   logical ::nordlund_fix=.true.
+  logical ::energy_fix=.false.          ! Use internal energy instead of total energy
   logical ::cooling=.false.
   logical ::neq_chem=.false.            ! Non-equilbrium chemistry activated
   logical ::isothermal=.false.          ! Enable equation of state for gas (heating and cooling disabled if .true.)
@@ -197,6 +203,11 @@ module amr_parameters
   logical ::sf_log_properties=.false.   ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.              ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false.      ! Advect compressive and solenoidal turbulence terms separately
+  logical ::racc_refine=.true.          ! Refine the grid around the sink to the maximum level of refinement
+  logical ::clump_jeans=.false.         ! Clump finder on cells violating Jeans criterion only
+  real(dp)::larson_lifetime=5000         ! lifetime of first larson core in years
+  logical ::iso_jeans=.false.            ! activate isothermal sound speed Jeans length refinement criterion
+  real(dp)::Tp_jeans = 10.0d0            ! Default temperature to activate iso_jeans
 
   ! EOS parameters
   character(len=20)::barotropic_eos_form='legacy'  !Type of barotropic EOS: choose from:
@@ -211,6 +222,7 @@ module amr_parameters
   real(dp)::T_eos=10                    ! sets T0 in EOS: isothermal temperature or temperature normalisation, in K
   real(dp)::mu_gas=1d0                  ! molecular weight
   real(dp)::T2_eos=10                   ! = T/mu, used in the computations
+  logical::eos=.false.                  ! non ideal gas EOS module activated
 
   ! Output times
   real(dp),dimension(1:MAXOUT)::aout=1.1d0      ! Output expansion factors

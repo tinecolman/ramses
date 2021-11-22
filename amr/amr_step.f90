@@ -11,6 +11,9 @@ recursive subroutine amr_step(ilevel,icount)
   use coolrates_module, only: update_coolrates_tables
   use rt_cooling_module, only: update_UVrates
 #endif
+#if USE_FLD==1
+  use cloud_module,only:rt_feedback
+#endif
 #if USE_TURB==1
   use turb_commons
 #endif
@@ -170,6 +173,11 @@ recursive subroutine amr_step(ilevel,icount)
      ! Dump lightcone
      if(lightcone .and. ndim==3) call output_cone()
 
+#if USE_FLD==1
+     ! Important can't be done in sink routines because it must be done after dump all
+!!$     if(sink)acc_rate=0.
+#endif
+
   endif
 
   !----------------------------
@@ -288,6 +296,16 @@ recursive subroutine amr_step(ilevel,icount)
   ! Update photon packages according to star particles
                                call timer('radiative transfer','start')
   if(rt .and. rt_star) call update_star_RT_feedback(ilevel)
+
+  ! Now update photon packages on sink particles
+  if(rt .and. rt_sink) call update_sink_RT_feedback(ilevel)
+  if(rt .and. rt_protostar_m1 .and. nsink .gt. 0) call update_sink_RT_feedback(ilevel)
+  ! Activates the rt_advect in update_sink_RT_feedback if hybrid RT
+#endif
+
+#if USE_FLD==1
+  ! Compute radiative acceleration
+  if(fld)call rad_force_fine(ilevel)
 #endif
 
 #if USE_TURB==1
@@ -471,6 +489,14 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDIM==3
                                call timer('feedback','start')
   if(hydro.and.star.and.(.not.static_gas))call star_formation(ilevel)
+
+#if USE_FLD==1
+  ! Compute radiative feedback if radiative transfer with FLD on
+  if(FLD)then
+     if(rt_feedback .and. sink .and. nsink .gt. 0)call radiative_feedback_sink(ilevel)
+  end if
+#endif
+
 #endif
   !---------------------------------------
   ! Update physical and virtual boundaries
@@ -502,6 +528,49 @@ recursive subroutine amr_step(ilevel,icount)
         call diffusion
      endif
   end if
+#endif
+
+    if((static_gas).and.(FLD))then
+     call upload_fine(ilevel)
+#ifdef SOLVERmhd
+     do ivar=1,nvar+3
+#else
+        do ivar=1,nvar
+#endif
+           call make_virtual_fine_dp(uold(1,ivar),ilevel)
+#ifdef SOLVERmhd
+     end do
+#else
+     end do
+#endif
+     if(simple_boundary)call make_boundary_hydro(ilevel)
+  end if
+
+  !-------------------------
+  ! Radiation diffusion step
+  !-------------------------
+#if USE_FLD==1
+  if(FLD)then
+                               call timer('fld','start')
+     call diffusion_cg(ilevel,icount)
+  end if
+
+  if(hydro)then
+                               call timer('hydro - ghostzones2','start')
+  ! Update boundaries 
+#ifdef SOLVERmhd
+     do ivar=1,nvar+3
+#else
+     do ivar=1,nvar
+#endif
+        call make_virtual_fine_dp(uold(1,ivar),ilevel)
+#ifdef SOLVERmhd
+     end do
+#else
+     end do
+#endif
+     if(simple_boundary)call make_boundary_hydro(ilevel)
+  endif
 #endif
 
   !-----------------------
@@ -576,6 +645,7 @@ subroutine rt_step(ilevel)
   use amr_commons,    only: levelmin, t, dtnew, myid
   use rt_cooling_module, only: update_UVrates
   use rt_hydro_commons
+  use rt_parameters, only: rt_protostar_m1
   use UV_module
   use SED_module,     only: star_RT_feedback
   use mpi_mod
@@ -610,6 +680,10 @@ subroutine rt_step(ilevel)
      if (i_substep > 1) call rt_set_unew(ilevel)
 
      if(rt_star) call star_RT_feedback(ilevel,dtnew(ilevel))
+#if USE_FLD==1
+     if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
+     if(rt_protostar_m1 .and. sink) call radiative_feedback_sink(ilevel)
+#endif
 
      ! Hyperbolic solver
      if(rt_advect) call rt_godunov_fine(ilevel,dtnew(ilevel))

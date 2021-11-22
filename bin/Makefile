@@ -22,7 +22,7 @@ RT = 0
 # Use turbulence? 1=Yes, 0=No (requires fftw3)
 USE_TURB=0
 # Use MPI? 1=Yes, 0=No
-MPI = 0
+MPI = 1
 MPIF90 = mpif90
 # Root name of executable
 EXEC = ramses
@@ -41,6 +41,18 @@ NGROUPS = 0
 # Number of passive scalars
 NPSCAL = 0
 
+# FLD stuff
+USE_FLD=0
+NGRP=0
+NENER:=$(NENER)+$(NGRP)
+ifeq ($(USE_FLD),1)
+   # for internal energy
+   NPSCAL := $(NPSCAL)+$(NIONS)+1
+endif
+NDUST=0
+NEXTINCT=0
+#
+
 # Compute NVAR
 NVAR = 2+$(NDIM)
 ifeq ($(SOLVER),mhd)
@@ -50,6 +62,33 @@ NVAR := $(NVAR)+$(NENER)+$(NPSCAL)+$(NMETALS)
 ifeq ($(RT),1)
    NVAR := $(NVAR)+$(NIONS)
 endif
+
+##note be vary careful with the variables allocation
+## for now it is assumed that
+## 1  is density
+## 2:4 velocity
+## 5 pressure
+## 6:8 magnetic field
+## 9:9+ncr : cosmic rays energy density (ncr groups of energy)
+## 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
+## 9+nener9+nener+1:9+nener+nextinct : for extinction (look at definition of firstindex_pscal in mhd/read_hydro_param)
+## 9+nener+nextinct+1 : 9+nener+nextinct+1+nions : the ions (rt_init, cooling_fine)
+## 9+nener+nextinct+nions+1:9+nener+nextinct+nions+ndust : dust species 
+## note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
+## then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
+## nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
+## nvar-1:nvar : internal energy used in set_uold if (energy_fix)
+
+#if you want to add your own scalar this has to be done between : 
+#9+nener+nextinct+1+nions+1 and nvar-4
+
+#then do not forget that within the code the magnetic variable are duplicated and stored
+#nvar+1:nvar+3
+
+#finally note that ichem, idelay and imetal have not been checked carefully
+
+
+
 
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
 OLD_MPI_SUPPORT = 0
@@ -61,6 +100,9 @@ GITREPO = $(shell git config --get remote.$(GITREMOTE).url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) \
           -DNVAR=$(NVAR) -DSOLVER$(SOLVER) $(ATON_FLAGS)
+ifeq ($(USE_FLD),1)
+     DEFINES := $(DEFINES) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL)
+endif
 ifeq ($(GRACKLE),1)
    DEFINES += -Dgrackle
 endif
@@ -72,6 +114,9 @@ ifeq ($(RT),1)
 endif
 ifeq ($(USE_TURB),1)
    DEFINES += -DUSE_TURB
+endif
+ifeq ($(USE_FLD),1)
+DEFINES += -DUSE_FLD=$(USE_FLD)
 endif
 
 #############################################################################
@@ -133,7 +178,12 @@ ifeq ($(USE_TURB),1)
    LIBS_TURB = -L$(HOME)/local/lib -lfftw3
    LIBS_OBJ_TURB = -I$(HOME)/local/include -lfftw3
 endif
-LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB)
+
+# if USE_FLD and NGRP>1, Add Lapack
+ifneq ($(NGRP),$(filter $(NGRP),0 1))
+LIBS_FLD = -llapack
+endif
+LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB) $(LIBS_FLD)
 #############################################################################
 # Sources directories are searched in this exact order
 VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../aton:
@@ -143,7 +193,10 @@ endif
 ifeq ($(USE_TURB),1)
    VPATH += ../turb:
 endif
-VPATH += ../hydro:../pm:../poisson:../amr:../io
+VPATH += ../hydro:../pm:../poisson:../amr:../io:
+ifeq ($(USE_FLD),1)
+   VPATH += ../fld:
+endif
 #############################################################################
 # All objects
 MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o \
@@ -160,6 +213,9 @@ ifeq ($(RT),1)
 endif
 ifeq ($(USE_TURB),1)
    MODOBJ += turb_parameters.o turb_commons.o
+endif
+ifeq ($(USE_FLD),1)
+   MODOBJ += radiation_parameters.o cloud_module.o
 endif
 
 AMROBJ = read_params.o init_amr.o init_time.o init_refine.o tracer_utils.o adaptive_loop.o \
@@ -192,6 +248,8 @@ RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o \
 TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
           turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
           add_turb_forcing.o
+# FLD objects
+FLDOBJ  = m1_utils.o multigroup.o radiation_boundary.o radiative_transfer_bicg.o
 # Patch objects
 sinclude $(PATCH)/Makefile
 
@@ -202,6 +260,9 @@ ifeq ($(RT),1)
 endif
 ifeq ($(USE_TURB),1)
    AMRLIB += $(TURBOBJ)
+endif
+ifeq ($(USE_FLD),1)
+   AMRLIB += $(FLDOBJ)
 endif
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o
