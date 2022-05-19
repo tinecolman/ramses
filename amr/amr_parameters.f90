@@ -173,15 +173,22 @@ module amr_parameters
   real(dp)::mass_sne_min=10          ! Minimum mass of a single supernova in solar mass
   integer::momentum_feedback=0       ! Use supernovae momentum feedback if cooling radius not resolved
   integer::strict_equilibrium=0      ! Hydro scheme to preserve exactly hydrostatic equilibrium
+
+  ! PIC dust parameters
   real(dp)::charge_to_mass=0.0       ! Charge to mass ratio for dust grains
   real(dp)::t_stop=0.0               ! Stopping time for dust grains
+  real(dp)::stopping_rate=-1.0       ! When greater than or equal to zero, overrides t_stop for constant_t_stop==.true. Allows for zero drag.
   real(dp)::grain_size=0.0           ! Grain size parameter rho_d^i r_d/(rho_g l_0). May wan to get rid of t_stop.
   logical::boris=.false.             ! Activate boris pusher for PIC solver for grain dynamics
   logical::constant_t_stop=.false.    ! Dictates whether stopping time is constant t_stop, or uses grain_size, gas density, velocity, etc.
   logical::second_order=.false.      ! Only works for constant t-stop
   real(dp)::dust_to_gas=1.0          ! Dust-to-gas mass ratio.
   real(dp),dimension(1:3)::accel_gr=0 ! constant external grain force
-  integer,dimension(1:2)::trajectories=0 ! determines whether or not to output trajectories, which particles to output, and how many.
+  integer,dimension(1:MAXOUT)::trajectories=0 ! determines whether or not to output trajectories, which particles to output, and how many.
+  logical :: supersonic_drag=.true.   ! if true, Epstein drag is used. If false, drag depends only on density and the sound speed.
+  integer :: ndust=1                  ! Determines how many dust grains we has as a multiple of the resolution.
+  real(dp):: ddex=0.0                 ! Determines how many decades the dust spectrum spans.
+  real(dp):: charge_slope=0.0         ! Determines how the grain charge scales with grain size (power law option)
 
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
@@ -208,6 +215,8 @@ module amr_parameters
   real(dp)::larson_lifetime=5000         ! lifetime of first larson core in years
   logical ::iso_jeans=.false.            ! activate isothermal sound speed Jeans length refinement criterion
   real(dp)::Tp_jeans = 10.0d0            ! Default temperature to activate iso_jeans
+  logical ::cooling_ism = .false.      ! Use cooling module from Audit & Hennebelle 2005 (non-RT)
+                                        ! instead of ramses classical cooling 
 
   ! EOS parameters
   character(len=20)::barotropic_eos_form='legacy'  !Type of barotropic EOS: choose from:
