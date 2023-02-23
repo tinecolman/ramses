@@ -883,7 +883,7 @@ subroutine contribution(ind_grid, ngrid, ilevel, il, ind_lim1, ind_lim2, column_
                              dx_cross_ext = dx_loc*Mdx_ext(ind_oct, ix, iy, iz, mn)   !!! ajouter true/false
                              column_dens(i,mloop,nl) = column_dens(i,mloop,nl) + dx_cross_ext*uold(cell_ind2,1) * weight   
 !                             column_dens(i,m,n) = column_dens(i,m,n) + dx_cross_ext*uold(cell_ind2,1)   
-#if NSCHEM != 0
+!#if NSCHEM != 0
                              !if(myid .EQ. 1) write(*,*) "***VAL: Calculating H2column_dens, neulS+1=", neulS+1, "nH2=", uold(cell_ind2,neulS+1)
 
 !                             H2column_dens(i,mloop,nl) = H2column_dens(i,mloop,nl) + dx_cross_ext*uold(cell_ind2,neulS+1)
@@ -897,7 +897,7 @@ subroutine contribution(ind_grid, ngrid, ilevel, il, ind_lim1, ind_lim2, column_
                               endif
                              if(isnan(H2column_dens(i,mloop,nl))) write(*,*) "WARNING: CONT",uold(cell_ind2,neulS+1), Mdx_ext(ind_oct, ix, iy, iz, mn), dx_loc, mloop, nloop, nl, mn, m, n, ind_oct
 #endif
-#endif
+!#endif
                           end do
                        end do
                     end if                                               ! cell_ind2 .ne. -1
@@ -994,7 +994,7 @@ subroutine  calc_temp_extinc(NN,TT,dt_tot_unicode,coeff_chi)
      
      !PH modifies this as coeff_chi is now stored
      !The '0' represents XH2 which is 0 because H2 is not treated when called from this routine
-     call hot_cold_2(TT,NN,ref,dRefDT,coeff_chi,0)    
+     call hot_cold_2(TT,NN,ref,dRefDT,coeff_chi,0.d0)    
      !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
      
      if (iter == 0) then
@@ -1142,8 +1142,8 @@ subroutine get_mn(x0,x1,m,n)
 
   rr= (x1(1)-x0(1))**2 + (x1(2)-x0(2))**2  
   r= rr+(x1(3)-x0(3))**2
-  rr= sqrt(rr)
-  r= sqrt(r)
+  rr = max(sqrt(rr),1.d-20)
+  r  = max(sqrt(r),1.d-20)
   cos_theta= (x1(3)-x0(3))/r
 
   ! the calculation of m is straightforward

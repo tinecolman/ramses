@@ -5,8 +5,7 @@
 ! Joki Rosdahl, Sarah Nickerson, Andreas Bleuler, and Romain Teyssier.
 
 module rt_cooling_module
-  use cooling_module,only:X, Y
-  use amr_parameters, only:cooling_frig
+  use cooling_module,only:X, Y, cooling_frig
   use rt_parameters
   use coolrates_module
   use constants
@@ -290,13 +289,13 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
   ! **********************************************
   nAct=nCell                                      ! Currently active cells
   loopcnt=0 ; n_cool_cells=n_cool_cells+nCell     !             Statistics
-  do while (nAct .gt. 0)      ! Iterate while there are still active cells
+  do while (nAct .gt. 0 .and. loopcnt .le. 200001)      ! Iterate while there are still active cells
      loopcnt=loopcnt+1   ;   tot_cool_loopcnt=tot_cool_loopcnt+nAct
      nAct_next=0                     ! Active cells for the next iteration
      do ia=1,nAct                             ! Loop over the active cells
         i = indAct(ia)                        !                 Cell index
         call cool_step(i)
-        if(loopcnt .gt. 100000) then
+        if(loopcnt .gt. 200000) then
            call display_coolinfo(.true., loopcnt, i, dt-tleft(i), dt     &
                             ,ddt(i), nH(i), T2(i),  xion(:,i),  Np(:,i)  &
                             ,Fp(:,:,i),  p_gas(:,i)                      &
@@ -684,8 +683,7 @@ contains
     if(rt_isIR) then
        if(kAbs_loc(iIR) .gt. 0d0 .and. .not. rt_T_rad) then
           ! Evolve IR-Dust equilibrium temperature------------------------
-          ! Delta (Cv T)= ( c_red/lambda E - c/lambda a T^4)
-          !           / ( 1/Delta t + 4 c/lambda/C_v a T^3 + c_red/lambda)
+          ! Delta (Cv T)= ( c_red/lambda E - c/lambda a T^4)frig/ ( 1/Delta t + 4 c/lambda/C_v a T^3 + c_red/lambda)
           one_over_C_v = mh*mu*(gamma-1d0) / (rho*kb)
           E_rad = group_egy_erg(iIR) * dNp(iIR)
           dE_T = (rt_c_cgs * E_rad - c_cgs*a_r*TK**4)                    &
@@ -731,8 +729,6 @@ contains
        photoRate=0.
        if(rt) photoRate = SUM(signc(:,ixHI)*dNp)
        if(haardt_madau) photoRate = photoRate + UVrates(ixHI,1)*ss_factor
-       ! TC: self-shielding H2 by RT photon
-       ! PH: probably ok to keep with EXTINCT
 
        ! G0 is the UV field (in units of Habing field - 1.274e-4 erg cm-2 s-1 sr-1)
        G0 = 1.0_dp
@@ -745,9 +741,6 @@ contains
 
 #if NEXTINCT>1       
        !ext(1) contains self-shielding times dust attenuation (see extinction_fine1 and cooling_fine)
-       ! alter the UV radiation in H2 dissociating phothons to account for H2 self-shielding
-       ! H2 dissociation by background UV field to circumvent reduced speed of light
-       ! assumes the UV background is uniform over the simulation box
        if(h2_frig)  photoRate = photoRate + kph0 * ext(1,icell)
 #endif
 
@@ -949,7 +942,7 @@ SUBROUTINE display_coolinfo(stopRun, loopcnt, i, dtDone, dt, ddt, nH    &
   print*,group_egy(:)
   if(stopRun) then
      print *,'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-     STOP
+!     STOP
   endif
 
 111 format(' Stopping because of large number of timestesps in', &

@@ -1,5 +1,6 @@
 subroutine backup_part(filename, filename_desc)
   use amr_commons
+  use hydro_commons
   use pm_commons
   use dump_utils, only : generic_dump, dump_header_info, dim_keys
   use iso_fortran_env
@@ -19,13 +20,19 @@ subroutine backup_part(filename, filename_desc)
   integer, allocatable, dimension(:) :: ll
   integer(int8), allocatable, dimension(:) :: ii1
 
-  integer :: unit_info, ivar
+  integer :: unit_info, ivar, info_var_count
   logical :: dump_info
+
+  character(len=100) :: field_name
+
+  real(dp) :: A,B,C
 
   if (verbose) write(*,*) 'Entering backup_part'
 
   ! Set ivar to 1 for first variable
   ivar = 1
+
+  info_var_count = 1
 
   ! Wait for the token
 #ifndef WITHOUTMPI
@@ -73,7 +80,7 @@ subroutine backup_part(filename, filename_desc)
            xdp(ipart) = xp(i, idim)
         end if
      end do
-     call generic_dump("position_"//dim_keys(idim), ivar, xdp, unit_out, dump_info, unit_info)
+     call generic_dump("position_"//dim_keys(idim), info_var_count, xdp, unit_out, dump_info, unit_info)
   end do
   ! Write velocity
   do  idim = 1, ndim
@@ -84,7 +91,7 @@ subroutine backup_part(filename, filename_desc)
            xdp(ipart) = vp(i, idim)
         end if
      end do
-     call generic_dump("velocity_"//dim_keys(idim), ivar, xdp, unit_out, dump_info, unit_info)
+     call generic_dump("velocity_"//dim_keys(idim), info_var_count, xdp, unit_out, dump_info, unit_info)
   end do
   ! Write mass
   ipart = 0
@@ -94,7 +101,7 @@ subroutine backup_part(filename, filename_desc)
         xdp(ipart) = mp(i)
      end if
   end do
-  call generic_dump("mass", ivar, xdp, unit_out, dump_info, unit_info)
+  call generic_dump("mass", info_var_count, xdp, unit_out, dump_info, unit_info)
   deallocate(xdp)
   ! Write identity
   allocate(ii8(1:npart))
@@ -105,7 +112,7 @@ subroutine backup_part(filename, filename_desc)
         ii8(ipart) = idp(i)
      end if
   end do
-  call generic_dump("identity", ivar, ii8, unit_out, dump_info, unit_info)
+  call generic_dump("identity", info_var_count, ii8, unit_out, dump_info, unit_info)
   deallocate(ii8)
 
   ! Write level
@@ -117,7 +124,7 @@ subroutine backup_part(filename, filename_desc)
         ll(ipart) = levelp(i)
      end if
   end do
-  call generic_dump("levelp", ivar, ll, unit_out, dump_info, unit_info)
+  call generic_dump("levelp", info_var_count, ll, unit_out, dump_info, unit_info)
 
   deallocate(ll)
 
@@ -130,7 +137,7 @@ subroutine backup_part(filename, filename_desc)
         ii1(ipart) = int(typep(i)%family, 1)
      end if
   end do
-  call generic_dump("family", ivar, ii1, unit_out, dump_info, unit_info)
+  call generic_dump("family", info_var_count, ii1, unit_out, dump_info, unit_info)
 
   ! Write tag
   ipart = 0
@@ -140,7 +147,7 @@ subroutine backup_part(filename, filename_desc)
         ii1(ipart) = int(typep(i)%tag, 1)
      end if
   end do
-  call generic_dump("tag", ivar, ii1, unit_out, dump_info, unit_info)
+  call generic_dump("tag", info_var_count, ii1, unit_out, dump_info, unit_info)
   deallocate(ii1)
 
 #ifdef OUTPUT_PARTICLE_POTENTIAL
@@ -153,7 +160,7 @@ subroutine backup_part(filename, filename_desc)
         xdp(ipart) = ptcl_phi(i)
      end if
   end do
-  call generic_dump("potential", ivar, xdp, unit_out, dump_info, unit_info)
+  call generic_dump("potential", info_var_count, xdp, unit_out, dump_info, unit_info)
 
   deallocate(xdp)
 #endif
@@ -168,7 +175,7 @@ subroutine backup_part(filename, filename_desc)
            xdp(ipart) = tp(i)
         end if
      end do
-     call generic_dump("birth_time", ivar, xdp, unit_out, dump_info, unit_info)
+     call generic_dump("birth_time", info_var_count, xdp, unit_out, dump_info, unit_info)
      ! Write metallicity
      if (metal) then
         ipart = 0
@@ -178,11 +185,12 @@ subroutine backup_part(filename, filename_desc)
               xdp(ipart) = zp(i)
            end if
         end do
-        call generic_dump("metallicity", ivar, xdp, unit_out, dump_info, unit_info)
+        call generic_dump("metallicity", info_var_count, xdp, unit_out, dump_info, unit_info)
      end if
      deallocate(xdp)
   end if
 
+  !add properties of the cells in which the tracer is located 
   if (MC_tracer) then
      ! Dump particle pointer
      allocate(ll(1:npart))
@@ -199,10 +207,126 @@ subroutine backup_part(filename, filename_desc)
            end if
         end if
      end do
-
-     call generic_dump("partp", ivar, ll, unit_out, dump_info, unit_info)
+     call generic_dump("partp", info_var_count, ll, unit_out, dump_info, unit_info)
      deallocate(ll)
-  end if
+
+     allocate(xdp(1:npart))
+!     do idim = 1, ndim
+        ipart = 0
+        do i = 1, npartmax
+           if (levelp(i) > 0) then
+              ipart = ipart + 1
+              if (is_gas_tracer(typep(i))) then ! Go fetch the data from the AMR grid
+                 xdp(ipart) = uold(partp(i), 1)
+              else
+                 xdp(ipart) = 0.
+              end if
+           endif
+        end do
+        call generic_dump("rho", info_var_count, xdp, unit_out, dump_info, unit_info)
+!      end do
+     deallocate(xdp)
+
+
+   ! Write thermal pressure
+     allocate(xdp(1:npart))
+        ipart = 0
+        do i = 1, npartmax
+           if (levelp(i) > 0) then
+                 ipart = ipart + 1
+              if (is_gas_tracer(typep(i))) then ! Go fetch the data from the AMR grid
+                 xdp(ipart) = uold(partp(i), ndim+2)
+
+                 xdp(ipart) = xdp(ipart)-0.5d0*uold(partp(i), 2)**2/max(uold(partp(i), 1), smallr)
+#if NDIM > 1
+                 xdp(ipart) = xdp(ipart)-0.5d0*uold(partp(i), 3)**2/max(uold(partp(i), 1), smallr)
+#endif
+#if NDIM > 2
+                 xdp(ipart) = xdp(ipart)-0.5d0*uold(partp(i), 4)**2/max(uold(partp(i), 1), smallr)
+#endif
+
+#ifdef SOLVERmhd
+                 !remove the magnetic field
+                 A = 0.5*(uold(partp(i), 6)+uold(partp(i), nvar+1))
+                 B = 0.5*(uold(partp(i), 7)+uold(partp(i), nvar+2))
+                 C = 0.5*(uold(partp(i), 8)+uold(partp(i), nvar+3))
+
+                 xdp(ipart) = xdp(ipart)-0.5*(A**2+B**2+C**2)
+#endif
+
+#if NENER > 0
+                 do irad = 1, nener
+                    xdp(ipart) = xdp(ipart)-uold(partp(i), ndim+2+irad)
+                 end do
+#endif
+                 xdp(ipart) = (gamma-1d0)*xdp(ipart)
+              else
+                 xdp(ipart) = 0.
+              endif
+           end if
+        end do
+        call generic_dump("pressure", info_var_count, xdp, unit_out, dump_info, unit_info)
+     deallocate(xdp)
+
+
+
+              ! Write passive scalars
+#if NVAR > 8+NENER
+     allocate(xdp(1:npart))
+# if  NEXTINCT > 0 
+     do ivar = 9+nener, nvar  - nextinct ! Write passive scalars if any
+# else 
+     do ivar = 9+nener, nvar ! Write passive scalars if any
+#endif
+           ipart = 0
+           do i = 1, npartmax
+              if (levelp(i) > 0) then
+                 ipart = ipart + 1
+                 if (is_gas_tracer(typep(i))) then ! Go fetch the data from the AMR grid
+                    xdp(ipart) = uold(partp(i), ivar)/max(uold(partp(i), 1), smallr)
+                 else
+                    xdp(ipart) = 0.
+                 endif
+              endif   
+           end do
+           if (metal .and. imetal == ivar) then
+              field_name = 'metallicity'
+           else
+              write(field_name, '("scalar_", i0.2)') ivar - 9-nener
+           end if
+           call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info, unit_info)
+     end do
+     deallocate(xdp)
+#endif
+
+
+
+# if NEXTINCT > 0
+     allocate(xdp(1:npart))
+     do ivar = nvar+1 - nextinct, nvar ! Write extinction variables if any
+           ipart = 0
+           do i = 1, npartmax
+              if (levelp(i) > 0) then
+                 ipart = ipart + 1
+                 if (is_gas_tracer(typep(i))) then ! Go fetch the data from the AMR grid
+                    xdp(ipart) = uold(partp(i), ivar)
+                 else
+                    xdp(ipart) = 0.
+                 endif
+              endif
+           end do
+
+             if(ivar .eq. nvar) field_name='dust extinction'
+#if NEXTINCT > 1
+             if(ivar .eq. nvar-1) field_name='H2 self-schielding'
+#endif
+            call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info, unit_info)
+     end do
+     deallocate(xdp)
+#endif 
+
+
+  end if !related to MC_tracer 
 
   !------------!
   close(unit_out)

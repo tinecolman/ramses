@@ -185,7 +185,9 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
 #if RT
            if (ngroups.eq.3) then
               nphotons(1) = Flux_stellar
-           else
+           else if (ngroups .eq. 4) then
+              nphotons(2) = Flux_stellar
+           else 
               nphotons(3) = Flux_stellar
            endif
 #endif

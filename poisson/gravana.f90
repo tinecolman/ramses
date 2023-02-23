@@ -73,12 +73,15 @@ subroutine gravana(x,f,dx,ncell)
     a1=1.d3*a1/(Myr2sec**2)/mH/factG_in_cgs
     a2=a2/(Myr2sec**2)/mH/factG_in_cgs
 
-    sigma = multipole(1)/(boxlen**2)
-    f_max=(a1*0.5*boxlen)/(((0.5*boxlen)**2+z0**2)**0.5) + a2*(0.5*boxlen)
+!    sigma = multipole(1)/(boxlen**2)
+!    f_max=(a1*0.5*boxlen)/(((0.5*boxlen)**2+z0**2)**0.5) + a2*(0.5*boxlen)
     do i=1,ncell
       x(i,3)=x(i,3)-0.5*boxlen
       f(i,3)=-(a1*x(i,3))/(((x(i,3))**2+z0**2)**0.5) + a2*(x(i,3))
-      f(i,3) = f(i,3) * sigma / (2.*f_max / 2*twopi)
+!      f(i,3) = f(i,3) * sigma / (2.*f_max / 2*twopi)
+
+!       f(i,3) =  - (a1/sqrt(z**2+z02)+a2)*z
+
     end do
   end select
 

@@ -122,6 +122,17 @@ module feedback_module
   logical,dimension(1:NSNMAX)::FB_sourceactive = .false. 
 
 
+  ! is the frequency at which supernova are damped in the densest cell
+  ! of the simulation when parameter use_sn_nopart is on
+  real(dp) :: sn_freq_mult = 0.
+  logical  :: use_sn_nopart=.false. 
+
+
+  !efficacity of the supernova used in make_sn (i.e. damped in densest cell 
+  real(dp):: eff_sn=0.05
+
+  real(dp) :: t_last_sn=0.
+
 CONTAINS
 
 
@@ -1062,6 +1073,450 @@ SUBROUTINE feedback_refine(xx,ok,ncell,ilevel)
   
 END SUBROUTINE feedback_refine
 
+
+
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+!!in this version the supernovae are put in the densest cell
+subroutine make_sn
+  use amr_commons
+  use hydro_commons
+  implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
+
+  integer:: ivar
+  integer:: ilevel, ind, ix, iy, iz, ngrid, iskip, idim
+  integer:: i, nx_loc, igrid, ncache
+  integer, dimension(1:nvector), save:: ind_grid, ind_cell
+  real(dp):: dx
+  real(dp):: scale, dx_min, dx_loc, vol_loc
+  real(dp), dimension(1:3):: xbound, skip_loc
+  real(dp), dimension(1:twotondim, 1:3):: xc
+  logical, dimension(1:nvector), save:: ok
+
+  real(dp),dimension(1:ndim):: sn_cent,sn_cent2,sn_cent3,sn_cent2_all
+  real(dp), dimension(1:nvector, 1:ndim), save:: xx
+  real(dp):: sn_r, sn_m, sn_e, sn_vol, sn_d, sn_ed, sn_rp, dx_sel
+  real(dp):: rr, pi,dens_max,pgas,dgas,ekin,mass_sn_tot,dens_max_all,mass_sn_tot_all
+  logical:: sel = .false.
+  logical, save:: first = .true.
+  real(dp)::xseed
+  integer:: n_sn,n_sn_all,info
+  logical::once,once1
+  real(dp)::rr_min,dens_thres,sign,xseed1,xseed2,xx2
+  integer ::nn, ntot
+  integer ,dimension(1:nvector)::cc
+  real(dp),dimension(1:nvector,1:ndim)::x
+  
+  integer :: max_loc
+  integer,dimension(1) :: max_loc_v
+  real(dp),dimension(1:ncpu)::dens_v
+  real(dp),dimension(1:ncpu,4)::dens_max_v,dens_max_all_v
+
+  real(dp) ::dens_max_loc,dens_max_loc_all
+
+
+  dens_max_v = 0.
+  n_sn=0.
+  dens_max=0.
+  dens_thres = 10. !minimum density to put a supernovae
+  rr_min = 1.d9 !some big value
+  once =.true.
+  once1=.true.
+
+  if(.not. hydro)return
+  if(ndim .ne. 3)return
+
+  if(verbose)write(*,*)'Entering make_sn_sink'
+
+  pi = acos(-1.0)
+
+  ! Mesh spacing in that level
+  xbound(1:3) = (/ dble(nx), dble(ny), dble(nz) /)
+  nx_loc = icoarse_max - icoarse_min + 1
+  skip_loc = (/ 0.0d0, 0.0d0, 0.0d0 /)
+  skip_loc(1) = dble(icoarse_min)
+  skip_loc(2) = dble(jcoarse_min)
+  skip_loc(3) = dble(kcoarse_min)
+  scale = boxlen / dble(nx_loc)
+  dx_min = scale * 0.5d0**nlevelmax
+
+  if (first) then 
+     xseed=0.5
+     call random_number(xseed)
+     first=.false.
+  endif
+
+
+!  if(sn_freq_mult .eq. 0.) then
+!     sn_r = sn_radius(sn_i)
+!     sn_m = sn_mass(sn_i)
+!     sn_e = sn_energy(sn_i)
+!     sn_rp = sn_part_radius(sn_i)
+!     sn_cent(1) = sn_center(sn_i, 1)
+!     sn_cent(2) = sn_center(sn_i, 2)
+!     sn_cent(3) = sn_center(sn_i, 3)
+!  else
+     sn_r = 3.*(0.5**levelmin)*scale
+     sn_r = max(sn_r,12.) !impose a minimum size of 12 pc for the radius
+!     sn_r = 2.*(0.5**levelmin)*scale
+     sn_m = sn_mass_ref
+     sn_e = sn_e_ref 
+     sn_rp = 0.
+!     call random_number(xseed)
+!     sn_cent(1)= xseed*boxlen
+!     call random_number(xseed)
+!     sn_cent(2)= xseed*boxlen
+
+
+     !generate a gaussian distribution
+!     sign=1.
+!     xx2=2.
+!     do while (xx2 .gt. 1. .or. xx2 .eq. 0.) 
+!       call random_number(xseed)
+!       xseed1=xseed
+!       call random_number(xseed)
+!       xseed2=xseed
+!       xx2=xseed1**2+xseed2**2
+!       if(xseed1 .gt. xseed2) sign=-1.
+!     enddo
+
+!     sn_cent(3)=(0.5*boxlen + sign*xseed1*sqrt(-2./xx2*log(xx2)) *  Height0) !assume mid-plane for the moment 
+!  endif
+
+
+!  x(1,1:3)=sn_cent(1:3)
+!  call cmp_cpumap(x,cc,1)
+
+
+  if(sn_r /= 0.0) then
+    sn_vol = 4. / 3. * pi * sn_r**3
+    sn_d = sn_m / sn_vol
+    sn_ed = sn_e / sn_vol
+  end if
+
+
+
+  ! Loop over levels
+  do ilevel = levelmin, nlevelmax
+    ! Computing local volume (important for averaging hydro quantities)
+    dx = 0.5d0**ilevel
+    dx_loc = dx * scale
+    vol_loc = dx_loc**ndim
+    !if(.not. sel) then
+      ! dx_sel will contain the size of the biggest leaf cell around the center
+      !dx_sel = dx_loc
+      !sn_vol = vol_loc
+    !end if
+
+    ! Cell center position relative to grid center position
+    do ind=1,twotondim
+      iz = (ind - 1) / 4
+      iy = (ind - 1 - 4 * iz) / 2
+      ix = (ind - 1 - 2 * iy - 4 * iz)
+      xc(ind,1) = (dble(ix) - 0.5d0) * dx
+      xc(ind,2) = (dble(iy) - 0.5d0) * dx
+      xc(ind,3) = (dble(iz) - 0.5d0) * dx
+    end do
+
+    ! Loop over grids
+    ncache=active(ilevel)%ngrid
+    do igrid = 1, ncache, nvector
+      ngrid = min(nvector, ncache - igrid + 1)
+      do i = 1, ngrid
+        ind_grid(i) = active(ilevel)%igrid(igrid + i - 1)
+      end do
+
+      ! Loop over cells
+      do ind = 1, twotondim
+        ! Gather cell indices
+        iskip = ncoarse + (ind - 1) * ngridmax
+        do i = 1, ngrid
+          ind_cell(i) = iskip + ind_grid(i)
+        end do
+
+        ! Gather cell center positions
+        do i = 1, ngrid
+          xx(i, :) = xg(ind_grid(i), :) + xc(ind, :)
+        end do
+        ! Rescale position from coarse grid units to code units
+        do i = 1, ngrid
+           xx(i, :) = (xx(i, :) - skip_loc(:)) * scale
+        end do
+
+        ! Flag leaf cells
+        do i = 1, ngrid
+          ok(i) = (son(ind_cell(i)) == 0)
+        end do
+
+        do i = 1, ngrid
+          if(ok(i)) then
+!            if(sn_r == 0.0) then
+!              sn_d = sn_m / vol_loc ! XXX
+!              sn_ed = sn_e / vol_loc ! XXX
+!              rr = 1.0
+!              do idim = 1, 3
+!                rr = rr * max(1.0 - abs(xx(i, idim) - sn_cent(idim)) / dx_loc, 0.0)
+!              end do
+!                uold(ind_cell(i), 1) = uold(ind_cell(i), 1) + sn_d * rr
+!                uold(ind_cell(i), 5) = uold(ind_cell(i), 5) + sn_ed * rr
+!            else
+!              rr = sum(((xx(i, :) - sn_cent(:)) / sn_r)**2)
+
+!              if(rr < 1.) then
+!               if (dens_corr) then 
+!!                n_sn = n_sn + 1
+!               else
+!                uold(ind_cell(i), 1) = uold(ind_cell(i), 1) + sn_d
+!                uold(ind_cell(i), 5) = uold(ind_cell(i), 5) + sn_ed
+!               endif
+!              endif
+!            endif
+
+          !we look for the densest cell in the cpu
+          if( uold(ind_cell(i), 1) .gt. dens_max) then 
+!             sn_cent3(1) = xx(i,1) + dx /10. !small shift avoid division by 0 later
+!             sn_cent3(2) = xx(i,2) + dx /10.
+!             sn_cent3(3) = xx(i,3) + dx /10.
+             dens_max           = uold(ind_cell(i), 1)
+             dens_max_v(myid,1) = dens_max
+             dens_max_v(myid,2) = xx(i,1) + dx /10. !small shift avoid division by 0 later
+             dens_max_v(myid,3) = xx(i,2) + dx /10. !small shift avoid division by 0 later
+             dens_max_v(myid,4) = xx(i,3) + dx /10. !small shift avoid division by 0 later
+          endif
+
+
+          !we look for the nearest place that is above the density threshold
+!          if( uold(ind_cell(i), 1) .gt. dens_thres .and. rr .lt. rr_min ) then 
+!             sn_cent2(1) = xx(i,1) + dx /10. !small shift avoid division by 0 later
+!             sn_cent2(2) = xx(i,2) + dx /10.
+!             sn_cent2(3) = xx(i,3) + dx /10.
+!             rr_min = rr
+!          endif
+
+
+          endif
+        end do
+      end do
+      ! End loop over cells
+    end do
+    ! End loop over grids
+  end do
+  ! End loop over levels
+
+
+
+   ! if no cell over the density threshold then take the highest density in the cpu
+!   if(sn_cent2(1) .eq. 0) sn_cent2 = sn_cent3
+
+!   write(*,*) '2 myid ', myid, 'x2_sn, y2_sn, z2_sn, ',sn_cent2(1),sn_cent2(2),sn_cent2(3)
+! else
+!   sn_cent2=0.
+! endif !  end if over myid
+
+
+!  write(*,*) 'my id', myid, 'dens_max', dens_max_v(myid,1), dens_max_v(myid,2), dens_max_v(myid,3), dens_max_v(myid,4)
+
+  dens_max_all_v=0.d0
+  ntot = 4*ncpu
+  call MPI_ALLREDUCE(dens_max_v,dens_max_all_v,ntot,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+
+  dens_v = dens_max_all_v(1:ncpu,1)
+  dens_max_all = maxval(dens_v)
+  max_loc_v    = maxloc(dens_v)
+  max_loc = max_loc_v(1)
+
+  sn_cent2_all(1) =  dens_max_all_v(max_loc,2)
+  sn_cent2_all(2) =  dens_max_all_v(max_loc,3)
+  sn_cent2_all(3) =  dens_max_all_v(max_loc,4)
+
+
+  if( (dens_max_all .gt. 1.d5 .or. maxval(abs(sn_cent2_all)) .gt. 1000.) .and. myid .eq. 1) then 
+     write(*,*) 'max_loc',max_loc
+   do i=1,ncpu 
+     write(*,*) 'prob ' ,i,dens_max_all_v(i,1),dens_max_all_v(i,2),dens_max_all_v(i,3),dens_max_all_v(i,4)
+   enddo
+  endif
+
+  if( (dens_max_all .gt. 1.d5 .or. maxval(abs(sn_cent2_all)) .gt. 1000.)) then 
+  write(*,*) 'prob verif', 'myid ',myid, dens_max_v(myid,1), dens_max_v(myid,2), dens_max_v(myid,3), dens_max_v(myid,4)
+  endif
+
+
+!  if( myid .eq. 1 ) write(*,*) 'myid ',myid ,'max_loc', max_loc , dens_max_all,sn_cent2_all(1),sn_cent2_all(2),sn_cent2_all(3)
+
+
+!  call cmp_cpumap(sn_cent2_all,cc,1)
+
+
+  ! if the density is the largest in the simulation then we adopt its position for the supernova
+!  if(dens_max .eq. dens_max_all) then 
+!     sn_cent2_all = sn_cent3
+!     write(*,*) 'myid', myid, 'dens_max',dens_max, sn_cent2_all(1), sn_cent2_all(2), sn_cent2_all(3)
+!     call MPI_BCAST(sn_cent2_all, 3, MPI_DOUBLE_PRECISION, myid, MPI_COMM_WORLD,info)
+!     write(*,*) 'myid', myid, 'dens_max',dens_max, sn_cent2_all(1), sn_cent2_all(2), sn_cent2_all(3)
+!  endif
+
+
+!  if(myid .eq. 1) write(*,*) 'my id', myid, 'dens_max', dens_max, 'dens_max_all', dens_max_all, 'sn_cent', sn_cent2_all(1), sn_cent2_all(2), sn_cent2_all(3)
+!  write(*,*) 'my id', myid, 'dens_max', dens_max, 'dens_max_all', dens_max_all, 'sn_cent', sn_cent2_all(1), sn_cent2_all(2), sn_cent2_all(3)
+
+
+
+!  sn_cent2_all=0.
+!  call MPI_ALLREDUCE(sn_cent2,sn_cent2_all,3,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+!  sn_cent2(1) = sn_cent2_all(1)
+!  sn_cent2(2) = sn_cent2_all(2)
+!  sn_cent2(3) = sn_cent2_all(3)
+
+
+
+ ! now if we are in the right CPU, put the supernovae at the densest place
+! if(myid .eq. cc(1)) then 
+
+!  write(*,*) 'put a SN in ',myid,n_sn
+
+
+  !the supernova is introduced only if there is dense enough gas
+  if(dens_max_all .gt. dens_thres) then 
+
+
+  if( myid .eq. 1 ) write(*,*) 'myid ',myid ,'max_loc', max_loc , dens_max_all,sn_cent2_all(1),sn_cent2_all(2),sn_cent2_all(3)
+
+  dens_max_loc = 0.
+  mass_sn_tot = 0.
+  dens_max_loc_all = 0.
+  mass_sn_tot_all = 0.
+
+  ! Loop over levels again and place the sink at the density peak
+  do ilevel = levelmin, nlevelmax
+    ! Computing local volume (important for averaging hydro quantities)
+    dx = 0.5d0**ilevel
+    dx_loc = dx * scale
+    vol_loc = dx_loc**ndim
+
+    ! Cell center position relative to grid center position
+    do ind=1,twotondim
+      iz = (ind - 1) / 4
+      iy = (ind - 1 - 4 * iz) / 2
+      ix = (ind - 1 - 2 * iy - 4 * iz)
+      xc(ind,1) = (dble(ix) - 0.5d0) * dx
+      xc(ind,2) = (dble(iy) - 0.5d0) * dx
+      xc(ind,3) = (dble(iz) - 0.5d0) * dx
+    end do
+
+    ! Loop over grids
+    ncache=active(ilevel)%ngrid
+    do igrid = 1, ncache, nvector
+      ngrid = min(nvector, ncache - igrid + 1)
+      do i = 1, ngrid
+        ind_grid(i) = active(ilevel)%igrid(igrid + i - 1)
+      end do
+
+      ! Loop over cells
+      do ind = 1, twotondim
+        ! Gather cell indices
+        iskip = ncoarse + (ind - 1) * ngridmax
+        do i = 1, ngrid
+          ind_cell(i) = iskip + ind_grid(i)
+        end do
+
+        ! Gather cell center positions
+        do i = 1, ngrid
+          xx(i, :) = xg(ind_grid(i), :) + xc(ind, :)
+        end do
+        ! Rescale position from coarse grid units to code units
+        do i = 1, ngrid
+           xx(i, :) = (xx(i, :) - skip_loc(:)) * scale
+        end do
+
+        ! Flag leaf cells
+        do i = 1, ngrid
+          ok(i) = (son(ind_cell(i)) == 0)
+        end do
+
+        do i = 1, ngrid
+          if(ok(i)) then
+              rr = sum(((xx(i, :) - sn_cent2_all(:)) / sn_r)**2)
+
+              if(rr < 1.) then
+                uold(ind_cell(i), 1) = uold(ind_cell(i), 1) + sn_d
+                dgas = uold(ind_cell(i), 1)
+
+                if(dgas .gt. dens_max_loc) dens_max_loc = dgas
+
+                mass_sn_tot = mass_sn_tot + dgas*vol_loc
+
+                !compute velocity of the gas within this cell assuming 
+                !energy equipartition
+                rr = sqrt(sum(((xx(i, :) - sn_cent2_all(:)))**2))
+                pgas = sqrt(eff_sn*sn_ed / dgas) * dgas !!more a guess for now one should compute the momentum
+
+!!                pgas = min(sn_p / pnorm_sn * rr /  dgas , Vsat) * dgas
+
+
+                ekin = ((uold(ind_cell(i),2))**2 + (uold(ind_cell(i),3))**2 + (uold(ind_cell(i),4))**2) / dgas / 2.
+                uold(ind_cell(i), 5) = uold(ind_cell(i), 5) - ekin
+
+                uold(ind_cell(i),2) = uold(ind_cell(i),2) + pgas * (xx(i,1) - sn_cent2_all(1)) / rr 
+                uold(ind_cell(i),3) = uold(ind_cell(i),3) + pgas * (xx(i,2) - sn_cent2_all(2)) / rr 
+                uold(ind_cell(i),4) = uold(ind_cell(i),4) + pgas * (xx(i,3) - sn_cent2_all(3)) / rr 
+
+                ekin = ((uold(ind_cell(i),2))**2 + (uold(ind_cell(i),3))**2 + (uold(ind_cell(i),4))**2) / dgas / 2.
+
+                uold(ind_cell(i), 5) = uold(ind_cell(i), 5) + ekin + sn_ed
+
+                n_sn = n_sn + 1
+
+!                if(once) then
+!                   write(*,*) 'put SN, n_sn, myid ', n_sn, my_id, 'x,y,z: ',sn_cent2_all(1),sn_cent2_all(2),sn_cent2_all(3), 'density ',dgas !, uold(ind_cell(i),1),uold(ind_cell(i),2),uold(ind_cell(i),3),uold(ind_cell(i),4),uold(ind_cell(i),5),ekin,rr
+!                   once=.false.
+!                endif
+
+              endif
+
+          endif
+        end do 
+        !  End loop over sublist of cells
+      end do
+      ! End loop over cells
+    end do
+    ! End loop over grids
+  end do
+  ! End loop over levels
+
+
+  call MPI_ALLREDUCE(n_sn,n_sn_all,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(mass_sn_tot,mass_sn_tot_all,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(dens_max_loc,dens_max_loc_all,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,info)
+
+
+!write(*,*) '4 n_sn ', n_sn_all
+
+!  if(myid .eq. cc(1)) write(*,*) '4 n_sn ', n_sn_all
+
+  if(myid .eq. 1) write(102,112) t,sn_cent2_all(1),sn_cent2_all(2),sn_cent2_all(3),dens_max_loc_all,mass_sn_tot_all
+
+  112 format(6e12.4)
+
+endif !end of the if on the density threshold for the second loop
+
+  ! Update hydro quantities for split cells
+  do ilevel = nlevelmax, levelmin, -1
+    call upload_fine(ilevel)
+    do ivar = 1, nvar
+      call make_virtual_fine_dp(uold(1, ivar), ilevel)
+    enddo
+  enddo
+end subroutine make_sn
+!################################################################
+!################################################################
+!################################################################
+!################################################################
 
 
 

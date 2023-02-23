@@ -234,6 +234,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         p_gas(:,i) = uold(ind_leaf(i),2:ndim+1) * scale_d * scale_v
         u_gas(:,i) = uold(ind_leaf(i),2:ndim+1) &
                      /uold(ind_leaf(i),1) * scale_v
+
+
+        !DEBUG v
+        if( abs(u_gas(1,i)) .gt. 1.e20 .or. abs(u_gas(2,i)) .gt. 1.e20 .or. abs(u_gas(3,i)) .gt. 1.e20) then
+           write(*,*) 'u_gas_1', u_gas(1,i), u_gas(2,i), u_gas(3,i)
+        endif
+
      end do
 
 #if NGROUPS>0
@@ -329,6 +336,14 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         T2(i)=T2(i)/nH(i)*scale_T2
      end do
 
+
+     !!DEBUG1
+     do i=1,nleaf
+     if( abs(T2(i)) .gt. 1.e30) then
+        write(*,*) 'T2_1',i,T2(i)
+     endif
+     end do
+
      ! Compute nH in H/cc
      do i=1,nleaf
         nH(i)=nH(i)*scale_nH
@@ -383,6 +398,14 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            T2(i) = min(max(T2(i)-T2min(i),T2_min_fix),T2max)
         end do
      endif
+
+
+     !!DEBUG2
+     do i=1,nleaf
+     if( abs(T2(i)) .gt. 1.e30 .or. T2(i) .le. T2_min_fix) then
+        write(*,*) 'T2_2',i,T2(i)
+     endif
+     end do
 
      ! Compute cooling time step in second
      dtcool = dtnew(ilevel)*scale_t
@@ -546,6 +569,19 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      endif
 #endif
 
+        do i=1,nleaf
+           if( abs(T2_new(i)) .gt. 1.e30 .or. abs(p_gas(1,i)) .gt. 1.e30 .or. abs(p_gas(2,i)) .gt. 1.e30 .or. abs(p_gas(3,i)) .gt. 1.e30) then
+              write(*,*) 'DEBUG 1',T2_new(i), p_gas(1,i), p_gas(2,i), p_gas(3,i)
+           endif
+           if( T2_new(i) .lt. 0. .or. isnan(T2_new(i))) then
+              write(*,*) 'DEBUG 1a',T2_new(i),T2(i)
+              write(*,*) 'replace by 10 K'
+              T2_new(i)=10.
+              delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+           endif
+        end do
+
+
 #ifdef RT
      if(.not. static) then
         ! Update gas momentum and kinetic energy:
@@ -565,6 +601,11 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            ! Update the pressure variable with the new kinetic energy:
            uold(ind_leaf(i),neul) = uold(ind_leaf(i),neul)           &
                                   - ekk(i) + ekk_new(i)
+
+           if(  abs(uold(ind_leaf(i),neul)) .gt. 1.e30) then
+              write(*,*) 'DEBUG 2',uold(ind_leaf(i),neul)
+           endif
+
         end do
         do i=1,nleaf
            ekk(i)=ekk_new(i)
@@ -629,8 +670,20 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         do i=1,nleaf
 !!! FlorentR - PATCH Temperature extrema
            uold(ind_leaf(i),neul) = min(T2(i) + T2min(i), temp_max*nH(i)/scale_T2/(gamma-1.0))
+
+
+           if(  abs(uold(ind_leaf(i),neul)) .gt. 1.e30) then
+              write(*,*) 'DEBUG 3a',uold(ind_leaf(i),neul),T2(i),T2min(i),temp_max
+           endif
+
+
            uold(ind_leaf(i),neul) = uold(ind_leaf(i),neul)+ ekk(i) + err(i) + emag(i)
 !!! FRenaud
+
+           if(  abs(uold(ind_leaf(i),neul)) .gt. 1.e30) then
+              write(*,*) 'DEBUG 3',uold(ind_leaf(i),neul),ekk(i),err(i),emag(i)
+           endif
+
         end do
      endif
 
@@ -714,6 +767,19 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
      endif  !rt_isIRtrap
 #endif
 #endif
+
+
+     !!DEBUG3
+     do i=1,nleaf
+     if( abs(uold(ind_leaf(i),neul)) .gt. 1.e30) then
+        write(*,*) 'Etot_2',i,uold(ind_leaf(i),neul)
+        write(*,*) 'uold_2',uold(ind_leaf(i),1:nvar+3)
+     endif
+     end do
+
+
+
+
 
   end do
   ! End loop over cells

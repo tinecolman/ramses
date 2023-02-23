@@ -37,6 +37,9 @@ recursive subroutine amr_step(ilevel,icount)
 
   call boundary_frig(ilevel)
 
+  !if the last time a supernova (based on density peak) occured is 0 then we initialise it to the time t
+  !this is to handle restart without having to store t_last_sn (given that corresponds to a preparatory phase)
+  if(t_last_sn .eq. 0.) t_last_sn = t
 
   !-------------------------------------------
   ! Make new refinements and update boundaries
@@ -215,6 +218,16 @@ recursive subroutine amr_step(ilevel,icount)
      if (sn_feedback_sink) then
         call make_sn_stellar
      endif
+
+     if(use_sn_nopart .and. sn_freq_mult .gt. 0.) then 
+       do while (t >= t_last_sn + 1./sn_freq_mult)
+         if(myid ==1) write(*,*) 'make SN',' time ',t ,'t_last_sn ',t_last_sn
+         if(myid ==1) write(*,*) 'sn_freq_mult ', sn_freq_mult
+         call make_sn
+         t_last_sn = t_last_sn + 1./sn_freq_mult
+       end do
+     endif
+
 
 
 

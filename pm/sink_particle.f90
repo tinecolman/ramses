@@ -693,6 +693,8 @@ subroutine grow_sink(ilevel,on_creation)
         msink(isink)=msink(isink)+msink_all(isink)
         msmbh(isink)=msmbh(isink)+msmbh_all(isink)
 
+        msmbh(isink)=0.
+
         !PH 28/07/2021
         dmfsink(isink)=dmfsink(isink)+dmfsink_all(isink)
 
@@ -705,6 +707,14 @@ subroutine grow_sink(ilevel,on_creation)
         xsink(isink,1:ndim)=xsink(isink,1:ndim)+xsink_all(isink,1:ndim)/(msink(isink)+msmbh(isink))
         vsink(isink,1:ndim)=vsink(isink,1:ndim)+vsink_all(isink,1:ndim)/(msink(isink)+msmbh(isink))
         lsink(isink,1:ndim)=lsink(isink,1:ndim)+lsink_all(isink,1:ndim)-cross(xsink_all(isink,1:ndim),vsink_all(isink,1:ndim))/(msink(isink)+msmbh(isink))
+
+
+        if(isnan(vsink(isink,1)) .or. isnan(vsink(isink,2)) .or. isnan(vsink(isink,2)) ) then 
+           write(*,*) 'test 1,vsink',isink,vsink(isink,1),vsink(isink,2),vsink(isink,3)
+           write(*,*) 'msink, msmbh',msink(isink),msmbh(isink)
+        endif
+
+
 
         ! Store jump in new sink coordinates
         do lev=levelmin,nlevelmax
@@ -886,8 +896,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  m_acc     =mass_sink_seed*M_sun/scale_m*weight/volume
                  m_acc_smbh=mass_smbh_seed*M_sun/scale_m*weight/volume
                  if (agn_acc_method=='mass') then
-                    m_acc      = m_acc * (d/density)
-                    m_acc_smbh = m_acc_smbh * (d/density)
+                    m_acc      = m_acc * (d/max(density,1.d-20))
+                    m_acc_smbh = m_acc_smbh * (d/max(density,1.d-20))
                  endif
               else
                  ! on sink creation, preexisting sinks
@@ -905,9 +915,14 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               end if
 
               if (agn_acc_method=='mass') then
-                 m_acc      = m_acc * (d/density)
-                 m_acc_smbh = m_acc_smbh * (d/density)
+                 m_acc      = m_acc * (d/max(density,1.d-20))
+                 m_acc_smbh = m_acc_smbh * (d/max(density,1.d-20))
               endif
+
+              if(isnan(m_acc_smbh) ) then 
+                 write(*,*) 'test m_acc_smbh,vsink',m_acc, m_acc_smbh
+              endif
+
                
               if(agn.and.msink(isink).gt.0)then
                  acc_ratio=dMsmbh_overdt(isink)/(4d0*pi*factG_in_cgs*msmbh(isink)*mH/(0.1d0*sigma_T*c_cgs)*scale_t)
@@ -952,7 +967,12 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            dmfsink_new(isink)=dmfsink_new(isink)+m_acc
 
            msmbh_new(isink)=msmbh_new(isink)+m_acc_smbh
-           xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
+
+           !PH 25/04/2022 avoid moving too far the sinks 
+           if(msink_new(isink) .gt. 10.*m_acc) then
+              xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
+           endif
+
            vsink_new(isink,1:ndim)=vsink_new(isink,1:ndim)+p_acc(1:ndim)
            lsink_new(isink,1:ndim)=lsink_new(isink,1:ndim)+l_acc(1:ndim)
            if(mass_smbh_seed>0.0)then
@@ -1095,8 +1115,18 @@ subroutine compute_accretion_rate(write_sinks)
      ! Bondi radius
      r2(isink)=(factG*msink(isink)/v_bondi**2)**2
 
+     if( isnan(ir_cloud*0.5d0*dx_min/(r2(isink)+tiny(0.0_dp))**0.5d0) ) then
+        write(*,*) 'nan prob' , 'ircloud',ir_cloud, 'r2',r2(isink), 'msink',msink(isink) , (r2(isink)+tiny(0.0_dp))**0.5d0
+        write(*,*) 'density',density,'volume',volume,'ethermal',ethermal,'c2',c2,'vbondi',v_bondi
+        write(*,*) 'vrel2',vrel2,'velocity',velocity(1:ndim),'vsink',vsink(isink,1:ndim)
+     endif
+
      ! Extrapolate to rho_inf
      rho_inf(isink)=density/(bondi_alpha(ir_cloud*0.5d0*dx_min/(r2(isink)+tiny(0.0_dp))**0.5d0))
+
+     
+
+
 
      ! Compute Bondi-Hoyle accretion rate in code units
      dMBHoverdt(isink)=4*pi*rho_inf(isink)*r2(isink)*v_bondi
@@ -1153,7 +1183,7 @@ contains
   REAL(dp) function bondi_alpha(x)
     implicit none
     REAL(dp) x
-    REAL(dp), PARAMETER :: XMIN=0.01d0, xMAX=2.0d0
+    REAL(dp), PARAMETER :: XMIN=0.01d0, XMAX=2.0d0
     INTEGER, PARAMETER :: NTABLE=51
     REAL(dp) lambda_c, xtable, xtablep1, alpha_exp
     integer idx
@@ -1180,6 +1210,13 @@ contains
     else
        !     We are on the table
        idx = floor ((NTABLE-1) * log(x/XMIN) / log(XMAX/XMIN))
+
+       if(idx .le. 0 .or. idx .ge. NTABLE) then
+          write(*,*) 'idx prob',idx,'x ',x,'XMIN ',XMIN,'XMAX ',XMAX
+          idx=NTABLE-2
+       endif
+
+       
        xtable = exp(log(XMIN) + idx*log(XMAX/XMIN)/(NTABLE-1))
        xtablep1 = exp(log(XMIN) + (idx+1)*log(XMAX/XMIN)/(NTABLE-1d0))
        alpha_exp = log(x/xtable) / log(xtablep1/xtable)
@@ -1522,6 +1559,12 @@ subroutine make_sink_from_clump(ilevel)
               msmbh_new(index_sink)=delta_d*vol_loc
               delta_mass_new(index_sink)=msmbh_new(index_sink)
 
+              if( isnan(msmbh_new(index_sink)) ) then
+                 write(*,*) 'msmbh 2' , 'msmbh,index_sink ',msmbh_new(index_sink),index_sink
+              endif
+
+
+
               !PH 28/07/2021
               dmfsink_new(index_sink)=delta_d*vol_loc
 
@@ -1601,6 +1644,16 @@ subroutine make_sink_from_clump(ilevel)
         msmbh(isink)=msmbh_all(isink)
         xsink(isink,1:ndim)=xsink_all(isink,1:ndim)
         vsink(isink,1:ndim)=vsink_all(isink,1:ndim)
+
+
+        if( isnan(msmbh(isink)) ) then
+           write(*,*) 'msmbh 3' , 'msmbh,isink ',msmbh(isink),isink
+        endif
+
+        if(isnan(vsink(isink,1)) .or. isnan(vsink(isink,2)) .or. isnan(vsink(isink,2)) ) then 
+           write(*,*) 'test 2,vsink',isink,vsink(isink,1),vsink(isink,2),vsink(isink,3)
+        endif
+
         lsink(isink,1:ndim)=lsink_all(isink,1:ndim)
         delta_mass(isink)=delta_mass_all(isink)
         idsink(isink)=idsink_all(isink)
@@ -1966,6 +2019,11 @@ subroutine update_sink(ilevel)
 
         ! This is the kick-kick (half old half new timestep)
         vsink(isink,1:ndim)=0.5D0*(dtnew(ilevel)+dteff)*fsink(isink,1:ndim)+vsink(isink,1:ndim)
+
+
+        if(isnan(vsink(isink,1)) .or. isnan(vsink(isink,2)) .or. isnan(vsink(isink,2)) ) then 
+           write(*,*) 'test 3,vsink',isink,vsink(isink,1),vsink(isink,2),vsink(isink,3)
+        endif
 
         ! Save the velocity
         vsnew(isink,1:ndim,ilevel)=vsink(isink,1:ndim)

@@ -307,6 +307,25 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   end do
   call get3cubefather(ind_father,nbors_father_cells,nbors_father_grids,ng,ilevel)
 
+
+
+  ! Periodic box
+  do idim=1,ndim
+     do j=1,np
+        if(ok(j))then
+           xxx=xp(ind_part(j),idim)/scale+skip_loc(idim)-xg(igrid_son(j),idim)
+           if(xxx> xbound(idim)/2.0)then
+              xp(ind_part(j),idim)=xp(ind_part(j),idim)-(xbound(idim)-skip_loc(idim))*scale
+           endif
+           if(xxx<-xbound(idim)/2.0)then
+              xp(ind_part(j),idim)=xp(ind_part(j),idim)+(xbound(idim)-skip_loc(idim))*scale
+           endif
+        endif
+     enddo
+  enddo
+
+
+
   ! Compute particle position in 3-cube
   error=.false.
   ind_son(1:np)=1
@@ -334,7 +353,7 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            endif
         end do
      end do
-     stop
+!     stop
   end if
 
   ! Compute neighboring grid index
@@ -349,19 +368,19 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   end do
 
   ! Periodic box
-  do idim=1,ndim
-     do j=1,np
-        if(ok(j))then
-           xxx=xp(ind_part(j),idim)/scale+skip_loc(idim)-xg(igrid_son(j),idim)
-           if(xxx> xbound(idim)/2.0)then
-              xp(ind_part(j),idim)=xp(ind_part(j),idim)-(xbound(idim)-skip_loc(idim))*scale
-           endif
-           if(xxx<-xbound(idim)/2.0)then
-              xp(ind_part(j),idim)=xp(ind_part(j),idim)+(xbound(idim)-skip_loc(idim))*scale
-           endif
-        endif
-     enddo
-  enddo
+!  do idim=1,ndim
+!     do j=1,np
+!        if(ok(j))then
+!           xxx=xp(ind_part(j),idim)/scale+skip_loc(idim)-xg(igrid_son(j),idim)
+!           if(xxx> xbound(idim)/2.0)then
+!              xp(ind_part(j),idim)=xp(ind_part(j),idim)-(xbound(idim)-skip_loc(idim))*scale
+!           endif
+!           if(xxx<-xbound(idim)/2.0)then
+!              xp(ind_part(j),idim)=xp(ind_part(j),idim)+(xbound(idim)-skip_loc(idim))*scale
+!           endif
+!        endif
+!     enddo
+!  enddo
 
   ! Switch particles linked list
   do j=1,np

@@ -22,7 +22,8 @@ SUBROUTINE read_feedback_params(nml_ok)
        & FB_mejecta, FB_energy, FB_thermal, &
        & FB_radius, FB_r_refine, Vdisp, &
        & jet_feedback_sink, mass_jet_sink, frac_acc_ej, cone_jet, & 
-       & v_jet, expo_jet, verbose_jet, ssm_table_directory, use_ssm
+       & v_jet, expo_jet, verbose_jet, ssm_table_directory, use_ssm, &
+       & sn_freq_mult,use_sn_nopart
   rewind(1)
   read(1,NML=feed_params,END=101)
 101 continue
@@ -42,6 +43,10 @@ SUBROUTINE read_feedback_params(nml_ok)
       !normalise Vdisp which is assumed to be in KM/S
       Vdisp = Vdisp * 1.e5 / scale_v
       
+      !normalise sn_freq_mult supposed to be in year
+      sn_freq_mult = sn_freq_mult / (365.*24.*3600.) * scale_t
+
+
       ! Set up the single stellar sources
 !added by PH to make it use-able without RT
 #ifdef RT
