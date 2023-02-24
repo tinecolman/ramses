@@ -50,6 +50,7 @@ units_length=3.0857d18
 barotropic_eos=.true.
 barotropic_eos_form='isothermal'
 T_eos=4.2194
+mu_gas=1
 /
 
 &TURB_PARAMS

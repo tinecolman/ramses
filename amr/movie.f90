@@ -72,7 +72,7 @@ subroutine output_frame()
                                            2, 4, 6, 8, 2, 6, 4, 8 /)  &
                                            ,shape(lind),order=(/2,1/))
   integer::npoly
-  real(dp)::msol,lumsol,year2,log_lum
+  real(dp)::msol,lumsol,year,log_lum
   real(dp),dimension(46)::lum_poly = (/-5.6801548098d+05,5.9946628460d+05,-2.3731255261d+05,3.8560177896d+04,   &
                                        -5.6808026741d+02,-4.1194896342d+02,-5.4456684492d+00,4.4307467151d+00,  &
                                        4.2381242791d-01,-1.0831618977d-02,-6.2879957495d-03,-6.4348257709d-04,  &
@@ -201,8 +201,8 @@ subroutine output_frame()
     call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
     msol   = M_sun/(scale_d*scale_l**3)
     lumsol = L_sun*(scale_t/(c_cgs*scale_v)**2)
-    year2   = yr2sec/scale_t
-    if(cosmo) year2 = year2*aexp**2
+    year   = yr2sec/scale_t
+    if(cosmo) year = year*aexp**2
     
     ! Local constants
     nx_loc=(icoarse_max-icoarse_min+1)
@@ -897,14 +897,14 @@ subroutine output_frame()
              ! for  Z = 0.04, alpha = 2.35, M_up = 100 Msol
              ! http://www.stsci.edu/science/starburst99/data/bol_inst_a.dat
              ! Polynome is poorly constrained on high and low ends
-             if(log10((texp-tp(j))/year2)<6)then
+             if(log10((texp-tp(j))/year)<6)then
                 log_lum = 3.2d0
-             else if(log10((texp-tp(j))/year2)>9)then
-                log_lum = log10((texp-tp(j))/year2)*(-9.79362D-01)+9.08855D+00
+             else if(log10((texp-tp(j))/year)>9)then
+                log_lum = log10((texp-tp(j))/year)*(-9.79362D-01)+9.08855D+00
              else
                 log_lum = 0d0
                 do npoly=1,size(lum_poly)
-                   log_lum = log_lum+lum_poly(npoly)*(log10((texp-tp(j))/year2))**(npoly-1)
+                   log_lum = log_lum+lum_poly(npoly)*(log10((texp-tp(j))/year))**(npoly-1)
                 enddo
              endif
              data_frame(ii,jj,kk)=data_frame(ii,jj,kk)+(10d0**(log_lum))*(mp(j)/msol)*lumsol

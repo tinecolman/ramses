@@ -6,23 +6,11 @@ module pm_commons
 
   implicit none
 
-
-
-  !introduced by PH 09/2013 to compute the feedback from the sink
-  !reimported by PH 27/07/2021
-  real(kind=8),allocatable,dimension(:)::dmfsink,dmfsink_new,dmfsink_all
-
-
-  !introduced by PH 07/2016 to record the feedback from the sink
-  !reimported by PH 27/07/2021
-  real(kind=8),allocatable,dimension(:)::Eioni
-
-
-
   ! Sink particle related arrays
   real(dp),allocatable,dimension(:)    ::msink,xmsink
   real(dp),allocatable,dimension(:)    ::msink_new,msink_all
   real(dp),allocatable,dimension(:)    ::msmbh,msmbh_new,msmbh_all
+  real(dp),allocatable,dimension(:)    ::dmfsink,dmfsink_new,dmfsink_all !count mass in sink since last stellar object creation
   real(dp),allocatable,dimension(:)    ::oksink_new,oksink_all
   real(dp),allocatable,dimension(:)    ::tsink,tsink_new,tsink_all
   real(dp),allocatable,dimension(:)    ::dMsink_overdt,dMBHoverdt

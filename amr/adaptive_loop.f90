@@ -47,11 +47,11 @@ subroutine adaptive_loop
 
 #ifdef grackle
   if(use_grackle==0)then
-     if(cooling.and..not.neq_chem.and..not.cooling_frig) &
+     if(cooling.and..not.neq_chem.and..not.cooling_ism) &
         call set_table(dble(aexp))    ! Initialize cooling look up table
   endif
 #else
-  if(cooling.and..not.neq_chem.and..not.cooling_frig) &
+  if(cooling.and..not.neq_chem.and..not.cooling_ism) &
        call set_table(dble(aexp))    ! Initialize cooling look up table
 #endif
   if(pic)call init_part              ! Initialize particle variables
@@ -59,9 +59,9 @@ subroutine adaptive_loop
   if(nrestart==0)call init_refine_2  ! Build initial AMR grid again
 
 #if NEXTINCT>0
-call init_extinction ! Geometrical contributions for extinction calculation
+  call init_extinction ! Geometrical contributions for extinction calculation
 #endif
-  
+
 #ifndef WITHOUTMPI
   muspt=0
   tot_pt=-1

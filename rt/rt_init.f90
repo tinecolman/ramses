@@ -157,7 +157,7 @@ SUBROUTINE read_rt_params(nml_ok)
        & ,rt_err_grad_xHI, rt_floor_xHI, rt_refine_aexp, is_mu_H2,isHe   &
        & ,isH2, rt_isIR, is_kIR_T, rt_T_rad, rt_vc, rt_pressBoost        &
        & ,rt_isoPress, rt_isIRtrap, iPEH_group, heat_unresolved_HII      &
-       & ,cosmic_rays                                                    &
+       & ,cosmic_rays, H2_frig                                           &
        ! RT regions (for initialization)                                 &
        & ,rt_nregion, rt_region_type                                     &
        & ,rt_reg_x_center, rt_reg_y_center, rt_reg_z_center              &
@@ -172,7 +172,7 @@ SUBROUTINE read_rt_params(nml_ok)
        & ,rt_n_source, rt_u_source, rt_v_source, rt_w_source             &
        ! RT boundary (for boundary conditions)                           &
        & ,rt_n_bound,rt_u_bound,rt_v_bound,rt_w_bound                    &
-       & ,rt_AGN, rt_sink, h2_frig
+       & ,rt_AGN, rt_sink
 
 
   ! Set default initialisation of ionisation states:
@@ -239,6 +239,11 @@ SUBROUTINE read_rt_params(nml_ok)
         write(*,*) 'The indexes are iHI, iHII, iHeII, iHeIII ='              &
              , ixHI, ixHII, ixHeII, ixHeIII
      endif
+  endif
+
+  if(rt_sink.and.(.not.stellar))then
+     write(*,*) 'Enable stellar particles to use rt_sink'
+     nml_ok=.false.
   endif
 
   call read_rt_groups(nml_ok)

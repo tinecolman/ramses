@@ -9,6 +9,7 @@ module galbox_module
   real(dp), save::Height0 = 150.      ! Initial scale height in code units
   real(dp), save::Bx = 0., By = 0., Bz = 0. ! Initial magnetic field in WNN units
   real(dp), save::temperature = 8000  ! Initial temperature in Kelvin
+  character(len=200), save::file_init_turb='ramses.data'
 
 end module galbox_module
 
@@ -21,7 +22,7 @@ subroutine read_galbox_params()
   !--------------------------------------------------
   ! Namelist definitions
   !--------------------------------------------------
-  namelist /galbox_params/ turb, Height0, dens0, Bx, By, Bz, temperature
+  namelist /galbox_params/ turb, Height0, dens0, Bx, By, Bz, temperature, file_init_turb
 
   ! Read namelist file
   call getarg(1, infile) ! get the name of the namelist
@@ -109,7 +110,7 @@ subroutine condinit_galbox(x, u, dx, nn)
 
     ! Read the turbulent velocity field used as initial condition
     if (myid == 1) write (*, *) '[condinit] Read the file which contains the initial turbulent velocity field'
-    open (20, file='ramses.data', form='formatted')
+    open (20, file=file_init_turb, form='formatted')
     read (20, *) n_size, ind, seed1, seed2, seed3
 
     if (n_size .ne. 100) then

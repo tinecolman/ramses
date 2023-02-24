@@ -15,13 +15,21 @@ stellar=.true.
 levelmin=5
 levelmax=7
 ngridmax=50000
-npartmax=10000
+npartmax=50000
 boxlen=1000.0
 /
 
 &REFINE_PARAMS
 interpol_type=0
 interpol_var=1
+!--- prevent refinement at the z-boundary for boundary_frig
+x_refine=20*500.  ! center of refined region
+y_refine=20*500.
+z_refine=20*500.
+r_refine=20*1000. ! diameter of refined region
+b_refine=20*0.95  ! ratio Z/X of refined region
+exp_refine=20*10  ! exponent of the norm, 10=rectangle?
+!---
 jeans_refine=12,12,12,12,12,12
 /
 
@@ -63,29 +71,13 @@ c_acc=0.1
 &STELLAR_PARAMS
 !iseed=21
 !sn_feedback_sink=.True.
-make_stellar_glob=.false.
+stellar_strategy=.false.
 nstellarmax=10000
 imf_index=-2.35
 imf_low=8.
 imf_high=120.
-lt_a=0.23840797
-lt_b=2.20522946
-lt_m0=148.158972
-lt_t0=3.26515722
-stf_K=9.634642584812752d48 ! s**(-1)
-stf_m0=2.728098824280431d1 ! Msun
-stf_a=6.840015602892084d0
-stf_b=4.353614230584390d0
-stf_c=1.142166657042991d0
-hii_w=1.1
-hii_alpha= 3.11626026739d-13 ! cm**3/s
-hii_c=12.5 ! km/s
 hii_t=4.0 ! Myr
-hii_T2=0.0d0 ! K
 stellar_msink_th=120.
-/
-
-&FEED_PARAMS
 !SN_on=.false.
 Vsat=300.
 Tsat=1.e6
@@ -120,16 +112,6 @@ cooling=.true.
 z_ave=1.0
 /
 
-!&SF_PARAMS
-!jeans_ncells=4 ! 4* 2**(15 - levelmax_active)
-!g_star=1.66667D0
-!n_star=10
-!eps_star=0.10D0
-!nlev_sf=8
-!sf_temp_crit=.true.
-!T2_star=100
-!r/
-
 &HYDRO_PARAMS
 pressure_fix=.true.
 gamma=1.6666667
@@ -140,7 +122,9 @@ riemann2d='hlld'
 smallr=1e-4
 rho_floor=.true.
 !temp_max=1e7
-switch_solv=100.
+allow_switch_solver=.true.
+allow_switch_solver2D=.true.
+switch_solv_B=100.
 switch_solv_dens=3.
 /
 
@@ -168,15 +152,6 @@ rt_smooth=.true.
 rt_courant_factor=0.8           ! courant number for RT timesteps
 rt_c_fraction=1d-4            ! fraction of actual lightspeed set to RT lightspeed
 rt_otsa=.false.                                                                 ! no OTSA
-!rt_err_grad_xHII=0.1
-!rt_nregion=1   !--------------------------------------------------------------------
-!rt_region_type(1)='square'
-!rt_reg_x_center=0.5
-!rt_reg_y_center=0.5
-!rt_reg_z_center=0.5
-!rt_reg_length_x=1000.0
-!rt_reg_length_y=1000.0
-!rt_reg_length_z=1000.0
 /
 
 &RT_GROUPS

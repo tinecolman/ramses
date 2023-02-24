@@ -178,8 +178,6 @@ subroutine init_hydro
                     end do
                  end do
 #endif
-
-
 #if NEXTINCT > 0
                  do ivar = nvar+1 - nextinct, nvar ! Read extinction variables if any
                     read(ilun)xx
@@ -188,7 +186,6 @@ subroutine init_hydro
                     end do
                  end do
 #endif
-
               end do
               deallocate(ind_grid,xx)
            end if

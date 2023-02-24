@@ -600,11 +600,8 @@ subroutine grow_sink(ilevel,on_creation)
   call compute_accretion_rate(.false.)
 
   ! Reset new sink variables
-  msink_new=0d0; msmbh_new=0d0
+  msink_new=0d0; msmbh_new=0d0; dmfsink_new=0d0
   xsink_new=0d0; vsink_new=0d0; lsink_new=0d0; delta_mass_new=0d0
-
-  !PH 28/07/2021
-  dmfsink_new=0d0
 
   ! Loop over cpus
   do icpu=1,ncpu
@@ -666,23 +663,19 @@ subroutine grow_sink(ilevel,on_creation)
 #ifndef WITHOUTMPI
      call MPI_ALLREDUCE(msink_new,msink_all,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(msmbh_new,msmbh_all,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     call MPI_ALLREDUCE(dmfsink_new,dmfsink_all,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(xsink_new,xsink_all,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(vsink_new,vsink_all,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(lsink_new,lsink_all,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(delta_mass_new,delta_mass_all,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-
-     !PH 28/07/2021
-     call MPI_ALLREDUCE(dmfsink_new,dmfsink_all,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
 #else
      msink_all=msink_new
      msmbh_all=msmbh_new
+     dmfsink_all=dmfsink_new
      xsink_all=xsink_new
      vsink_all=vsink_new
      lsink_all=lsink_new
      delta_mass_all=delta_mass_new
-
-     !PH 28/07/2021
-     dmfsink_all=dmfsink_new
 #endif
   endif
 
@@ -695,7 +688,6 @@ subroutine grow_sink(ilevel,on_creation)
 
         msmbh(isink)=0.
 
-        !PH 28/07/2021
         dmfsink(isink)=dmfsink(isink)+dmfsink_all(isink)
 
         ! Reset jump in old sink coordinates
@@ -759,7 +751,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   logical::on_creation
   integer::j,nx_loc,isink,ivar,idim,ind
-  real(dp)::d,e,density,volume,d_floor
+  real(dp)::d,e,density,volume
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
 #endif
@@ -962,17 +954,12 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 
            ! Add accreted properties to sink variables
            msink_new(isink)=msink_new(isink)+m_acc
-
-           !PH 28/07/2021
-           dmfsink_new(isink)=dmfsink_new(isink)+m_acc
-
            msmbh_new(isink)=msmbh_new(isink)+m_acc_smbh
-
+           dmfsink_new(isink)=dmfsink_new(isink)+m_acc
            !PH 25/04/2022 avoid moving too far the sinks 
            if(msink_new(isink) .gt. 10.*m_acc) then
               xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
            endif
-
            vsink_new(isink,1:ndim)=vsink_new(isink,1:ndim)+p_acc(1:ndim)
            lsink_new(isink,1:ndim)=lsink_new(isink,1:ndim)+l_acc(1:ndim)
            if(mass_smbh_seed>0.0)then
@@ -1414,12 +1401,9 @@ subroutine make_sink_from_clump(ilevel)
   end do
 
   ! Set new sink variables to zero
-  msink_new=0d0; msmbh_new=0d0
+  msink_new=0d0; msmbh_new=0d0; dmfsink_new=0d0
   xsink_new=0d0; vsink_new=0d0; lsink_new=0d0; delta_mass_new=0d0
   tsink_new=0d0; oksink_new=0d0; idsink_new=0; new_born_new=.false.
-
-  !PH 28/07/2021
-  dmfsink_new=0d0
 
   ! Count number of new sinks (flagged cells)
   ntot=0
@@ -1558,14 +1542,9 @@ subroutine make_sink_from_clump(ilevel)
               msink_new(index_sink)=delta_d*vol_loc
               msmbh_new(index_sink)=delta_d*vol_loc
               delta_mass_new(index_sink)=msmbh_new(index_sink)
-
               if( isnan(msmbh_new(index_sink)) ) then
                  write(*,*) 'msmbh 2' , 'msmbh,index_sink ',msmbh_new(index_sink),index_sink
               endif
-
-
-
-              !PH 28/07/2021
               dmfsink_new(index_sink)=delta_d*vol_loc
 
               ! Global index of the new sink
@@ -1612,6 +1591,7 @@ subroutine make_sink_from_clump(ilevel)
 #ifndef WITHOUTMPI
   call MPI_ALLREDUCE(msink_new ,msink_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(msmbh_new ,msmbh_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(dmfsink_new ,dmfsink_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(xsink_new ,xsink_all ,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(vsink_new ,vsink_all ,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(lsink_new ,lsink_all ,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -1620,12 +1600,10 @@ subroutine make_sink_from_clump(ilevel)
   call MPI_ALLREDUCE(idsink_new,idsink_all,nsinkmax,MPI_INTEGER         ,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(tsink_new ,tsink_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(new_born_new,new_born_all,nsinkmax,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,info)
-
-  !PH 28/07/2021
-  call MPI_ALLREDUCE(dmfsink_new ,dmfsink_all ,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
 #else
   msink_all=msink_new
   msmbh_all=msmbh_new
+  dmfsink_all=dmfsink_new
   xsink_all=xsink_new
   vsink_all=vsink_new
   lsink_all=lsink_new
@@ -1634,14 +1612,12 @@ subroutine make_sink_from_clump(ilevel)
   idsink_all=idsink_new
   tsink_all=tsink_new
   new_born_all=new_born_new
-
-  !PH 28/07/2021
-  dmfsink_all=dmfsink_new
 #endif
   do isink=1,nsink
      if(oksink_all(isink)==1)then
         msink(isink)=msink_all(isink)
         msmbh(isink)=msmbh_all(isink)
+        dmfsink(isink)=dmfsink_all(isink)
         xsink(isink,1:ndim)=xsink_all(isink,1:ndim)
         vsink(isink,1:ndim)=vsink_all(isink,1:ndim)
 
@@ -1663,9 +1639,6 @@ subroutine make_sink_from_clump(ilevel)
         fsink_partial(isink,1:ndim,levelmin:nlevelmax)=0.0
         vsold(isink,1:ndim,ilevel)=vsink_all(isink,1:ndim)
         vsnew(isink,1:ndim,ilevel)=vsink_all(isink,1:ndim)
-
-        !PH 28/07/2021
-        dmfsink(isink)=dmfsink_all(isink)
      endif
   end do
 #endif
@@ -1817,7 +1790,7 @@ subroutine update_sink(ilevel)
   use amr_commons
   use pm_commons
   use hydro_commons
-  use feedback_module
+  use sink_feedback_parameters
   use constants, only: twopi, M_sun, yr2sec
   use mpi_mod
   implicit none
@@ -1867,110 +1840,106 @@ subroutine update_sink(ilevel)
 
   ! Check for overlapping sinks
   if (allow_merge_sink) then
-    do isink=1,nsink-1
-      if (msink(isink)>0.)then
-          do jsink=isink+1,nsink
+  do isink=1,nsink-1
+     if (msink(isink)>0.)then
+        do jsink=isink+1,nsink
 
-            ! Compute relative distance
-            r_rel(1:ndim)=xsink(jsink,1:ndim)-xsink(isink,1:ndim)
-            do idim=1,ndim
-                if (period(idim) .and. r_rel(idim)>boxlen*0.5d0)   r_rel(idim)=r_rel(idim)-boxlen
-                if (period(idim) .and. r_rel(idim)<boxlen*(-0.5d0))r_rel(idim)=r_rel(idim)+boxlen
-            end do
-            rr=sum(r_rel**2)
+           ! Compute relative distance
+           r_rel(1:ndim)=xsink(jsink,1:ndim)-xsink(isink,1:ndim)
+           do idim=1,ndim
+              if (period(idim) .and. r_rel(idim)>boxlen*0.5d0)   r_rel(idim)=r_rel(idim)-boxlen
+              if (period(idim) .and. r_rel(idim)<boxlen*(-0.5d0))r_rel(idim)=r_rel(idim)+boxlen
+           end do
+           rr=sum(r_rel**2)
 
-            ! Check for overlap
-            overlap=rr<4*rmax2 .and. msink(jsink)>0.
+           ! Check for overlap
+           overlap=rr<4*rmax2 .and. msink(jsink)>0.
 
-            if(overlap)then
-                msum_overlap(isink)=msum_overlap(isink)+msink(jsink)
-                msum_overlap(jsink)=msum_overlap(jsink)+msink(isink)
+           if(overlap)then
+              msum_overlap(isink)=msum_overlap(isink)+msink(jsink)
+              msum_overlap(jsink)=msum_overlap(jsink)+msink(isink)
 
-                ! Merging based on relative distance
-                merge_flag=rr<4*dx_min**2 ! Sinks are within two cells from each other
+              ! Merging based on relative distance
+              merge_flag=rr<4*dx_min**2 ! Sinks are within two cells from each other
 
-                ! Merging based on relative velocity
-                if(mass_merger_vel_check>0 .and. (msink(isink)+msink(jsink)).ge.mass_merger_vel_check*M_sun/(scale_d*scale_l**ndim)) then
-                  v1_v2=(vsink(isink,1)-vsink(jsink,1))**2+(vsink(isink,2)-vsink(jsink,2))**2+(vsink(isink,3)-vsink(jsink,3))**2
-                  merge_flag=merge_flag .and. 2*factG*(msink(isink)+msink(jsink))/sqrt(rr)>v1_v2
-                end if
+              ! Merging based on relative velocity
+              if(mass_merger_vel_check>0 .and. (msink(isink)+msink(jsink)).ge.mass_merger_vel_check*M_sun/(scale_d*scale_l**ndim)) then
+                 v1_v2=(vsink(isink,1)-vsink(jsink,1))**2+(vsink(isink,2)-vsink(jsink,2))**2+(vsink(isink,3)-vsink(jsink,3))**2
+                 merge_flag=merge_flag .and. 2*factG*(msink(isink)+msink(jsink))/sqrt(rr)>v1_v2
+              end if
 
-                ! Merging based on sink age
-                if (merging_timescale>0d0)then
-                  iyoung=(t-tsink(isink)<t_larson1)
-                  jyoung=(t-tsink(jsink)<t_larson1)
-                  merge_flag=merge_flag .and. (iyoung .or. jyoung)
-                end if
+              ! Merging based on sink age
+              if (merging_timescale>0d0)then
+                 iyoung=(t-tsink(isink)<t_larson1)
+                 jyoung=(t-tsink(jsink)<t_larson1)
+                 merge_flag=merge_flag .and. (iyoung .or. jyoung)
+              end if
 
-                if (merge_flag.eqv..true.)then
+              if (merge_flag.eqv..true.)then
 
-                  if(myid==1)then
-                      write(*,*)'> Merging sink ',idsink(jsink),' into sink ',idsink(isink)
-                      if(verbose_AGN)then
-                        write(*,*)'>> Sink #1: ',idsink(isink)
-                        write(*,*)msink(isink)/M_sun*(scale_d*scale_l**ndim)
-                        write(*,*)xsink(isink,1:ndim)
-                        write(*,*)'>> Sink #2: ',idsink(jsink)
-                        write(*,*)msink(jsink)/M_sun*(scale_d*scale_l**ndim)
-                        write(*,*)xsink(jsink,1:ndim)
-                      endif
-                  endif
+                 if(myid==1)then
+                    write(*,*)'> Merging sink ',idsink(jsink),' into sink ',idsink(isink)
+                    if(verbose_AGN)then
+                       write(*,*)'>> Sink #1: ',idsink(isink)
+                       write(*,*)msink(isink)/M_sun*(scale_d*scale_l**ndim)
+                       write(*,*)xsink(isink,1:ndim)
+                       write(*,*)'>> Sink #2: ',idsink(jsink)
+                       write(*,*)msink(jsink)/M_sun*(scale_d*scale_l**ndim)
+                       write(*,*)xsink(jsink,1:ndim)
+                    endif
+                 endif
 
-                  ! Set new values of remaining sink (keep one with larger index)
-                  ! Compute centre of mass quantities
-                  mcom     =(msink(isink)+msink(jsink))
-                  xcom(1:ndim)=xsink(isink,1:ndim)+msink(jsink)*r_rel(1:ndim)/mcom
-                  vcom(1:ndim)=(msink(isink)*vsink(isink,1:ndim)+msink(jsink)*vsink(jsink,1:ndim))/mcom
-                  lcom(1:ndim)=msink(isink)*cross((xsink(isink,1:ndim)-xcom(1:ndim)),vsink(isink,1:ndim)-vcom(1:ndim))+ &
-                        &    msink(jsink)*cross((xsink(jsink,1:ndim)-xcom(1:ndim)),vsink(jsink,1:ndim)-vcom(1:ndim))
+                 ! Set new values of remaining sink (keep one with larger index)
+                 ! Compute centre of mass quantities
+                 mcom     =(msink(isink)+msink(jsink))
+                 xcom(1:ndim)=xsink(isink,1:ndim)+msink(jsink)*r_rel(1:ndim)/mcom
+                 vcom(1:ndim)=(msink(isink)*vsink(isink,1:ndim)+msink(jsink)*vsink(jsink,1:ndim))/mcom
+                 lcom(1:ndim)=msink(isink)*cross((xsink(isink,1:ndim)-xcom(1:ndim)),vsink(isink,1:ndim)-vcom(1:ndim))+ &
+                      &    msink(jsink)*cross((xsink(jsink,1:ndim)-xcom(1:ndim)),vsink(jsink,1:ndim)-vcom(1:ndim))
 
-                  ! Reset jump in old sink coordinates
-                  do lev=levelmin,nlevelmax
-                      sink_jump(isink,1:ndim,lev)=sink_jump(isink,1:ndim,lev)-xsink(isink,1:ndim)
-                  end do
+                 ! Reset jump in old sink coordinates
+                 do lev=levelmin,nlevelmax
+                    sink_jump(isink,1:ndim,lev)=sink_jump(isink,1:ndim,lev)-xsink(isink,1:ndim)
+                 end do
 
-                  ! Compute merged quantities
-                  msink(isink)        = mcom
-                  msmbh(isink)        = msmbh(isink)+msmbh(jsink)
-                  delta_mass(isink)   = delta_mass(isink)+delta_mass(jsink)
-                  xsink(isink,1:ndim) = xcom(1:ndim)
-                  vsink(isink,1:ndim) = vcom(1:3)
-                  lsink(isink,1:ndim) = lcom(1:ndim)+lsink(isink,1:ndim)+lsink(jsink,1:ndim)
-                  tsink(isink)        = min(tsink(isink),tsink(jsink))
-                  idsink(isink)       = min(idsink(isink),idsink(jsink))
+                 ! Compute merged quantities
+                 msink(isink)        = mcom
+                 msmbh(isink)        = msmbh(isink)+msmbh(jsink)
+                 dmfsink(isink)      = dmfsink(isink)+dmfsink(jsink)
+                 delta_mass(isink)   = delta_mass(isink)+delta_mass(jsink)
+                 xsink(isink,1:ndim) = xcom(1:ndim)
+                 vsink(isink,1:ndim) = vcom(1:3)
+                 lsink(isink,1:ndim) = lcom(1:ndim)+lsink(isink,1:ndim)+lsink(jsink,1:ndim)
+                 tsink(isink)        = min(tsink(isink),tsink(jsink))
+                 idsink(isink)       = min(idsink(isink),idsink(jsink))
 
-                  !PH 28/07/2021
-                  dmfsink(isink)      = dmfsink(isink)+dmfsink(jsink)
+                 ! Store jump in new sink coordinates
+                 do lev=levelmin,nlevelmax
+                    sink_jump(isink,1:ndim,lev)=sink_jump(isink,1:ndim,lev)+xsink(isink,1:ndim)
+                 end do
 
-                  ! Store jump in new sink coordinates
-                  do lev=levelmin,nlevelmax
-                      sink_jump(isink,1:ndim,lev)=sink_jump(isink,1:ndim,lev)+xsink(isink,1:ndim)
-                  end do
+                 ! Zero mass of the sink that was merged in
+                 msink(jsink)=0
+                 msmbh(jsink)=0
+                 dmfsink(jsink)=0
+                 msum_overlap(jsink)=0
+                 delta_mass(jsink)=0
 
-                  ! Zero mass of the sink that was merged in
-                  msink(jsink)=0
-                  msmbh(jsink)=0
-                  msum_overlap(jsink)=0
-                  delta_mass(jsink)=0
+                 ! check whether there are stellar particles attached to the merged in sink
+                 if(stellar)then
+                     do istellar = 1, nstellar
+                         if(id_stellar(istellar).eq.idsink(jsink))then
+                             id_stellar(istellar) = idsink(isink)
+                         endif
+                     end do
+                 endif
 
-                  !PH 28/07/2021
-                  dmfsink(jsink)=0
-
-                  ! check whether there are stellar particles attached to the merged in sink
-                  if(stellar)then
-                      do istellar = 1, nstellar
-                          if(id_stellar(istellar).eq.idsink(jsink))then
-                              id_stellar(istellar) = idsink(isink)
-                          endif
-                      end do
-                  endif
-
-                end if
-            end if
-          end do
-      end if
-    end do
-  end if
+              end if
+           end if
+        end do
+     end if
+  end do
+  endif
 
   ! Store old xsink and fsink for the gradient descent timestep
   xsinkold=0.0
@@ -2269,6 +2238,7 @@ subroutine clean_merged_sinks
         do j=i,nsink
            msink(j)=msink(j+1)
            msmbh(j)=msmbh(j+1)
+           dmfsink(j)=dmfsink(j+1)
            xsink(j,1:ndim)=xsink(j+1,1:ndim)
            vsink(j,1:ndim)=vsink(j+1,1:ndim)
            lsink(j,1:ndim)=lsink(j+1,1:ndim)
@@ -2277,14 +2247,12 @@ subroutine clean_merged_sinks
            idsink(j)=idsink(j+1)
            msum_overlap(j)=msum_overlap(j+1)
            delta_mass(j)=delta_mass(j+1)
-
-           !PH 28/07/2021
-           dmfsink(j)=dmfsink(j+1)
         end do
 
         ! Whipe last position in the sink list
         msink(nsink+1)=0d0
         msmbh(nsink+1)=0d0
+        dmfsink(nsink+1)=0d0
         xsink(nsink+1,1:ndim)=0d0
         vsink(nsink+1,1:ndim)=0d0
         lsink(nsink+1,1:ndim)=0d0
@@ -2293,9 +2261,6 @@ subroutine clean_merged_sinks
         idsink(nsink+1)=0
         msum_overlap(nsink+1)=0d0
         delta_mass(nsink+1)=0d0
-
-        !PH 28/07/2021
-        dmfsink(nsink+1)=0d0
      else
         i=i+1
      end if
@@ -3079,6 +3044,7 @@ subroutine synchronize_sink_info
 
   call MPI_BCAST(msink,      nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
   call MPI_BCAST(msmbh,      nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
+  call MPI_BCAST(dmfsink,    nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
   call MPI_BCAST(xsink,    3*nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
   call MPI_BCAST(vsink,    3*nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
   call MPI_BCAST(lsink,    3*nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
@@ -3086,9 +3052,6 @@ subroutine synchronize_sink_info
   call MPI_BCAST(idsink,     nsinkmax, MPI_INTEGER,          1, MPI_COMM_WORLD, info)
   call MPI_BCAST(tsink,      nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
   call MPI_BCAST(new_born,   nsinkmax, MPI_LOGICAL,          1, MPI_COMM_WORLD, info)
-
-  !PH 28/07/2021
-  call MPI_BCAST(dmfsink,      nsinkmax, MPI_DOUBLE_PRECISION, 1, MPI_COMM_WORLD, info)
 
 end subroutine synchronize_sink_info
 #endif

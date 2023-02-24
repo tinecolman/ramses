@@ -28,7 +28,7 @@ subroutine cooling_fine(ilevel)
      call coolfine1(ind_grid,ngrid,ilevel)
   end do
 
-  if((cooling.and..not.neq_chem.and..not.cooling_frig).and.ilevel==levelmin.and.cosmo)then
+  if((cooling.and..not.neq_chem.and..not.cooling_ism).and.ilevel==levelmin.and.cosmo)then
 #ifdef grackle
      if(use_grackle==0)then
         if(myid==1)write(*,*)'Computing new cooling table'
@@ -371,7 +371,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            end if
         end do
 
-        if(cooling .and. delayed_cooling.and. .not. cooling_frig) then
+        if(cooling .and. delayed_cooling.and. .not. cooling_ism) then
            cooling_on(1:nleaf)=.true.
            do i=1,nleaf
               if(uold(ind_leaf(i),idelay)/uold(ind_leaf(i),1) .gt. 1d-3) &
@@ -451,13 +451,13 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
         delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
      else
         ! Compute net cooling at constant nH
-        if(cooling.and..not.neq_chem.and..not.cooling_frig)then
+        if(cooling.and..not.neq_chem.and..not.cooling_ism)then
            call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
         endif
      endif
 #else
      ! Compute net cooling at constant nH
-     if(cooling.and..not.neq_chem.and..not.cooling_frig)then
+     if(cooling.and..not.neq_chem.and..not.cooling_ism)then
         call solve_cooling(nH,T2,Zsolar,boost,dtcool,delta_T2,nleaf)
      endif
 #endif

@@ -1,3 +1,4 @@
+! TC: currently not used but keep for future reference
 ! Output single star properties from Starburst99/Geneva tables
 ! Sam Geen, April 2017
 

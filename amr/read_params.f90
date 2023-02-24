@@ -3,10 +3,8 @@ subroutine read_params
   use pm_parameters
   use poisson_parameters
   use hydro_parameters
+  use sink_feedback_parameters
   use mpi_mod
-
-  use feedback_module
-
   implicit none
   !--------------------------------------------------
   ! Local variables
@@ -283,6 +281,12 @@ subroutine read_params
      npartmax=int(nparttot/int(ncpu,kind=8),kind=4)
   endif
   if(myid>1)verbose=.false.
+
+  if(stellar.and.(.not.sink))then
+     if(myid==1)write(*,*)'Error in the namelist:'
+     if(myid==1)write(*,*)'sink=.true. is needed if stellar=.true. !'
+     nml_ok=.false.
+  endif
   if(sink.and.(.not.pic))then
      pic=.true.
   endif
@@ -300,6 +304,7 @@ subroutine read_params
 #if NDIM==3
   if (sink)call read_sink_params
   if (clumpfind .or. sink)call read_clumpfind_params
+  if (stellar)call read_stellar_params
   if (unbind)call read_unbinding_params
   if (make_mergertree)call read_mergertree_params
 #if USE_TURB==1
@@ -307,13 +312,6 @@ subroutine read_params
 #endif
 #endif
   if (movie)call set_movie_vars
-
-  ! feedback parameter 
-  call read_feedback_params(nml_ok)
-  
-  ! Stellar objects
-  if (stellar)call read_stellar_params
-
 
   close(1)
 

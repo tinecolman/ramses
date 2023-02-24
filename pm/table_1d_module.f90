@@ -1,3 +1,4 @@
+! TC: currently not used but keep for future reference
 ! A 1D lookup table that allows (linear) interpolation between values
 ! Sam Geen, March 2017
 MODULE table_1d_module

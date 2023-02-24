@@ -138,7 +138,7 @@ subroutine backup_hydro(filename, filename_desc)
               call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
 #if NVAR > 8+NENER
 # if  NEXTINCT > 0 
-              do ivar = 9+nener, nvar  - nextinct ! Write passive scalars if any
+              do ivar = 9+nener, nvar - nextinct ! Write passive scalars if any
 # else 
               do ivar = 9+nener, nvar ! Write passive scalars if any
 #endif
@@ -153,9 +153,9 @@ subroutine backup_hydro(filename, filename_desc)
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
 #endif
-
+              ! Write extinction variables if any
 # if NEXTINCT > 0
-              do ivar = nvar+1 - nextinct, nvar ! Write extinction variables if any
+              do ivar = nvar+1 - nextinct, nvar
                  do i = 1, ncache
                     xdp(i) = uold(ind_grid(i)+iskip, ivar)
                  end do
@@ -165,17 +165,10 @@ subroutine backup_hydro(filename, filename_desc)
 #endif
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
-#endif 
-
-
-
+#endif
               ! We did one output, deactivate dumping of variables
               dump_info_flag = .false.
            end do
-
-
-
-
            deallocate(ind_grid, xdp)
 
         end if

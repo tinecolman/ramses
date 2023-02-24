@@ -3,8 +3,6 @@ subroutine init_part
   use pm_commons
   use clfind_commons
 
-  use feedback_module
-
 #ifdef RT
   use rt_parameters,only: convert_birth_times
 #endif
@@ -281,8 +279,6 @@ subroutine init_part
   end if
 
   if(sink)call init_sink
-
-
   if(stellar)call init_stellar
 
 contains
@@ -644,13 +640,13 @@ contains
                          else
                             xp(ipart,idim)=xg(ind_grid(i),idim)+xc(ind,idim)+init_array_x(i1,i2,i3)
                             dispmax=max(dispmax,abs(init_array_x(i1,i2,i3)/dx))
-                          if (read_ids) then
-                            idp(ipart) = init_array_id(i1,i2,i3)
-                          end if
-                          if (read_mass) then
-                            mp(ipart) = 0.5d0**(3*ilevel) * init_array_m(i1,i2,i3)
-                          end if
                          endif
+                         if (read_ids) then
+                            idp(ipart) = init_array_id(i1,i2,i3)
+                         end if
+                         if (read_mass) then
+                            mp(ipart) = 0.5d0**(3*ilevel) * init_array_m(i1,i2,i3)
+                         end if
                       end if
                    end do
                 end do

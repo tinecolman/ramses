@@ -57,4 +57,5 @@ units_length=3.0857d18
 isothermal=.true. !test backwards compatibility
 barotropic_eos_form='isothermal'
 T_eos=4.2194 !mu_gas=1 by default
+mu_gas=1 !in frig default is 1.4
 /

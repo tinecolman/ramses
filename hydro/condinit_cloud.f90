@@ -21,6 +21,7 @@ module cloud_module
   real(dp)::dens0=0.
   real(dp)::V0=0.
   real(dp)::Height0=0.
+  character(len=200)::file_init_turb='ramses.data'
 
   real(dp)::bl_fac=1.   !multiply calculated boxlen by this factor
 
@@ -174,7 +175,6 @@ end subroutine calc_boxlen
 subroutine read_cloud_params(nml_ok)
 
   use amr_parameters
-  use feedback_module
   use clfind_commons
   use cloud_module
 
@@ -387,7 +387,7 @@ subroutine condinit_cloud(x,u,dx,nn)
 
     !now read the turbulent velocity field used as initial condition
     if( myid ==1) write(*,*) 'Read the file which contains the initial turbulent velocity field'
-    open(20,file='ramses.data',form='formatted')
+    open(20,file=file_init_turb,form='formatted')
     read(20,*) n_size, ind, seed1,seed2,seed3
 
      if(n_size .ne. 100) then

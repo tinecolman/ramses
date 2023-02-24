@@ -33,16 +33,16 @@ t_stellar = {0:[], 1:[], 2:[]}
 for i in range(1,out_end+1):
     data = visu_ramses.load_snapshot(i)
     time = data["info"]["time"] * data["info"]["unit_t"] / YR / 1000.0
-    #if len(data["stellars"])>1:
-    #    for s in range(data["stellars"]['nstellars']):
-    #        m_stellar[s].append(data['stellars']['mstellar'][s]*unit_m/MSUN)
-    #        t_stellar[s].append(time)
+    if len(data["stellars"])>1:
+        for s in range(data["stellars"]['nstellars']):
+            m_stellar[s].append(data['stellars']['mstellar'][s]*unit_m/MSUN)
+            t_stellar[s].append(time)
     m_sink.append(data['sinks']['msink']*unit_m/MSUN)
     t_sink.append(time)
 
 data = visu_ramses.load_snapshot(out_end)
-#for key in data["stellars"].keys():
-#    data["data"]["stellar_"+key] = data["stellars"][key]
+for key in data["stellars"].keys():
+    data["data"]["stellar_"+key] = data["stellars"][key]
 for key in ['nsinks','id','msink','dmfsink','x', 'y', 'z']:
     data["data"]["sink_"+key] = data["sinks"][key]
 
@@ -53,8 +53,8 @@ axis.plot([0, max(t_sink)], [200,200], color='grey', label='threshold')
 axis.plot([0, max(t_sink)], [400,400], color='grey')
 axis.plot([0, max(t_sink)], [600,600], color='grey')
 
-#for s in range(data["stellars"]['nstellars']):
-#    axis.plot(t_stellar[s], m_stellar[s], marker='*', label='stellar')
+for s in range(data["stellars"]['nstellars']):
+    axis.plot(t_stellar[s], m_stellar[s], marker='*', label='stellar')
 axis.set_xlabel('time [Myr]')
 axis.set_ylabel('mass [Msun]')
 axis.legend()

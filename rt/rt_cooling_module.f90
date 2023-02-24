@@ -5,7 +5,8 @@
 ! Joki Rosdahl, Sarah Nickerson, Andreas Bleuler, and Romain Teyssier.
 
 module rt_cooling_module
-  use cooling_module,only:X, Y, cooling_frig
+  use cooling_module,only:X, Y
+  use amr_parameters, only:cooling_ism
   use rt_parameters
   use coolrates_module
   use constants
@@ -177,10 +178,7 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
   implicit none
   real(dp),dimension(1:nvector):: T2
 
-
 !extinction variables are stored are the end of xion 
-
-
 #if NEXTINCT > 0
   real(dp),dimension(nIons+NEXTINCT, 1:nvector):: xion_ext
   real(dp),dimension(NEXTINCT, 1:nvector):: ext
@@ -188,9 +186,7 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
   real(dp),dimension(nIons, 1:nvector):: xion_ext
 #endif
 
-
   real(dp),dimension(1:nIons, 1:nvector):: xion
-
   real(dp),dimension(1:nGroups, 1:nvector):: Np, dNpdt
   real(dp),dimension(1:ndim, 1:nGroups, 1:nvector):: Fp, dFpdt
   real(dp),dimension(1:ndim, 1:nvector):: p_gas
@@ -212,9 +208,6 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
   real(dp)::one_over_Np_FRAC, one_over_Fp_FRAC, one_over_T_FRAC
   real(dp),dimension(1:nGroups) :: group_egy_ratio, group_egy_erg
 
-
-
-
 #if NEXTINCT > 0
   ! xion_ext contains both the ion and the extinction variables 
   ! load the extinction variables from the end of xion_ext
@@ -231,7 +224,6 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
          xion(ii,i) = xion_ext(ii,i) 
      end do
   end do
-
 
   ! Store some temporary variables reduce computations
   one_over_rt_c_cgs = 1d0 / rt_c_cgs
@@ -301,13 +293,6 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
                             ,Fp(:,:,i),  p_gas(:,i)                      &
                             ,dT2, dXion, dNp, dFp, dp_gas, code)
         endif
-
-!        if(myid .eq. 6 .and. i .eq. 21) then
-!           write(*,*) 'dt, ddt ',dt, ddt(i)
-!           write(*,*) 'T2,nH ',T2(i), nH(i)
-!           write(*,*) 'xion',xion(:,i),ext(:,i)
-!        endif
-
         if(.not. dt_ok) then
            ddt(i)=ddt(i)/2.                    ! Try again with smaller dt
            nAct_next=nAct_next+1 ; indAct(nAct_next) = i
@@ -337,8 +322,6 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
   ! loop statistics
   max_cool_loopcnt=max(max_cool_loopcnt,loopcnt)
 
-
-
   ! load the ions variables in  xion_ext
   !Note that the extinction variables are not modified here and do not need to be loaded in xion_ext
   do ii=1,nIONS
@@ -346,7 +329,6 @@ SUBROUTINE rt_solve_cooling(T2, xion_ext, Np, Fp, p_gas, dNpdt, dFpdt        &
          xion_ext(ii,i) = xion(ii,i) 
      end do
   end do
-
 
 contains
 
@@ -391,11 +373,8 @@ contains
     real(dp),save:: rho, TR, one_over_C_v, E_rad, dE_T, fluxMag, mom_fact
     real(dp),save:: G0, eff_peh, cdex, ncr
     logical::newAtomicCons=.true.
-
     real(dp)::kph0
-
     real(dp):: coeff_chi
-
     !---------------------------------------------------------------------
     dt_ok=.false.
     nHe=0.25*nH(icell)*Y/X  !         Helium number density
@@ -598,7 +577,7 @@ contains
 
        !for now Photoelectic heating is taken into account in cooling frig as an average value
        !for now we remove it but let us think about it PH 01/09/2021
-       if(.not. cooling_frig) then
+       if(.not. cooling_ism) then
        if(iPEH_group .gt. 0 .and. rt_advect) then
           ! Photoelectric heating Bakes & Tielens 1994
           ! and Wolfire 2003, [erg cm-3 s-1]
@@ -645,7 +624,7 @@ contains
        metal_tot=0d0 ; metal_prime=0d0             ! Metal cooling
 
        !ramses standard metal cooling
-       if(.not. cooling_frig) then
+       if(.not. cooling_ism) then
           if(Zsolar(icell) .gt. 0d0) &
             call rt_cmp_metals(T2(icell),nH(icell),mu,metal_tot          &
                               ,metal_prime,a_exp)
@@ -738,14 +717,12 @@ contains
        kph0 = 3.3d-11*G0         ! s-1 Photodissociation (Eq 29 Glover&MacLow2007)
        ! This value is coherent with what is obtained with the Meudon PDR code (see tests - BG)
 
-
 #if NEXTINCT>1       
        !ext(1) contains self-shielding times dust attenuation (see extinction_fine1 and cooling_fine)
        if(h2_frig)  photoRate = photoRate + kph0 * ext(1,icell)
 #endif
 
        de = beta(ixHI) * nH(icell) + photoRate           ! H2 Destruction
-
        if(cosmic_rays) de = de + cosray_H2
        dxH2 = (cr*ddt(icell)+xH2)/(1.+de*ddt(icell))
        dxH2 = MIN(MAX(dxH2, x_min), 0.5)

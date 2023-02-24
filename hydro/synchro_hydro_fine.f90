@@ -11,7 +11,7 @@ subroutine synchro_hydro_fine(ilevel,dteff,which_force)
   implicit none
   integer::ilevel
   real(dp)::dteff
-  integer::which_force ! gravity=1, turbulence=2
+  integer::which_force !gravity=1, turbulence=2
   !-------------------------------------------------------------------
   ! Update velocity  from gravitational acceleration
   !-------------------------------------------------------------------
@@ -82,7 +82,7 @@ subroutine synchydrofine1(ind_cell,ncell,dteff, which_force, ilevel)
 #endif
   implicit none
   integer::ncell
-  integer::which_force ! gravity=1, turbulence=2
+  integer::which_force !gravity=1, turbulence=2
   real(dp)::dteff
   integer,dimension(1:nvector)::ind_cell
   !-------------------------------------------------------------------
@@ -119,7 +119,7 @@ subroutine synchydrofine1(ind_cell,ncell,dteff, which_force, ilevel)
   do idim=1,nndim
      do i=1,ncell
         ! remove kinetic energy
-        pp(i)=pp(i)-0.5*uold(ind_cell(i),idim+1)**2/max(uold(ind_cell(i),1),smallr)
+        pp(i)=pp(i)-0.5d0*uold(ind_cell(i),idim+1)**2/max(uold(ind_cell(i),1),smallr)
      end do
   end do
   do i=1,ncell

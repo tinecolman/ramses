@@ -49,6 +49,7 @@ module rt_parameters
   logical::rt_isTconst=.false.         ! Const rates activated?                          !
   logical::rt_star=.false.             ! Activate radiation from star particles?         !
   logical::rt_AGN=.false.              ! Activate radiation from sink particles on central cloud !
+  logical::rt_sink=.false.             ! Activate radiation from sinks
   real(dp)::rt_esc_frac=1d0            ! Escape fraction of light from stellar particles !
   logical::rt_is_init_xion=.false.     ! Initialize ionization from T profile?           !
   character(LEN=10)::rt_flux_scheme='glf'                                                !
@@ -149,10 +150,6 @@ module rt_parameters
   ! Self-shielding factor, see Nickerson, Teyssier, & Rosdahl (2018)
   ! Array to track which groups are in the Lyman-Werner band, 11.2 eV to 13.6 eV
   real(dp),dimension(1:NGROUPS)::ssh2 = 1d0, isLW = 0d0
-
-
-  ! RT on sinks?
-  logical::rt_sink      =.false.   ! Radiative transfer on sinks activated
 
   !dissociation of H2 from frig
   logical::h2_frig  =.false.
