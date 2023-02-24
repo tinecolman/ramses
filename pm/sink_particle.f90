@@ -686,7 +686,7 @@ subroutine grow_sink(ilevel,on_creation)
         msink(isink)=msink(isink)+msink_all(isink)
         msmbh(isink)=msmbh(isink)+msmbh_all(isink)
 
-        msmbh(isink)=0.
+        !msmbh(isink)=0.
 
         dmfsink(isink)=dmfsink(isink)+dmfsink_all(isink)
 
@@ -957,9 +957,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            msmbh_new(isink)=msmbh_new(isink)+m_acc_smbh
            dmfsink_new(isink)=dmfsink_new(isink)+m_acc
            !PH 25/04/2022 avoid moving too far the sinks 
-           if(msink_new(isink) .gt. 10.*m_acc) then
+           !if(msink_new(isink) .gt. 10.*m_acc) then
               xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
-           endif
+           !endif
            vsink_new(isink,1:ndim)=vsink_new(isink,1:ndim)+p_acc(1:ndim)
            lsink_new(isink,1:ndim)=lsink_new(isink,1:ndim)+l_acc(1:ndim)
            if(mass_smbh_seed>0.0)then
@@ -1111,10 +1111,6 @@ subroutine compute_accretion_rate(write_sinks)
      ! Extrapolate to rho_inf
      rho_inf(isink)=density/(bondi_alpha(ir_cloud*0.5d0*dx_min/(r2(isink)+tiny(0.0_dp))**0.5d0))
 
-     
-
-
-
      ! Compute Bondi-Hoyle accretion rate in code units
      dMBHoverdt(isink)=4*pi*rho_inf(isink)*r2(isink)*v_bondi
 
@@ -1170,7 +1166,7 @@ contains
   REAL(dp) function bondi_alpha(x)
     implicit none
     REAL(dp) x
-    REAL(dp), PARAMETER :: XMIN=0.01d0, XMAX=2.0d0
+    REAL(dp), PARAMETER :: XMIN=0.01d0, xMAX=2.0d0
     INTEGER, PARAMETER :: NTABLE=51
     REAL(dp) lambda_c, xtable, xtablep1, alpha_exp
     integer idx
@@ -1203,7 +1199,6 @@ contains
           idx=NTABLE-2
        endif
 
-       
        xtable = exp(log(XMIN) + idx*log(XMAX/XMIN)/(NTABLE-1))
        xtablep1 = exp(log(XMIN) + (idx+1)*log(XMAX/XMIN)/(NTABLE-1d0))
        alpha_exp = log(x/xtable) / log(xtablep1/xtable)
@@ -1621,7 +1616,6 @@ subroutine make_sink_from_clump(ilevel)
         xsink(isink,1:ndim)=xsink_all(isink,1:ndim)
         vsink(isink,1:ndim)=vsink_all(isink,1:ndim)
 
-
         if( isnan(msmbh(isink)) ) then
            write(*,*) 'msmbh 3' , 'msmbh,isink ',msmbh(isink),isink
         endif
@@ -1988,7 +1982,6 @@ subroutine update_sink(ilevel)
 
         ! This is the kick-kick (half old half new timestep)
         vsink(isink,1:ndim)=0.5D0*(dtnew(ilevel)+dteff)*fsink(isink,1:ndim)+vsink(isink,1:ndim)
-
 
         if(isnan(vsink(isink,1)) .or. isnan(vsink(isink,2)) .or. isnan(vsink(isink,2)) ) then 
            write(*,*) 'test 3,vsink',isink,vsink(isink,1),vsink(isink,2),vsink(isink,3)

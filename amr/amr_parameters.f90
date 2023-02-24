@@ -133,7 +133,7 @@ module amr_parameters
   real(dp)::n_sink = -1              ! Sink particle density threshold in H/cc
   real(dp)::rho_sink = -1            ! Sink particle density threshold in g/cc
   real(dp)::d_sink = -1              ! Sink particle density threshold in user units
-  logical::allow_merge_sink = .false.
+  logical::allow_merge_sink = .true.
   real(dp)::m_star =-1               ! Star particle mass in units of mass_sph
   real(dp)::n_star =0.1d0            ! Star formation density threshold in H/cc
   real(dp)::eps_star=0               ! Star formation efficiency
