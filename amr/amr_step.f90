@@ -11,7 +11,7 @@ recursive subroutine amr_step(ilevel,icount)
   use coolrates_module, only: update_coolrates_tables
   use rt_cooling_module, only: update_UVrates
 #endif
-  use sink_feedback_parameters, only: sn_feedback_sink
+  use sink_feedback_parameters, only: sn_feedback_sink, use_sn_nopart, sn_freq_mult, t_last_sn
 #if USE_TURB==1
   use turb_commons
 #endif

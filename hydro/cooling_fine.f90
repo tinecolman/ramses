@@ -565,7 +565,6 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
                          , nH, cooling_on, Zsolar, dtcool, aexp_loc,nleaf)
         delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
      endif
-#endif
 
         do i=1,nleaf
            if( abs(T2_new(i)) .gt. 1.e30 .or. abs(p_gas(1,i)) .gt. 1.e30 .or. abs(p_gas(2,i)) .gt. 1.e30 .or. abs(p_gas(3,i)) .gt. 1.e30) then
@@ -578,6 +577,7 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
               delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
            endif
         end do
+#endif
 
 
 #ifdef RT
