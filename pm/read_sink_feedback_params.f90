@@ -103,6 +103,7 @@ subroutine read_stellar_params()
   !normalise the supernova quantities
   sn_p_ref = sn_p_ref / (scale_d * scale_v * scale_l**3)
   sn_e_ref = sn_e_ref / (scale_d * scale_v**2 * scale_l**3)
+  sn_mass_ref = sn_mass_ref / (scale_d * scale_l**3)
 
   !normalise Vsat which is assumed to be in KM/S
   Vsat = Vsat * 1.e5 / scale_v
