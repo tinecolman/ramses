@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from scipy.io import FortranFile
 from tqdm import tqdm
 from astropy.io import ascii
+import os
 
 import time
 
@@ -89,7 +90,7 @@ class Map:
         self.data = np.zeros([nx,ny])
 
 def rd_map(filename):
-    """This function reads a RAMSES map file (unformatted Fortran binary) 
+    """This function reads a RAMSES map file (unformatted Fortran binary)
     as produced by the RAMSES utilities amr2map or part2map and store it in a map object.
 
     Args:
@@ -113,6 +114,49 @@ def rd_map(filename):
     
     return m
 
+class Histo:
+    """This class defines a histogram object.
+    """
+    def __init__(self,nx,ny):
+        """This function initalize a histogram object.
+
+        Args:
+            nx: number of pixels in the x direction
+            ny: number of pixels in the y direction
+        """
+        self.nx = nx
+        self.ny = ny
+        self.h = np.zeros([nx,ny])
+
+def rd_histo(filename):
+    """This function reads a RAMSES histogram file (unformatted Fortran binary)
+    as produced by the RAMSES utilities histo and store it in a Histo object.
+
+    Args:
+        filename: the complete path (including the name) of the histo file.
+
+    Returns:
+        A histogram (class Histo) object.
+    """
+    with FortranFile(filename, 'r') as f:
+        nx, ny = f.read_ints('i')
+        dat = f.read_reals('f4')
+        lxmin, lxmax = f.read_reals('f8')
+        lymin, lymax = f.read_reals('f8')
+
+    dat = np.array(dat)
+    dat = dat.reshape(ny, nx)
+    h = Histo(nx,ny)
+    h.data = dat
+    h.nx = nx
+    h.ny = ny
+    h.lxmin = lxmin
+    h.lxmax = lxmax
+    h.lymin = lymin
+    h.lymax = lymax
+
+    return h
+
 class Part:
     def __init__(self,nnp,nndim):
         self.np = nnp
@@ -122,6 +166,32 @@ class Part:
         self.mp = np.zeros([nnp])
 
 def rd_part(nout,**kwargs):
+    """This function reads a RAMSES particle file (unformatted Fortran binary) 
+    as produced by the RAMSES code in the snapshot directory output_00* 
+    and store it in a variable containing all the particle information (Part object).
+
+    Args:
+        nout: the RAMSES snapshot number. For example output_000012 corresponds to nout=12.
+
+    Optional args:
+
+        center: a numpy array containing the coordinates of the center of the sphere restricting the region to read in data.
+
+        radius: the radius of the sphere restricting the region to read in data.
+
+    Returns:
+        A variable p (class Part) object defined as:
+            p.np: number of particles
+            p.ndim: number of space dimensions
+            p.xp: coordinates of the particles. p.xp[0] gives the x coordinate as a numpy array.
+            p.vp: velocities of the particles. p.vp[0] gives the x-component as a numpy array.
+            p.mp: array containing the particle masses
+
+    Example:
+        import ramses_io as ram
+        p = ram.rd_part(12,center=[0.5,0.5,0.5],radius=0.1)
+        print(np.max(p.xp[0]))
+    """
     
     car1 = str(nout).zfill(5)
     filename = "output_"+car1+"/part_"+car1+".out00001"
@@ -451,6 +521,33 @@ class Cell:
         self.dx = np.empty(shape=(0))
 
 def rd_cell(nout,**kwargs):
+    """This function reads RAMSES AMR and hydro files (unformatted Fortran binary) 
+    as produced by the RAMSES code in the snapshot directory output_00* 
+    and store it in a variable containing all the hydro leaf cells information (Cell object).
+
+    Args:
+        nout: the RAMSES snapshot number. For example output_000012 corresponds to nout=12.
+
+    Optional args:
+
+        center: a numpy array containing the coordinates of the center of the sphere restricting the region to read in data.
+
+        radius: the radius of the sphere restricting the region to read in data.
+
+    Returns:
+        A variable c (class Cell) object defined as:
+            c.ncell: number of AMR cells
+            c.ndim: number of space dimensions
+            c.nvar: number of hydro variables
+            c.x: coordinates of the cells. c.x[0] gives the x coordinate as a numpy array.
+            c.u: hydro variables in each cell. For example, c.u[0] gives the gas density as a numpy array.
+            c.dx: array containing the individual AMR cell sizes.
+
+    Example:
+        import ramses_io as ram
+        c = ram.rd_cell(12,center=[0.5,0.5,0.5],radius=0.1)
+        print(np.max(c.dx))
+    """
     
     a = rd_amr(nout,**kwargs)
     h = rd_hydro(nout,**kwargs)
@@ -482,7 +579,7 @@ def rd_cell(nout,**kwargs):
     print("Extracting leaf cells...")
 
     c = Cell(ndim,nvar)
-    c.nc = ncell
+    c.ncell = ncell
     
     for ilev in range(0,nlevelmax):
         dx = 0.5*boxlen/2**ilev
@@ -503,7 +600,7 @@ def rd_cell(nout,**kwargs):
     if ( not (center is None)  and not (radius is None) ):
         # Filtering cells
         r = np.sqrt((c.x[0]-center[0])**2+(c.x[1]-center[1])**2+(c.x[2]-center[2])**2) - dx
-        c.nc = np.count_nonzero(r < radius)
+        c.ncell = np.count_nonzero(r < radius)
         c.u  = c.u[:,r < radius]
         c.x  = c.x[:,r < radius]
         c.dx = c.dx[r < radius]
@@ -513,7 +610,7 @@ def rd_cell(nout,**kwargs):
 def save_cell(c,filename):
 
     with open(filename,'wb') as f:
-        np.save(f,c.nc)
+        np.save(f,c.ncell)
         np.save(f,c.ndim)
         np.save(f,c.nvar)
         np.save(f,c.dx)
@@ -523,11 +620,11 @@ def save_cell(c,filename):
 def load_cell(filename):
 
     with open(filename,'rb') as f:
-        nc = np.load(f)
+        ncell = np.load(f)
         ndim = np.load(f)
         nvar = np.load(f)
         c = Cell(ndim,nvar)
-        c.nc = nc
+        c.ncell = ncell
         c.ndim = ndim
         c.nvar = nvar
         c.dx = np.append(c.dx,np.load(f))
@@ -813,65 +910,182 @@ def get_cpu_list(info,**kwargs):
                 cpu_read[icpu] = True
 
     return cpu_list
+
+def visu(x,y,dx,v,**kwargs):
+    '''The simple visualization function visu() make a 2D scatter plot from RAMSES AMR data. 
     
-def visu2d(c,**kwargs):
-
-    ivar = kwargs.get("ivar",0)
-    log = kwargs.get("log",None)
+    Args:
     
-    px = 1/plt.rcParams['figure.dpi'] 
-    fig, ax = plt.subplots(figsize=(1000*px,1000*px))
-    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
-    plt.scatter(c.x[0],c.x[1],s=0.0001)
-    ymin, ymax = ax.get_ylim()
+        x: the x-coordinate of the cells to show on the scatter plot.
 
-    vv = c.u[ivar]
-    if( not (log is None)):
-        vv = np.log10(c.u[ivar])
+        y: the y-coordinate of the cells to show on the scatter plot.
+    
+        dx: the size of the cells to show on the scatter plot.
 
-    print(np.min(vv),np.max(vv))
+        v: the value to show as a color square contained in the cell.
+        
+    Optional args:
 
-    plt.scatter(c.x[0],c.x[1],c=vv,s=(c.dx*800/(ymax-ymin))**2,cmap="viridis",marker="s")
+        vmin: minimum value for the input array v to use in the color range
 
+        vmax: maximum value for the input array v to use in the color range 
 
-def visu3d(c, **kwargs):
+        log: when set, use the log of the input array v in the color range
 
-    ivar = kwargs.get("ivar",0)
+        sort: useful only for 3D data. Plot the square symbola in the scatter plot in increasing order of array sort.
+
+    Returns:
+    
+        Output a scatter plot figure of size 1000 pixels aside.
+    
+    Exemple:
+    
+        Example for a 3D RAMSES dataset uaing variable c from the object Cell. 
+
+        ram.visu(c.x[0],c.x[2],c.dx,c.u[0],sort=c.u[0],log=1,vmin=-3,vmax=1)
+
+    Authors: Romain Teyssier (Princeton University, October 2022)
+    '''
+
     log = kwargs.get("log",None)
-    axis = kwargs.get("axis","z")
     vmin = kwargs.get("vmin",None)
     vmax = kwargs.get("vmax",None)
+    sort = kwargs.get("sort",None)
 
-    if(ivar>=0) and ivar<c.nvar:
-        vv=c.u[ivar]
-    elif(ivar == 25):
-        vv=c.u[4]/c.u[0]
-    elif(ivar == 35):
-        vv=c.u[10]/c.u[0]
-    else:
-        vv=c.dx
     if( not (log is None)):
-        vv = np.log10(vv)
+        v = np.log10(abs(v))
 
-    if(axis == "z"):
-        i1=0
-        i2=1
-    if(axis == "y"):
-        i1=0
-        i2=2
-    if(axis == "x"):
-        i1=1
-        i2=2
-                
-    print("min=",np.min(vv)," max=",np.max(vv))
+    print("min=",np.min(v)," max=",np.max(v))
 
+    if( not (sort is None)):
+        ind = np.argsort(sort)
+    else:
+        ind = np.arange(0,v.size)
+        
     px = 1/plt.rcParams['figure.dpi'] 
     fig, ax = plt.subplots(figsize=(1000*px,1000*px))
     plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
-    plt.scatter(c.x[i1],c.x[i2],s=0.0001)
+    plt.scatter(x,y,s=0.0001)
     ymin, ymax = ax.get_ylim()
-    ind = np.argsort(np.log10(c.u[0]))
         
     ax.set_aspect("equal")
-    plt.scatter(c.x[i1,ind],c.x[i2,ind],c=vv[ind],s=(c.dx[ind]*800/(ymax-ymin))**2,cmap="viridis",marker="s",vmin=vmin,vmax=vmax)
-    plt.colorbar(location="bottom",shrink=0.7)
+    plt.scatter(x[ind],y[ind],c=v[ind],s=(dx[ind]*800/(ymax-ymin))**2,cmap="viridis",marker="s",vmin=vmin,vmax=vmax)
+    plt.colorbar(shrink=0.8)
+
+def mk_movie(**kwargs):
+    '''The function mk_movie() takes 2D data files containing maps and converts them into a sequence of images, 
+    before combining them into a movie. 
+    It requires a standard set of python packages and the Linux packages ffmpeg and convert (ImageMagick).
+    
+    Args:
+    
+        start: starting index of the sequence of numpy array you wish to turn into image frames.
+    
+        stop: number of arrays you wish to be turned into plots. 
+            This will be the variable "snum" for the end product. 
+            For now, if you wish to test out the function, 
+            you can try out other smaller values to adjust the image for your preferences.
+            
+        path: path leading to the directory where your files are stored, Default: "."
+    
+        prefix: starting name of a typical file. Ex: if you have 50 files, called "fig01.npy", "fig02.npy" … "fig50.npy", write in "fig".
+    
+        fill: This is for the zfill parameter. If your files are standardized into "fig001.npy", "fig002.npy"… "fig100.npy", write in 3, for example. If this is not how your files are formatted, write in the number 1.
+    
+        suffix: suffix at the end of a file: Ex: ".npy", ".map", etc…
+    
+        cmap: write in what color you wish your array to be displayed in (value for cmap). Options include "Reds", "Blues", and more.
+    
+        cbar: write "YES" for this parameter if you want your figure to have a colorbar. Write anything else if not.
+    
+        cbunit: units of the colormapping to be displayed next to the colorbar: Ex: "Concentration [code units]" If you do not plan on using a colorbar, write in any script.
+    
+        tunit: units of time displayed by rd_img. Ex: "seconds", "minutes", "hours", "[code units]"
+    
+        bunit: units of the box size displayed by rd_img. Ex: "cm", "kpc", "Mpc", "[code units]" …
+    
+        fname: starting name of each of your images.
+    
+        mvname: what you want your movie to be called.
+        
+    Returns:
+    
+        info: a string stating that the movie was done.
+    
+    Exemple:
+    
+        info = mk_movie(start=100,stop=2000,path="../movie1",prefix="dens_",fill=5,suffix=".map",cmap="Reds", 
+                cbar="YES", cbunit="log Density [H/cc]", tunit="Gyr",
+                fname="img", mvname="movie", vmin=-1, vmax=6)
+    
+    
+    By default, the movie's framerate is 30 frames per second, at a resolution of 420p
+    You can edit this function and its parameters according to what fits your model best.
+    
+    As it runs, the function will print the files it is currently converting.
+    Authors: Thomas Decugis and Romain Teyssier (Princeton University, October 2022)
+    '''
+    start = kwargs.get("start",1)
+    stop = kwargs.get("stop",1)
+    prefix = kwargs.get("prefix")
+    suffix = kwargs.get("suffix")
+    fill = kwargs.get("fill",5)
+    path = kwargs.get("path",".")
+    vmin = kwargs.get("vmin",None)
+    vmax = kwargs.get("vmax",None)
+    cmap = kwargs.get("cmap","Reds")
+    cbar = kwargs.get("cbar",None)
+    cbunit = kwargs.get("cbunit",None)
+    tunit = kwargs.get("tunit"," ")
+    bsize = kwargs.get("bsize",1)
+    bunit = kwargs.get("bunit","[code units]")
+    fname = kwargs.get("fname","frame")
+    mvname = kwargs.get("mvname","movie")
+    
+    cmd="curl https://communications.princeton.edu/sites/g/files/toruqf1876/files/styles/freeform_750w/public/media/pusig2-size-web-range_1.jpg > logo_essai.jpg"
+    os.system(cmd)
+    concom = "convert logo_essai.jpg -resize 280x200 logo_essai.png"
+    os.system(concom)
+
+    for snapshot in range(start, stop + 1): 
+        ar = path + "/" + str(prefix) + str(snapshot).zfill(fill) + str(suffix)
+        print(ar) #prints file that function is working on.
+
+        map =rd_map(ar)
+        time = map.time
+        array = map.data
+        
+        if (not (cbar is None)):
+            px = 1/plt.rcParams['figure.dpi']
+            fig, ax = plt.subplots(figsize=(1001*px,1001*px))
+            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
+            print(np.min(array),np.max(array))
+            shw = ax.imshow(array, cmap = cmap, vmin=vmin, vmax=vmax, origin="lower", extent=[0,bsize,0,bsize])
+            bar = plt.colorbar(shw,shrink=0.8)
+            bar.set_label(cbunit, fontsize=18) 
+            bar.ax.tick_params(labelsize=18) 
+            plt.ylabel(bunit,fontsize=18)
+
+        else:
+            plt.imshow(array, cmap = cmap)#if you wish to graph model in a specific way, modify this program
+
+        ax = plt.gca()
+        txt = f'a = {time:4.2f}' + tunit
+        label = ax.set_xlabel(txt, fontsize = 18, color = "black")
+        ax.xaxis.set_label_coords(0.1, 0.95)
+        ax.tick_params(axis='both', labelsize=18)
+        newname = str(fname)+ str(snapshot) + ".png" 
+        print(newname)
+        plt.savefig(newname) #saves created images as pngs under the name that was given
+        if snapshot == start:
+            plt.show()
+        plt.close(fig)
+        com = "convert logo_essai.png -bordercolor white -border 0.1 " + newname + " +swap -geometry +100+850 -composite " + newname
+        os.system(com)
+    print("Input files converted into frames: done")
+    moviecom = "ffmpeg -y -r 30 -f image2 -s 1000x1000 -start_number " +str(start)+" -i " + str(fname) + "%d.png" + " -vcodec libx264 -crf 25  -pix_fmt yuv420p " + str(mvname) + ".mp4" 
+    os.system(moviecom)
+    ok = "Movie: done"
+    print(ok)
+    return ok 
+
