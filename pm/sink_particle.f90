@@ -685,9 +685,6 @@ subroutine grow_sink(ilevel,on_creation)
         ! Update mass from accretion
         msink(isink)=msink(isink)+msink_all(isink)
         msmbh(isink)=msmbh(isink)+msmbh_all(isink)
-
-        !msmbh(isink)=0.
-
         dmfsink(isink)=dmfsink(isink)+dmfsink_all(isink)
 
         ! Reset jump in old sink coordinates
@@ -699,14 +696,10 @@ subroutine grow_sink(ilevel,on_creation)
         xsink(isink,1:ndim)=xsink(isink,1:ndim)+xsink_all(isink,1:ndim)/(msink(isink)+msmbh(isink))
         vsink(isink,1:ndim)=vsink(isink,1:ndim)+vsink_all(isink,1:ndim)/(msink(isink)+msmbh(isink))
         lsink(isink,1:ndim)=lsink(isink,1:ndim)+lsink_all(isink,1:ndim)-cross(xsink_all(isink,1:ndim),vsink_all(isink,1:ndim))/(msink(isink)+msmbh(isink))
-
-
         if(isnan(vsink(isink,1)) .or. isnan(vsink(isink,2)) .or. isnan(vsink(isink,2)) ) then 
            write(*,*) 'test 1,vsink',isink,vsink(isink,1),vsink(isink,2),vsink(isink,3)
            write(*,*) 'msink, msmbh',msink(isink),msmbh(isink)
         endif
-
-
 
         ! Store jump in new sink coordinates
         do lev=levelmin,nlevelmax

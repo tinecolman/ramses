@@ -340,7 +340,7 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            endif
         end do
      end do
-!    stop
+     stop
   end if
 
   ! Compute neighboring grid index

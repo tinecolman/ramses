@@ -186,12 +186,9 @@ subroutine init_sink
         vel_gas(nsink,3)=svg3
         new_born(nsink)=.false. ! this is a restart
         msmbh(nsink)=sm2
-
         if( isnan(msmbh(nsink)) ) then
            write(*,*) 'msmbh init_sink' , 'msmbh,nsink ',msmbh(nsink),nsink
         endif
-
-        !PH 28/07/2021
         dmfsink(nsink)=dmf
         vsold(nsink,1:ndim,slevel)=vsink(nsink,1:ndim)
         vsnew(nsink,1:ndim,slevel)=vsink(nsink,1:ndim)
