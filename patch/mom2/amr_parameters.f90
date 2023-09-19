@@ -76,7 +76,6 @@ module amr_parameters
   logical::unbind=.false.     ! Enable particle unbinding for the clump finder
   logical::make_mergertree=.false. ! Make on the fly mergertrees
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
-  logical::extinction=.false. ! extinction by dust and H2 self-shielding
 
   ! Mesh parameters
   integer::nx=1,ny=1,nz=1                  ! Number of coarse cells in each dimension
@@ -122,7 +121,7 @@ module amr_parameters
 
   ! Cosmology and physical parameters
   real(dp)::boxlen_ini               ! Box size in h-1 Mpc
-  real(dp)::omega_b=0.045d0          ! Omega Baryon
+  real(dp)::omega_b=0.049d0          ! Omega Baryon
   real(dp)::omega_m=1                ! Omega Matter
   real(dp)::omega_l=0                ! Omega Lambda
   real(dp)::omega_k=0                ! Omega Curvature
@@ -133,7 +132,6 @@ module amr_parameters
   real(dp)::n_sink = -1              ! Sink particle density threshold in H/cc
   real(dp)::rho_sink = -1            ! Sink particle density threshold in g/cc
   real(dp)::d_sink = -1              ! Sink particle density threshold in user units
-  logical::allow_merge_sink = .true.
   real(dp)::m_star =-1               ! Star particle mass in units of mass_sph
   real(dp)::n_star =0.1d0            ! Star formation density threshold in H/cc
   real(dp)::eps_star=0               ! Star formation efficiency
@@ -208,23 +206,8 @@ module amr_parameters
   logical ::sf_log_properties=.false.   ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.              ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false.      ! Advect compressive and solenoidal turbulence terms separately
-  logical ::cooling_ism = .true.       ! Use cooling module from Audit & Hennebelle 2005 (non-RT and RT metals)
-                                        ! instead of ramses classical cooling
-  logical ::cooling_frig = .true.       ! dummy for frig branch
-
- !PH 27/08/2021 parameters for extinction
-  logical ::simplechem=.false.  ! H2 formation only
-  real(dp)::p_UV   =1.0D0       ! Parameter of variation of G0 (UV)
-
-  ! [UV_PROP_SFR] parameters for SFR dependent UV 
-  logical ::uv_prop_sfr=.false.   !  Make p_UV SFR dependent
-  real(dp)::ssfr_ref=2.5d-9       ! Reference surfacic sfr. p_UV = ssfr / sssfr_ref, in Msun.pc-2.yr-1
-  real(dp)::uvsfr_avg_window=20   ! Time of the window used to compute the average of the SFR (in Myr)
-  integer ::uvsfr_nb_points=100   ! Number of times the SFR is updated during uvsfr_avg_window
-  logical ::uvsfr_verbose=.false. ! Display sfr info at each step
-  real(dp)::p_UV_min=0.0           ! Minimal value for p_UV, initialized with p_UV value in namelist
-
-  logical::writing=.false.    ! Write column density and save files
+  logical ::cooling_ism = .false.      ! Use cooling module from Audit & Hennebelle 2005 (non-RT)
+                                        ! instead of ramses classical cooling 
 
   ! EOS parameters
   character(len=20)::barotropic_eos_form='legacy'  !Type of barotropic EOS: choose from:
@@ -237,7 +220,7 @@ module amr_parameters
   real(dp)::polytrope_rho_cu=1.0d50     ! rho0 in code units
   real(dp)::polytrope_index=1.0d0       ! sets gamma in EOS = polytropic index
   real(dp)::T_eos=10                    ! sets T0 in EOS: isothermal temperature or temperature normalisation, in K
-  real(dp)::mu_gas=1.4d0                  ! molecular weight
+  real(dp)::mu_gas=1d0                  ! molecular weight
   real(dp)::T2_eos=10                   ! = T/mu, used in the computations
 
   ! Output times
@@ -343,9 +326,6 @@ module amr_parameters
   integer ,dimension(1:MAXBOUND)    ::kbound_min=0
   integer ,dimension(1:MAXBOUND)    ::kbound_max=0
   logical                           ::no_inflow=.false.
-  logical                           ::use_boundary_frig=.false. ! use the boundary_frig routine
-  ! boundary frig = periodic everywhere but open conditions for the gas only on the vertical direction
-
 
   ! Number of processes sharing one token
   ! Only one process can write at a time in an I/O group
