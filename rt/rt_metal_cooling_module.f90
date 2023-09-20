@@ -37,23 +37,33 @@ SUBROUTINE rt_metal_cool(Tin,Nin,xin,mu,metal_tot,metal_prime,coeff_chi,XH2)
   eps = 1d-5 ! A small value
   T1 = Tin*mu
   T2 = Tin*(1+eps)*mu
-  
+  if(isnan(Tin)) then
+     write(*,*) 'Tin rt_metal_cool', Tin
+  endif
   ! Call a function mixing the two cooling functions
   call rt_metal_cool_mashup(T1,Nin,xin,mu,cool1,coeff_chi,XH2)
   call rt_metal_cool_mashup(T2,Nin,xin,mu,cool2,coeff_chi,XH2)
   
   ! Don't cool below 10K to prevent bound errors, but allow heating
-  if ((Tin*mu .gt. 10d0) .or. (cool1 .lt. 0d0)) then
+  !if ((Tin*mu .gt. 10d0) .or. (cool1 .lt. 0d0)) then
      ! Calculate gradient and output
      metal_tot = cool1
      ! T2 = T*(1+eps), so T2-T == eps*T
      metal_prime = (cool2 - cool1) / (Tin * mu * eps)
      ! NOTE !!!! NEED TO MULTIPLY BY nH*ne AFTER THIS IS OVER!!!!
      ! EXCLAMATION MARK EXCLAMATION MARK
-  else
+  !else
      ! Prevent runaway cooling below 10K
-     metal_tot = 0d0
-     metal_prime = 0d0
+   !  metal_tot = 0d0
+   !  metal_prime = 0d0
+  !endif
+
+  if(isnan(metal_tot)) then
+     write(*,*) 'metal_tot rt_metal_cool',metal_tot
+  endif
+
+  if(isnan(metal_prime)) then
+     write(*,*) 'metal_prime rt_metal_cool',metal_prime
   endif
 
 END SUBROUTINE rt_metal_cool

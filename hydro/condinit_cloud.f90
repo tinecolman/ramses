@@ -173,7 +173,7 @@ end subroutine calc_boxlen
 !#########################################################
 !#########################################################
 subroutine read_cloud_params(nml_ok)
-
+  use amr_commons
   use amr_parameters
   use clfind_commons
   use cloud_module
@@ -183,6 +183,7 @@ subroutine read_cloud_params(nml_ok)
   real(dp)::cellsize
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp),parameter::pcincm=3.086d18
+  character(LEN=80)::infile
 
   !--------------------------------------------------
   ! Namelist definitions
@@ -191,17 +192,29 @@ subroutine read_cloud_params(nml_ok)
        & ,bl_fac !, scale_tout,time_grav
 
   ! Read namelist file
-  rewind(1)
-  read(1,NML=cloud_params,END=101)
-101 continue                                   ! No harm if no namelist
-
-  ! Get some units out there
-  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-
-  !convert time_grav from Myr into scale_units
-  time_grav = time_grav * 1d6 * 365.25d0 * 86400d0 / scale_t
+!  rewind(1)
+!  read(1,NML=cloud_params,END=101)
+!101 continue                                   ! No harm if no namelist
 
 
+  ! Read namelist file
+  ! TC: done twice?
+  call getarg(1, infile) ! get the name of the namelist
+  open (1, file=infile)
+  read (1, NML=cloud_params)
+  close (1)
+
+  
+
+  !set T2_star
+  !default value of T2_eos is 10 K
+  if(T2_star .eq. 0) then
+     T2_star = T2_eos 
+     if(myid .eq. 1) write(*,*) 'T2_star was 0, now ',T2_star
+  endif
+
+  
+  
   ! Calculate boxlen
   if (mass_c .gt. 0) then
      call calc_boxlen
@@ -209,10 +222,12 @@ subroutine read_cloud_params(nml_ok)
 
   !since boxlen is not known initialy we must multiply the
   !refining parameters by boxlen here
-  x_refine = x_refine*boxlen
-  y_refine = y_refine*boxlen
-  z_refine = z_refine*boxlen
-  r_refine = r_refine*boxlen
+  if(r_refine(1) > 0.) then
+     x_refine = x_refine*boxlen
+     y_refine = y_refine*boxlen
+     z_refine = z_refine*boxlen
+     r_refine = r_refine*boxlen
+  endif
 
 end subroutine read_cloud_params
 
@@ -275,14 +290,14 @@ subroutine condinit_cloud(x,u,dx,nn)
 
 
   ! Call built-in initial condition generator
-  call region_condinit(x,q,dx,nn)
+  !call region_condinit(x,q,dx,nn)
 
    !do various things which needs to be done only one time
    if( first .eq. 0.) then
     id=1; iu=2; iv=3; iw=4; ip=5
     pi=acos(-1.0d0)
 
-
+    call read_cloud_params()
 
     if(myid==1) write(*,*) '** ENTER  in condinit **'
 

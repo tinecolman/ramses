@@ -16,6 +16,7 @@ module sink_feedback_parameters
                                                ! global: create when the total mass in sinks exceeds stellar_msink_th
   real(dp):: stellar_msink_th                  ! sink mass threshold for stellar object creation (Msun)
 
+  real(dp):: rstar_init=2.5            ! Initial radius of the protostar in Rsun
   ! Allow users to pre-set stellar mass selection for physics comparison runs, etc
   ! Every time mstellar is added to, instead of a random value, use mstellarini
   integer,parameter::nstellarini=100
@@ -70,6 +71,11 @@ module sink_feedback_parameters
   integer:: nstellar = 0 ! current number of stellar objects
   real(dp), allocatable, dimension(:):: mstellar, tstellar, ltstellar ! mass, birth time, life time
   integer, allocatable, dimension(:):: id_stellar                     !the id  of the sink to which it belongs
+
+  !ADDED BY PH 29082023
+!  character(LEN=15)::feedback_scheme='protostel_jets'
+  logical::jets_feedback_sink = .false. !protostellar feedback emanates from the sink
+  real(dp)::v_jets_frac=0.333                ! fraction of liberation velocity for protostellar jets    
 
   !---------------------------------------------------------------------
   ! TC: Everything below here is currently not used. Leave in for future

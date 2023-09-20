@@ -1063,8 +1063,9 @@ subroutine build_peak_communicator
   implicit none
 #ifndef WITHOUTMPI
   integer::info,ipeak,icpu
-  integer,dimension(1:ncpu,1:ncpu)::npeak_alltoall
-  integer,dimension(1:ncpu,1:ncpu)::npeak_alltoall_tot
+!PH moves them in clfind_commons to avoid memory issues
+!  integer,dimension(1:ncpu,1:ncpu)::npeak_alltoall
+!  integer,dimension(1:ncpu,1:ncpu)::npeak_alltoall_tot
   integer,dimension(1:ncpu)::ipeak_alltoall
 
   npeak_alltoall=0

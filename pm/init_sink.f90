@@ -3,7 +3,8 @@ subroutine init_sink
   use pm_commons
   use clfind_commons
   use amr_parameters, only:levelmin
-  use constants, only:M_sun
+  use constants, only:M_sun,R_sun
+  use sink_feedback_parameters, only:rstar_init
   use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
@@ -23,6 +24,25 @@ subroutine init_sink
   character::co
   character(LEN=200)::comment_line
 
+  !introduced by PH 09/2023
+  real(dp)::sMjet
+
+  !introduced by PH 09/2023 to follow feedback from protostellar jets                                                                                                                      
+  allocate(M_jet(1:nsinkmax))
+  M_jet=0.0
+
+  !introduced by PH 09/2023 to follow feedback from protostellar jets                                                                                                                      
+  allocate(M_jet_new(1:nsinkmax))
+  allocate(M_for_jets(1:nsinkmax))
+  allocate(M_for_jets_all(1:nsinkmax))
+  allocate(vol_tot_for_jets(1:nsinkmax))
+  allocate(vol_tot_for_jets_all(1:nsinkmax))
+  allocate(M_jet_all(1:nsinkmax))
+
+  !Allocate huge clump communicators to avoid memory issue
+  !PH 15/05/2023
+  allocate(npeak_alltoall(1:ncpu,1:ncpu))
+  allocate(npeak_alltoall_tot(1:ncpu,1:ncpu))
   ! Allocate all sink related quantities...
   allocate(idsink(1:nsinkmax))
   idsink=0 ! Important: need to set idsink to zero
@@ -112,6 +132,14 @@ subroutine init_sink
   allocate(direct_force_sink(1:nsinkmax))
   direct_force_sink=.false.
   allocate(new_born(1:nsinkmax),new_born_all(1:nsinkmax),new_born_new(1:nsinkmax))
+  !PH 09/2023 
+!  allocate(lum_sink(1:nsinkmax),lum_sink_all(1:nsinkmax))
+!  allocate(rsink_star(1:nsinkmax),Teff_sink(1:nsinkmax))
+  allocate(rsink_star(1:nsinkmax))
+  rsink_star(1:nsinkmax) = rstar_init*R_sun/scale_l ! 2.5 Rsol                                                                  
+!  lum_sink_all(1:nsinkmax)=0.0d0
+!  lum_sink(1:nsinkmax)=0.0d0
+!  Teff_sink(1:nsinkmax)=0.0d0
 
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -154,7 +182,8 @@ subroutine init_sink
      read(10,'(A200)')comment_line
      read(10,'(A200)')comment_line
      do
-        read(10,'(I10,21(A1,ES21.10),A1,I10)',end=104)sid,co, sm1,co,&
+        !modified by PH 09/2023 introduced sMjet
+        read(10,'(I10,22(A1,ES21.10),A1,I10)',end=104)sid,co, sm1,co,&
                            sx1,co,sx2,co,sx3,co, &
                            sv1,co,sv2,co,sv3,co, &
                            sl1,co,sl2,co,sl3,co, &
@@ -162,7 +191,7 @@ subroutine init_sink
                            sacc_mass,co, &
                            srho_gas,co, sc2_gas,co, seps_sink,co, &
                            svg1,co,svg2,co,svg3,co, &
-                           sm2,co,dmf,co,slevel
+                           sm2,co,dmf,co,sMjet,co,slevel
         nsink=nsink+1
         idsink(nsink)=sid
         msink(nsink)=sm1
@@ -184,6 +213,8 @@ subroutine init_sink
         vel_gas(nsink,1)=svg1
         vel_gas(nsink,2)=svg2
         vel_gas(nsink,3)=svg3
+        !modified by PH 09/2023
+        M_jet(nsink)=sMjet
         new_born(nsink)=.false. ! this is a restart
         msmbh(nsink)=sm2
         if( isnan(msmbh(nsink)) ) then
