@@ -198,7 +198,6 @@ subroutine read_cloud_params(nml_ok)
 
 
   ! Read namelist file
-  ! TC: done twice?
   call getarg(1, infile) ! get the name of the namelist
   open (1, file=infile)
   read (1, NML=cloud_params)
