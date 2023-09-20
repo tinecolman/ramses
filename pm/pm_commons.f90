@@ -6,11 +6,23 @@ module pm_commons
 
   implicit none
 
+  !introduced by PH 09/2023 to follow protostellar jets feedback                                                                                             
+  real(kind=8),allocatable,dimension(:)::M_jet,M_jet_new,M_jet_all
+  !introduced by PH 09/2023 to compute protostellar jets feedback                                                                                            
+  real(kind=8),allocatable,dimension(:)::M_for_jets,M_for_jets_all
+  real(kind=8),allocatable,dimension(:)::vol_tot_for_jets,vol_tot_for_jets_all
+
+  logical,allocatable,dimension(:)::ok_jet
+
   ! Sink particle related arrays
   real(dp),allocatable,dimension(:)    ::msink,xmsink
   real(dp),allocatable,dimension(:)    ::msink_new,msink_all
   real(dp),allocatable,dimension(:)    ::msmbh,msmbh_new,msmbh_all
   real(dp),allocatable,dimension(:)    ::dmfsink,dmfsink_new,dmfsink_all !count mass in sink since last stellar object creation
+
+  !PH 09/2023 => only rsink_star needed at this stage
+  real(dp),allocatable,dimension(:)::msink_star,rsink_star,sink_star_accrate,tsink_star
+  
   real(dp),allocatable,dimension(:)    ::oksink_new,oksink_all
   real(dp),allocatable,dimension(:)    ::tsink,tsink_new,tsink_all
   real(dp),allocatable,dimension(:)    ::dMsink_overdt,dMBHoverdt

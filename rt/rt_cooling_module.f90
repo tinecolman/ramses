@@ -656,6 +656,11 @@ contains
        endif
        fracMax=MAX(fracMax,dUU)
        TK=dT2*mu
+
+       if(isnan(dT2) .or. isnan(dUU) ) then
+          write(*,*) 'dT2, dUU, rate cooling_loop', dT2,dUU,rate,Hrate,Crate,dRate,metal_tot,metal_prime
+       endif
+          
     endif
 
 #if NGROUPS>0
@@ -925,7 +930,7 @@ SUBROUTINE display_coolinfo(stopRun, loopcnt, i, dtDone, dt, ddt, nH    &
   print*,group_egy(:)
   if(stopRun) then
      print *,'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-     STOP
+     !STOP
   endif
 
 111 format(' Stopping because of large number of timestesps in', &

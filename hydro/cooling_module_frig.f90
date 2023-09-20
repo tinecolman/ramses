@@ -121,7 +121,7 @@ subroutine column_density(ind_grid,ngrid,ilevel,column_dens, H2column_dens)
                   if( cell_levl(i) .ne. il) then
                      write(*,*) 'problem in the calculation of column density'
                      write(*,*)  'cell_levl(i),il,ilevel',cell_levl(i),il,ilevel
-                     stop
+                     !stop
                   endif
 
                   col_dens(i,idir) = col_dens(i,idir) + dx_loc*uold(cell_index(i),1)
@@ -1135,6 +1135,21 @@ subroutine hot_cold_2(T,n,ref,dRefDT,coeff_chi,XH2)
   endif
 #endif
 
+  if(isnan(cold_cII_1) .or. isnan(cold_cII_2) ) then
+     write(*,*) 'cold_cII',cold_cII_1,cold_cII_2
+  endif
+
+  if(isnan(cold_o_1) .or. isnan(cold_o_2) ) then
+     write(*,*) 'cold_o',cold_o_1,cold_o_2
+  endif
+
+  if(isnan(cold_rec_1) .or. isnan(cold_rec_2) ) then
+     write(*,*) 'cold_rec',cold_rec_1,cold_rec_2
+  endif
+
+  if(isnan(cold_mol_1) .or. isnan(cold_mol_2) ) then
+     write(*,*) 'cold_mol',cold_mol_1,cold_mol_2
+  endif  
   ! Sum all cooling functions
   cold_1 = cold_cII_1  + cold_o_1 + cold_h_1 + cold_rec_1 + cold_mol_1
   cold_2 = cold_cII_2  + cold_o_2 + cold_h_2 + cold_rec_2 + cold_mol_2
@@ -1280,7 +1295,11 @@ SUBROUTINE COOL_REC(G0_p, T, phi, xe, nH, cool)
     REAL (KIND=dp), INTENT(OUT) :: cool
     REAL (KIND=dp)              :: param,bet
 
-    param = G0_p * sqrt(T) / (nH * xe * phi)
+    if(xe .ne. 0) then
+       param = G0_p * sqrt(T) / (nH * xe * phi)
+    else
+       param = 0.
+    endif
     bet   = 0.74_dp / (T**0.068_dp)
 
     ! Ref : Wolfire et al. (2003, Eq. 21)
@@ -1308,7 +1327,11 @@ SUBROUTINE HEAT_PH(G0_p, T, phi, xe, nH, heat)
     REAL (KIND=dp), INTENT(OUT) :: heat
     REAL (KIND=dp)              :: param,epsilon
 
-    param = G0_p * sqrt(T) / (nH * xe * phi)
+    if(xe .ne. 0) then
+       param = G0_p * sqrt(T) / (nH * xe * phi)
+    else
+       param = 0.
+    endif
 
     epsilon = 4.9e-2_dp / ( 1.0_dp + (param / 1925.0_dp)**0.73_dp ) &
             + 3.7e-2_dp / ( 1.0_dp + (param / 5000.0_dp)          ) * (T / 1.0e4_dp)**0.7_dp
@@ -2224,24 +2247,24 @@ subroutine cool_goldsmith(Temp,ndens,cool_mol_dust)
      cool_mol=0.
      ! TC: this should be cool_mol_dust?
      !     What about the dust contribution below 100 H/cc?
-     return
-  endif
+     !return
+  else
 
-  log_n = log10(ndens)
-  do i = 1, 6
-     if (log_n .ge. logn_v(i) .and. log_n .le. logn_v(i+1)) exit
+     log_n = log10(ndens)
+     do i = 1, 6
+        if (log_n .ge. logn_v(i) .and. log_n .le. logn_v(i+1)) exit
      ! TC: exit necesary?
-  enddo
+     enddo
 
-  alpha = alpha_v(i+1) * (log_n - logn_v(i)) + alpha_v(i) * (-log_n + logn_v(i+1))
-  alpha = alpha / (logn_v(i+1)-logn_v(i))
+     alpha = alpha_v(i+1) * (log_n - logn_v(i)) + alpha_v(i) * (-log_n + logn_v(i+1))
+     alpha = alpha / (logn_v(i+1)-logn_v(i))
 
-  beta = beta_v(i) * (log_n - logn_v(i)) + beta_v(i) * (-log_n + logn_v(i+1))
-  beta = beta / (logn_v(i+1)-logn_v(i))
+     beta = beta_v(i) * (log_n - logn_v(i)) + beta_v(i) * (-log_n + logn_v(i+1))
+     beta = beta / (logn_v(i+1)-logn_v(i))
 
-  cool_mol = alpha * (Temp/10.)**beta / ndens**2 !division by n^2 because cooling works in cm^3 (rate)
+     cool_mol = alpha * (Temp/10.)**beta / ndens**2 !division by n^2 because cooling works in cm^3 (rate)
                                                  !while Goldsmith expressed it in cm^-3
-
+  endif
   !take into accound the cooling/heating through dust
   cool_dust = 2.e-33 * (Temp-Tdust) * sqrt(Temp/10.)
   cool_mol_dust = cool_mol + cool_dust

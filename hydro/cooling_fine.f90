@@ -115,7 +115,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
 #if NENER>0
   integer::irad
 #endif
+  integer:: count_Nan
 
+  count_Nan = 0
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
   nx_loc=(icoarse_max-icoarse_min+1)
@@ -571,10 +573,17 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
               write(*,*) 'DEBUG 1',T2_new(i), p_gas(1,i), p_gas(2,i), p_gas(3,i)
            endif
            if( T2_new(i) .lt. 0. .or. isnan(T2_new(i))) then
-              write(*,*) 'DEBUG 1a',T2_new(i),T2(i)
+               write(*,*) 'DEBUG 1a',T2_new(i),T2(i), nH(i)
+              write(*,*) 'pgas',p_gas(:,i)
+              write(*,*) 'Np',Np(:,i)
+              write(*,*) 'dNpdt',dNpdt(:,i)              
+              write(*,*) 'Fp',Fp(:,:,i)
+              write(*,*) 'dFpdt',dFpdt(:,:,i)
+              write(*,*) 'xion', xion(:,i)
               write(*,*) 'replace by 10 K'
               T2_new(i)=10.
               delta_T2(1:nleaf) = T2_new(1:nleaf) - T2(1:nleaf)
+              count_Nan = count_Nan + 1
            endif
         end do
 #endif
@@ -782,6 +791,9 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
   end do
   ! End loop over cells
 
+  if(count_Nan .ne. 0) then
+     write(*,*) 'count_Nan', count_Nan, 'myid', myid
+  endif
 end subroutine coolfine1
 
 #ifdef RT
