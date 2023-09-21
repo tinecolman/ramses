@@ -11,20 +11,20 @@ module hydro_parameters
 #else
   integer,parameter::nener=NENER
 #endif
-#ifndef NGRP
-  integer,parameter::ngrp=0   ! Number of radiative energy groups
-#else
-  integer,parameter::ngrp=NGRP
-#endif
-#if USE_M_1==0
-  integer,parameter::nrad=ngrp          ! Number of pure radiative variables (= radiative energies)
-  integer,parameter::nvar_bicg=nrad     ! Number of variables in BICG (= radiative variables)
-#endif
-#if USE_M_1==1
-  integer,parameter::nrad=(1+ndim)*ngrp  ! Number of pure radiative variables (= radiative energies + radiative fluxes)
-  integer,parameter::nvar_bicg=nrad+1    ! Number of variables in BICG (= temperature + radiative variables)
-#endif
-  integer,parameter::nvar_trad=nrad+1   ! Total number of radiative variables (= temperature + radiative energies)
+!#ifndef NGRP
+!  integer,parameter::ngrp=0   ! Number of radiative energy groups
+!#else
+!  integer,parameter::ngrp=NGRP
+!#endif
+!#if USE_M_1==0
+!  integer,parameter::nrad=ngrp          ! Number of pure radiative variables (= radiative energies)
+!  integer,parameter::nvar_bicg=nrad     ! Number of variables in BICG (= radiative variables)
+!#endif
+!#if USE_M_1==1
+!  integer,parameter::nrad=(1+ndim)*ngrp  ! Number of pure radiative variables (= radiative energies + radiative fluxes)
+!  integer,parameter::nvar_bicg=nrad+1    ! Number of variables in BICG (= temperature + radiative variables)
+!#endif
+!  integer,parameter::nvar_trad=nrad+1   ! Total number of radiative variables (= temperature + radiative energies)
 
 #if NEXTINCT > 0
   integer,parameter::nextinct = NEXTINCT       ! Add a variable to store extinction coefficient [0,1]
@@ -33,36 +33,37 @@ module hydro_parameters
 #endif
 
   ! Advect internal energy as a passive scalar, in a supplementary index
+  ! TC: this is not done in ramses-romain
 #ifndef NPSCAL
-  integer,parameter::npscal=1
+  integer,parameter::npscal=0
 #else
   integer,parameter::npscal=NPSCAL
 #endif
 ! Cosmic rays energy groups
-#ifndef NCR
-  integer,parameter::ncr=0
-#else
-  integer,parameter::ncr=NCR
-#endif
+!#ifndef NCR
+!  integer,parameter::ncr=0
+!#else
+!  integer,parameter::ncr=NCR
+!#endif
 
-  integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
-#if USE_M_1==0
-  integer,parameter::nfr = 0              ! Number of radiative fluxes for M1
-#else
-  integer,parameter::nfr =ndim*ngrp       ! Number of radiative fluxes for M1
-#endif
+!  integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
+!#if USE_M_1==0
+!  integer,parameter::nfr = 0              ! Number of radiative fluxes for M1
+!#else
+!  integer,parameter::nfr =ndim*ngrp       ! Number of radiative fluxes for M1
+!#endif
 
   ! First index of variables (in fact index just before the first index)
   ! so that we can loop over 1,nener for instance
-  integer,parameter::firstindex_ent=8     ! for non-thermal energies
-  integer,parameter::firstindex_er=8+nent ! for radiative energies
-  integer,parameter::firstindex_fr=8+nener ! for radiative fluxes (if M1)
-  integer,parameter::firstindex_extinct=8+nent+nrad ! for extinction
-  integer,parameter::firstindex_pscal=8+nent+nrad+nextinct ! for passive scalars
-  integer::lastindex_pscal ! last index for passive scalars other than internal energy
+!  integer,parameter::firstindex_ent=8     ! for non-thermal energies
+!  integer,parameter::firstindex_er=8+nent ! for radiative energies
+!  integer,parameter::firstindex_fr=8+nener ! for radiative fluxes (if M1)
+  integer,parameter::firstindex_extinct=2+ndim+nener+npscal+1!+nrad ! for extinction
+ ! integer,parameter::firstindex_pscal=2+ndim+nener+nextinct ! for passive scalars
+!  integer::lastindex_pscal ! last index for passive scalars other than internal energy
   ! Initialize NVAR
 #ifndef NVAR
-  integer,parameter::nvar=ndim+2+nent+nrad+nextinct+npscal
+  integer,parameter::nvar=ndim+2+nener+nextinct+npscal
 #else
   integer,parameter::nvar=NVAR
 #endif
