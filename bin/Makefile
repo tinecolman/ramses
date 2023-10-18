@@ -197,7 +197,9 @@ ifeq ($(USE_TURB),1)
    LIBS_TURB = -L$(HOME)/local/lib -lfftw3
    LIBS_OBJ_TURB = -I$(HOME)/local/include -lfftw3
 endif
-LIBS += $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB)
+INC_MERIC = -I$(MERIC_PATH)/include
+LIBS_MERIC = $(MERIC_PATH)lib/libmericmpionly.so $(MERIC_PATH)/lib/libmsr.so /lib64/libhdeem.so /lib64/libfreeipmi.so
+LIBS += $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB) $(LIBS_MERIC)
 #############################################################################
 # Sources directories are searched in this exact order
 VPATH = $(PATCH):../$(SOLVER):../aton:
@@ -296,9 +298,9 @@ write_patch.o: FORCE
 	../utils/scripts/cr_write_patch.sh $(PATCH)
 	$(FC) -O0 -c write_patch.f90 -o $@
 %.o:%.F
-	$(F90) $(FFLAGS_BASE) $(FFLAGS_OPT) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB)
+	$(F90) $(FFLAGS_BASE) $(FFLAGS_OPT) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB) $(INC_MERIC)
 %.o:%.f90
-	$(F90) $(FFLAGS_BASE) $(FFLAGS_OPT) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB)
+	$(F90) $(FFLAGS_BASE) $(FFLAGS_OPT) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB) $(INC_MERIC)
 FORCE:
 #############################################################################
 clean:

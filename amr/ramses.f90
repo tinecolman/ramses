@@ -1,4 +1,5 @@
 program ramses
+  use meric
   implicit none
 
   ! Set myid, ncpu and initialize MPI and OpenMP
@@ -24,6 +25,7 @@ subroutine initialize_mpi
 #ifdef _OPENMP
   use omp_lib
 #endif
+  use meric
   implicit none
 #ifndef WITHOUTMPI
   integer::ierr,info
@@ -48,6 +50,8 @@ integer::mythr
   call MPI_COMM_SIZE(MPI_COMM_WORLD,ncpu,ierr)
   myid=myid+1 ! Careful with this...
 #endif
+
+  call MERIC_Init()
 
 #ifdef _OPENMP
 !$omp parallel private(mythr)

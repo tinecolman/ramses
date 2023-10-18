@@ -4,6 +4,7 @@ subroutine clean_end
   ! Properly end the run.
   !---------------------------
   use mpi_mod
+  use meric
   implicit none
 #ifndef WITHOUTMPI
   integer::info
@@ -12,6 +13,7 @@ subroutine clean_end
 
   call output_timer(.false., str)
 
+  call MERIC_Close()
 #ifndef WITHOUTMPI
   call MPI_FINALIZE(info)
 #endif
