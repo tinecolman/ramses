@@ -4,6 +4,7 @@ recursive subroutine amr_step(ilevel,icount)
   use hydro_commons
   use poisson_commons
   use tracer_utils, only: reset_tracer_move_flag
+  use meric
 #ifdef RT
   use rt_hydro_commons
   use SED_module
@@ -374,9 +375,15 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------
   if((hydro).and.(.not.static_gas))then
 
+     call MERIC_MeasureStart("godunov"//char(0))
+
      ! Hyperbolic solver
                                call timer('hydro - godunov','start')
      call godunov_fine(ilevel)
+
+     call MERIC_MeasureStop("godunov"//char(0))
+
+     call MERIC_MeasureStart("reverse"//char(0))
 
      ! Reverse update boundaries
                                call timer('hydro - rev ghostzones','start')
@@ -439,6 +446,8 @@ recursive subroutine amr_step(ilevel,icount)
 
   endif
 
+  call MERIC_MeasureStop("reverse"//char(0))
+
   !---------------------
   ! Do RT/Chemistry step
   !---------------------
@@ -489,6 +498,9 @@ recursive subroutine amr_step(ilevel,icount)
                                call timer('feedback','start')
   if(hydro.and.star.and.(.not.static_gas))call star_formation(ilevel)
 #endif
+
+  call MERIC_MeasureStart("update"//char(0))
+
   !---------------------------------------
   ! Update physical and virtual boundaries
   !---------------------------------------
@@ -512,6 +524,8 @@ recursive subroutine amr_step(ilevel,icount)
      endif
   end if
 #endif
+
+  call MERIC_MeasureStop("update"//char(0))
 
   !-----------------------
   ! Compute refinement map

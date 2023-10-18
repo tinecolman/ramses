@@ -5,7 +5,6 @@
 subroutine godunov_fine(ilevel)
   use amr_commons
   use hydro_commons
-  use meric
   implicit none
   integer::ilevel
   !--------------------------------------------------------------------------
@@ -23,8 +22,6 @@ subroutine godunov_fine(ilevel)
   if(static)return
   if(verbose)write(*,111)ilevel
 
-  call MERIC_MeasureStart("godunov"//char(0))
-
   ! Loop over active grids by vector sweeps
   ncache=active(ilevel)%ngrid
 !$omp parallel do private(ngrid,i)
@@ -35,8 +32,6 @@ subroutine godunov_fine(ilevel)
      end do
      call godfine1(ind_grid,ngrid,ilevel)
   end do
-
-  call MERIC_MeasureStop("godunov"//char(0))
 
 111 format('   Entering godunov_fine for level ',i2)
 
