@@ -24,18 +24,17 @@ subroutine gravana(x,f,dx,ncell)
   real(dp):: a1,a2,z0,sigma,f_max
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
 
-  select case (gravity_type)
-
-  case(1)
-    ! Constant vector
+  ! Constant vector
+  if(gravity_type==1)then
      do idim=1,ndim
         do i=1,ncell
            f(i,idim)=gravity_params(idim)
         end do
      end do
+  end if
 
-  case(2)
-    ! Point mass
+  ! Point mass
+  if(gravity_type==2)then
      gmass=gravity_params(1) ! GM
      emass=dx
      emass=gravity_params(2) ! Softening length
@@ -60,32 +59,33 @@ subroutine gravana(x,f,dx,ncell)
         f(i,3)=-gmass*rz/rr**3
 #endif
      end do
+  end if
 
-  case(3)
-    ! Add the vertical galactic gravitational field
-    ! Kuijken & Gilmore 1989 taken from Joung & MacLow (2006)
-    a1 = gravity_params(1) ! Star potential coefficient in kpc Myr-2
-    a2 = gravity_params(2) ! DM potential coefficient in Myr-2
-    z0 = gravity_params(3) ! Scale height in pc scale height in pc in kpc Myr-2
-    ! If negative value, use default values
-    if(a1 < 0.) a1 = 1.42d-3
-    if(a2 < 0.) a2 = 5.49d-4
-    if(z0 <= 0.) z0 = 0.18d3
+  if(gravity_type==3)then
+     ! vertical galactic gravitational field
+     ! Kuijken & Gilmore 1989 taken from Joung & MacLow (2006)
+     ! g = -a1 z / sqrt(z^2+z0^2) - a2 z
+     a1 = gravity_params(1) ! Star potential coefficient in kpc Myr-2
+     a2 = gravity_params(2) ! DM potential coefficient in Myr-2
+     z0 = gravity_params(3) ! Scale height in pc
+    ! standard values are: a1 = 1.42d-3, a2 = 5.49d-4, z0 = 0.18d3 pc
 
-    a1=1.d3*a1/(Myr2sec**2)/mH/factG_in_cgs
-    a2=a2/(Myr2sec**2)/mH/factG_in_cgs
+    ! The gravitational field is given by
+    ! g = -a1 z / sqrt(z^2+z0^2) - a2 z
+    ! rho = [(a1 / z0) ( (z/z0)^2 + 1)^(-3/2) + a2] / (4piG)
 
-    ! TC archeology: sigma is column density, we take into account the weigth of the gas
-    !                when self-gravity is off. 
-    !sigma = multipole(1)/(boxlen**2)
-    !f_max=(a1*0.5*boxlen)/(((0.5*boxlen)**2+z0**2)**0.5) + a2*(0.5*boxlen)
-    do i=1,ncell
-      x(i,3)=x(i,3)-0.5*boxlen
-      f(i,3)=-(a1*x(i,3))/(((x(i,3))**2+z0**2)**0.5) + a2*(x(i,3))
-      ! Patrick: Bug? This should be f - sigma... probably.
-      !f(i,3) = f(i,3) * sigma / (2.*f_max / 2*twopi)
-    end do
-  end select
+    ! convert to code units
+     call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+     a1 = a1 * kpc2cm / Myr2sec**2 / scale_l * scale_t**2
+     a2 = a2 / Myr2sec**2 * scale_t**2
+     z0 = z0 * pc2cm / scale_l
+
+     do i=1,ncell
+        ! the last dimension is vertical (1D -> x, 2D -> y, 3D -> z)
+        rz=x(i,ndim)-0.5d0*boxlen
+        f(i,ndim)=-a1*rz/(rz**2+z0**2)**0.5 - a2*rz
+     end do
+  end if
 
 end subroutine gravana
 !#########################################################

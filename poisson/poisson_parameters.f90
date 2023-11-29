@@ -5,11 +5,6 @@ module poisson_parameters
   real(dp)::epsilon=1.0D-4
 
   ! Type of force computation
-  ! 2  : central point mass
-  ! 1  : static vector
-  ! 0  : poisson
-  ! -1 : poisson + vertical galactic gravitational field (Kuijken & Gilmore 1989)
-  ! -2 : poisson + central point mass
   integer ::gravity_type=0
 
   ! Gravity parameters
