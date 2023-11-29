@@ -6,8 +6,7 @@ subroutine rho_ana(x,d,dx,ncell)
   use amr_parameters
   use hydro_parameters
   use poisson_parameters
-  use constants, only: mH, pi, Myr2sec, factG_in_cgs
-
+  use constants
   implicit none
   integer ::ncell                         ! Number of cells
   real(dp)::dx                            ! Cell size
