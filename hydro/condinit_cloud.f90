@@ -10,7 +10,6 @@ module cloud_module
 
   !feedback from jet
   logical:: jet = .false., rad_jet=.false. 
-  real(dp)::Ucoef=1.
   real(dp):: mass_jet_sink=0. !mass above which a jets is included
 
   !Initial conditions parameter for the dense core
@@ -20,27 +19,21 @@ module cloud_module
   real(dp)::turb=0.
   real(dp)::dens0=0.
   real(dp)::V0=0.
-  real(dp)::Height0=0.
   character(len=200)::file_init_turb='ramses.data'
 
   real(dp)::bl_fac=1.   !multiply calculated boxlen by this factor
 
-
   !Initial conditions parameters for the dense core
-  logical ::bb_test=.false. ! Activate Boss & Bodenheimer inital conditions instead of 1/R^2 density profile
   logical ::uniform_bmag=.false. ! Activate uniform magnetic field initial conditions for BE-like initial density profile
   real(dp)::mass_c=1.         !cloud mass in solar mass
-  real(dp)::contrast=100.d0   !density contrast (used when bb_test=.true.)
-  real(dp)::cont=1.           !density contrast (used when bb_test=.false.)
+  real(dp)::cont=1.           !density contrast
   real(dp)::rap=1.            !axis ratio
   real(dp)::ff_sct=1.         !freefall time / sound crossing time
   real(dp)::ff_rt=1.          !freefall time / rotation time
   real(dp)::ff_act=1.         !freefall time / Alfven crossing time
   real(dp)::ff_vct=1.         !freefall time / Vrms crossing time
-  real(dp)::theta_mag=0.      !angle between magnetic field and rotation axis
-  real(dp)::thet_mag=0.      !angle between magnetic field and rotation axis
+  real(dp)::thet_mag=0.       !angle between magnetic field and rotation axis
 
-  real(dp):: C2_vis=0.0d0 !Von Neumann & Richtmeyer artificial viscosity coefficient 3 en principe
   real(dp):: alpha_dense_core=0.5d0
   real(dp):: beta_dense_core=0.0d0
   real(dp):: crit=0.0d0
@@ -48,18 +41,7 @@ module cloud_module
   real(dp):: Mach=0.0d0
   real(dp):: r0_box=4.0d0
 
-  !delayed gravity
-  !gravity forces are applied only after this time (this is typically to prepare initial conditions)
-  !time_grav is assumed to be in Myr 
-  real(dp)::time_grav=0.0d0
-
-
 end module cloud_module
-
-
-
-
-
 !================================================================
 !================================================================
 !================================================================
@@ -90,13 +72,12 @@ subroutine calc_boxlen
   use hydro_commons
   use poisson_parameters
   use cloud_module
-!  use const
+  use constants, only:pi,M_sun
   implicit none
   !================================================================
   !this routine calculate boxlen
   !================================================================
   integer :: i
-  real(dp):: pi
   real(dp):: d_c,zeta
   real(dp):: res_int,r_0,C_s
   integer::  np
@@ -109,13 +90,11 @@ subroutine calc_boxlen
 
     if (first .eq. 0.) then
 
-    pi=acos(-1.0d0)
-
     call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
     scale_T2 = scale_T2 * mu
 
     !calculate the mass in code units (Msolar / Mparticle / pc^3
-    mass_c = mass_c * (2.d33 / (scale_d * scale_l**3) )
+    mass_c = mass_c * (M_sun / (scale_d * scale_l**3) )
 
     !calculate the sound speed
     C_s = sqrt( T2_eos / scale_T2)
@@ -139,8 +118,6 @@ subroutine calc_boxlen
     !which just state the ratio of freefall time over sound crossing time
     !from these 2 formula, rho_c and r_0 are found to be:
 
-
-
     r_0 = mass_c / (2.*pi*rap*res_int) * (ff_sct)**2 / (3.*pi/32.) / C_s**2
 
     d_c = mass_c / (2.*pi*rap*res_int) / r_0**3
@@ -161,8 +138,6 @@ subroutine calc_boxlen
     write(*,*)
     endif
 
-
-
     first=1.
     endif
 
@@ -172,30 +147,27 @@ end subroutine calc_boxlen
 !#########################################################
 !#########################################################
 !#########################################################
-subroutine read_cloud_params(nml_ok)
+subroutine read_cloud_params()
   use amr_commons
   use amr_parameters
   use clfind_commons
   use cloud_module
+  use constants, only:pi
 
   implicit none
-  logical::nml_ok
   real(dp)::cellsize
-  real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
-  real(dp),parameter::pcincm=3.086d18
   character(LEN=80)::infile
 
   !--------------------------------------------------
   ! Namelist definitions
   !--------------------------------------------------
   namelist/cloud_params/mass_c,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,thet_mag &
-       & ,bl_fac !, scale_tout,time_grav
+       & ,bl_fac
 
   ! Read namelist file
 !  rewind(1)
 !  read(1,NML=cloud_params,END=101)
 !101 continue                                   ! No harm if no namelist
-
 
   ! Read namelist file
   call getarg(1, infile) ! get the name of the namelist
@@ -203,7 +175,6 @@ subroutine read_cloud_params(nml_ok)
   read (1, NML=cloud_params)
   close (1)
 
-  
   !bad idea to use T2_star as it is used for the polytrope minimal temperature in cooling_fine
   !set T2_star
   !default value of T2_eos is 10 K
@@ -212,8 +183,6 @@ subroutine read_cloud_params(nml_ok)
   !   if(myid .eq. 1) write(*,*) 'T2_star was 0, now ',T2_star
   !endif
 
-  
-  
   ! Calculate boxlen
   if (mass_c .gt. 0) then
      call calc_boxlen
@@ -240,7 +209,7 @@ subroutine condinit_cloud(x,u,dx,nn)
   use hydro_commons
   use cloud_module
   use poisson_parameters
-!  use const
+  use constants, only:pi
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
@@ -273,7 +242,7 @@ subroutine condinit_cloud(x,u,dx,nn)
   integer,save:: n_size
   integer:: ind_i, ind_j, ind_k
   real(dp),save:: d_c,B_c,ind,seed1,seed2,seed3,xi,yi,zi,zeta
-  real(dp),save:: res_int,r_0,C_s,omega,v_rms,cont_ic,mass_total,mass_tot2,min_col_d,max_col_d
+  real(dp),save:: res_int,r_0,C_s,omega,v_rms,cont_ic,mass_total,min_col_d,max_col_d
   real(dp):: col_d,eli,sph,vx,vy,vz
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
   real(dp)::xl,yl,zl,xx,yy,zz,bx,by,bz,dxmin
@@ -285,16 +254,12 @@ subroutine condinit_cloud(x,u,dx,nn)
   real(dp)::P_WNM=0.0d0
   logical :: turbvalid = .false.
 
-!    myid=1
-
-
   ! Call built-in initial condition generator
   !call region_condinit(x,q,dx,nn)
 
    !do various things which needs to be done only one time
    if( first .eq. 0.) then
     id=1; iu=2; iv=3; iw=4; ip=5
-    pi=acos(-1.0d0)
 
     call read_cloud_params()
 
@@ -303,18 +268,10 @@ subroutine condinit_cloud(x,u,dx,nn)
     call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
     scale_T2 = scale_T2 * mu
 
-    !calculate the mass in code units (Msolar / Mparticle / pc^3
-!    mass_c = mass_c * (2.d33 / (scale_d * scale_l**3) )
-!    done in calc_boxlen
-
-    if(myid ==1) write(*,*) 'cloud mass (code units) ',mass_c
-
     !calculate the sound speed
     C_s = sqrt( T2_eos / scale_T2 )
     ! Set a WNM pressure with T=8000K and nH=0.5
     P_WNM = 8000d0/scale_T2 * 0.5/scale_nH
-
-
     if(myid == 1)  write(*,*) 'T2_eos (K) ', T2_eos
     if(myid == 1)  write(*,*)  'C_s (code unist) ', C_s
 
@@ -368,7 +325,6 @@ subroutine condinit_cloud(x,u,dx,nn)
 
     !central value of magnetic field
     !remember magnetic variable is B/sqrt(4pi)
-
     !ph 01/09 new definition entails r_0 instead of r_0 * zeta, the external radius
     B_c = ff_act * sqrt( 32./3./pi) * d_c * r_0
 
@@ -403,15 +359,12 @@ subroutine condinit_cloud(x,u,dx,nn)
     if( myid ==1) write(*,*) 'Read the file which contains the initial turbulent velocity field'
     open(20,file=file_init_turb,form='formatted')
     read(20,*) n_size, ind, seed1,seed2,seed3
-
-     if(n_size .ne. 100) then
-       write(*,*) 'Unextected field size'
+    if(n_size .ne. 100) then
+       write(*,*) 'Unexpected field size'
        stop
-     endif
+    endif
 
-     v_rms=0.
      mass_total=0.
-     mass_tot2 =0.
      do k=1,n_size
      do j=1,n_size
      do i=1,n_size
@@ -455,33 +408,24 @@ subroutine condinit_cloud(x,u,dx,nn)
 
      mass_total = mass_total*(boxlen/n_size)**3
      if (myid ==1) write(*,*) 'We verify the calculation for the mass. The 2 following values must be very close:'
-     if (myid ==1) write(*,*) 'mass_total, mass_c ',mass_total, mass_c !,mass_tot2
+     if (myid ==1) write(*,*) 'mass_total, mass_c ',mass_total, mass_c
 
      ener_rot  = 0.5 * ener_rot*(boxlen/n_size)**3
      ener_turb = 0.5 * ener_turb*(boxlen/n_size)**3
 
-     !estimate of the thermal over gravitational energy
+     !estimate energy ratios
      if (myid == 1) write(*,*) 'estimate (uniform density is assumed) of the ratio of thermal over gravitational energy'
      if (myid == 1) write(*,*)  ener_therm / ener_grav
-
      if (myid == 1) write(*,*) 'good estimate of the ratio of thermal over gravitational energy'
      if (myid == 1) write(*,*)  ener_therm / ener_grav2
-
-     !estimate of the rotational over gravitational energy ratio
      if (myid .eq. 1) write(*,*) 'estimate of the rotational over gravitational energy ratio'
      if (myid .eq. 1) write(*,*) 'ener_rot/ener_grav2 ', ener_rot / ener_grav2
 
-
-     !calculate now the coefficient by which the turbulence velocity needs
-     !to be multiplied
-
+     !calculate now the coefficient by which the turbulence velocity needs to be multiplied
      if (myid .eq. 1) write(*,*) 'vrms non norm ',v_rms
-
     !ph 01/09 new definition entails r_0 instead of r_0 * zeta, the external radius
      v_rms = ff_vct * sqrt(32.*d_c/3./pi)*r_0 / v_rms
-
      if (myid .eq. 1) write(*,*) 'vrms mult ',v_rms
-
 
      !estimate of the turbulent over gravitational energy ratio
      if (myid .eq. 1) write(*,*) 'estimate of the turbulent over gravitational energy ratio'
@@ -499,17 +443,12 @@ subroutine condinit_cloud(x,u,dx,nn)
 
 
    DO i=1,nn
-
-
        x(i,1) = x(i,1) - 0.5*boxlen
        x(i,2) = x(i,2) - 0.5*boxlen
        x(i,3) = x(i,3) - 0.5*boxlen
 
-
        !initialise the density field
        eli =  (x(i,1)/r_0)**2+(x(i,2)/r_0)**2+(x(i,3)/(r_0*rap))**2
-
-
 
        if( eli .le. zeta**2) then
           ! Is inside the cloud
