@@ -118,7 +118,7 @@ subroutine calc_boxlen
     mass_c = mass_c * (2.d33 / (scale_d * scale_l**3) )
 
     !calculate the sound speed
-    C_s = sqrt( T2_star / scale_T2)
+    C_s = sqrt( T2_eos / scale_T2)
 
     !calculate  zeta=r_ext/r_0
     zeta = sqrt(cont - 1.)
@@ -204,13 +204,13 @@ subroutine read_cloud_params(nml_ok)
   close (1)
 
   
-
+  !bad idea to use T2_star as it is used for the polytrope minimal temperature in cooling_fine
   !set T2_star
   !default value of T2_eos is 10 K
-  if(T2_star .eq. 0) then
-     T2_star = T2_eos 
-     if(myid .eq. 1) write(*,*) 'T2_star was 0, now ',T2_star
-  endif
+  !if(T2_star .eq. 0) then
+  !   T2_star = T2_eos 
+  !   if(myid .eq. 1) write(*,*) 'T2_star was 0, now ',T2_star
+  !endif
 
   
   
@@ -310,12 +310,12 @@ subroutine condinit_cloud(x,u,dx,nn)
     if(myid ==1) write(*,*) 'cloud mass (code units) ',mass_c
 
     !calculate the sound speed
-    C_s = sqrt( T2_star / scale_T2 )
+    C_s = sqrt( T2_eos / scale_T2 )
     ! Set a WNM pressure with T=8000K and nH=0.5
     P_WNM = 8000d0/scale_T2 * 0.5/scale_nH
 
 
-    if(myid == 1)  write(*,*) 'T2_star (K) ', T2_star
+    if(myid == 1)  write(*,*) 'T2_eos (K) ', T2_eos
     if(myid == 1)  write(*,*)  'C_s (code unist) ', C_s
 
     !cont_ic is the density contrast between the edge of the cloud and the intercloud medium
