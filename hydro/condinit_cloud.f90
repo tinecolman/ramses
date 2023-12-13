@@ -232,7 +232,6 @@ subroutine condinit_cloud(x,u,dx,nn)
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
   integer :: i,j,k,id,iu,iv,iw,ip
-  real(dp):: pi
   integer :: ivar
   real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
 
