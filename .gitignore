@@ -27,3 +27,6 @@ histo
 part2cylprof
 Makefile.*
 __pycache__
+*.pdf
+*.tex
+*.log
