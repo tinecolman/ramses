@@ -44,6 +44,8 @@ units_length=3.0857d18
 
 &COOLING_PARAMS
 cooling=.true.
+cooling_frig=.false. ! This corrects for the default configuration of the branch
+cooling_ism=.false.
 mu_gas=1.4d0
 /
 
