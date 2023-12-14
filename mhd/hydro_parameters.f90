@@ -7,6 +7,10 @@ module hydro_parameters
 #else
   integer,parameter::nener=NENER
 #endif
+
+!variable nrad is needed, but not erally used apparently
+integer,parameter::nrad=0
+
 !#ifndef NGRP
 !  integer,parameter::ngrp=0   ! Number of radiative energy groups
 !#else
