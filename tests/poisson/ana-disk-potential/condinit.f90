@@ -90,3 +90,36 @@ subroutine condinit(x,u,dx,nn)
 #endif
 
 end subroutine condinit
+
+
+! Added bounday_frig. Probably there is a smoother way to solve the problem
+subroutine boundary_frig(ilevel)
+  use hydro_parameters
+  use amr_commons
+
+  !================================================================
+  !This routine calls for special boundary conditions designed for each initial conditions
+  !================================================================
+  implicit none
+
+  integer::ilevel
+
+  select case (condinit_kind)
+
+  case('galbox')
+     call boundary_frig_galbox(ilevel)
+  case('cloud')
+     return
+  case('group')
+     return
+  case('default')
+     return
+
+  case DEFAULT
+     return
+
+  end select
+
+
+end subroutine boundary_frig
+
