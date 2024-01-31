@@ -22,6 +22,9 @@ module poisson_parameters
   integer, parameter :: ngs_fine   = 2
   integer, parameter :: ngs_coarse = 2
 
+  ! Disable gravity-kick (but still compute the potential)
+  logical :: no_gravity_kick = .false.
+
   ! Number of multigrid cycles for coarse levels *in safe mode*
   !   1 is the fastest,
   !   2 is slower but can give much better convergence in some cases

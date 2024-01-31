@@ -157,7 +157,7 @@ subroutine set_uold(ilevel)
   dx=0.5d0**ilevel*scale
 
   ! Add gravity source terms to unew
-  if(poisson)then
+  if(poisson .and. .not. no_gravity_kick)then
      call add_gravity_source_terms(ilevel)
   end if
 
