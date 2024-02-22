@@ -8,7 +8,7 @@ module hydro_parameters
   integer,parameter::nener=NENER
 #endif
 
-!variable nrad is needed, but not erally used apparently
+!variable nrad is needed, but not really used apparently
 integer,parameter::nrad=0
 
 !#ifndef NGRP
