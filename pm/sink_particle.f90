@@ -1203,12 +1203,15 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
   real(dp),dimension(1:3)::vv,v_mom
 
   real(dp),dimension(1:3)::r_rel,v_rel,x_acc,p_acc,l_acc
+  real(dp),dimension(1:3)::jets_momentum  
   real(dp)::fbk_ener_AGN,fbk_mom_AGN,fbk_mass_jets,fbk_mom_jets
   logical,dimension(1:ndim)::period
 
   real(dp)::tan_theta,cone_dist,orth_dist,rr2
   real(dp),dimension(1:3)::cone_dir,orth_dir,perp_dir
   real(dp)::v_jets
+  
+  real(dp)::e_kin_old
 
 #if NDIM==3
 
@@ -1263,7 +1266,8 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
 
              !PH retrieve the kinetic energy as well
              !we change the velocity of the gas to conserve angular momentum
-             e = e - 0.5*(uold(indp(j,ind),2)**2+uold(indp(j,ind),3)**2+uold(indp(j,ind),4)**2)/uold(indp(j,ind),1)
+             e_kin_old = 0.5*(uold(indp(j,ind),2)**2+uold(indp(j,ind),3)**2+uold(indp(j,ind),4)**2)/uold(indp(j,ind),1)
+             e = e - e_kin_old
 
 #ifdef SOLVERmhd
              bx1=uold(indp(j,ind),6)
@@ -1303,7 +1307,7 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
              rr2 = r_rel(1)**2+r_rel(2)**2+r_rel(3)**2
              v_mom(1:3) = v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3)
              !The new specific energy that have been added.
-             e = e + 0.5* ( (vv(1)-v_mom(1))**2 + (vv(2)-v_mom(2))**2 + (vv(3)-v_mom(3))**2 )
+             !e = e + 0.5* ( (vv(1)-v_mom(1))**2 + (vv(2)-v_mom(2))**2 + (vv(3)-v_mom(3))**2 )
 
              ! Cloud particle CIC weight
 !             weight=weightp(ind_part(j),ind)
@@ -1363,10 +1367,19 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                      !grande.
 
                      !PH comprend pas le rsink_star 11/09/2020
-                     unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4) + fbk_mom_jets/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) + rsink_star(isink)/sqrt(sum(r_rel(1:3)**2))*0.5*fbk_mom_jets/vol_tot_for_jets_all(isink) *perp_dir(1:3)
+                     jets_momentum(1:3)=fbk_mom_jets/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) + rsink_star(isink)/sqrt(sum(r_rel(1:3)**2))*0.5*fbk_mom_jets/vol_tot_for_jets_all(isink) *perp_dir(1:3)
+                     !PS: jets_momentum is currently in lab frame rather than sink's one. This should not be a problem since v_sink<<v_jet
+                     unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4) + jets_momentum(1:3)
 
                      !PH : may be a problem with "e" velocity should be taken into account 11/09/2020
                      unew(indp(j,ind),5)=unew(indp(j,ind),5)+M_for_jets_all(isink)*e/vol_tot_for_jets_all(isink)  !e est defini plus haut
+                     !PS : two possible ways of adding the kinetic contribution of jets. 
+                     ! 1) Add the total energy added by the jets (rho_j * e + 1/2 rho_j v_j^2)
+                     ! 2) Subtract the old kinetic energy, and sum the new one.
+                     ! The 2nd neglect the energy produced by the 'anelastic' collision between the jets and the gas - maybe differences when adding B?
+                     ! The first method is used (second commented). With 2) few cells end up with little negative temperature
+                     !unew(indp(j,ind),5)=unew(indp(j,ind),5) - e_kin_old +0.5*(unew(indp(j,ind),2)**2 + unew(indp(j,ind),3)**2 + unew(indp(j,ind),4)**2)/unew(indp(j,ind),1) 
+                     unew(indp(j,ind),5)=unew(indp(j,ind),5) + 0.5*(jets_momentum(1)**2 + jets_momentum(2)**2 + jets_momentum(3)**2) / (M_for_jets_all(isink)/vol_tot_for_jets_all(isink))
 
                      !Comptage de la masse reellement mise dans le jet
                      M_jet_new(isink)=M_jet_new(isink)+M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
