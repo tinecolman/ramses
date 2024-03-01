@@ -55,14 +55,17 @@ subroutine init_hydro
   if(nrestart>0)then
      ilun=ncpu+myid+103
      call title(nrestart,nchar)
+
      if(IOGROUPSIZEREP>0)then
         call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
         fileloc='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/hydro_'//TRIM(nchar)//'.out'
      else
         fileloc='output_'//TRIM(nchar)//'/hydro_'//TRIM(nchar)//'.out'
      endif
+
      call title(myid,nchar)
      fileloc=TRIM(fileloc)//TRIM(nchar)
+
      ! Wait for the token
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then
@@ -72,6 +75,7 @@ subroutine init_hydro
         end if
      endif
 #endif
+
      open(unit=ilun,file=fileloc,form='unformatted')
      read(ilun)ncpu2
      read(ilun)nvar2
@@ -113,7 +117,9 @@ subroutine init_hydro
               ! Loop over cells
               do ind=1,twotondim
                  iskip=ncoarse+(ind-1)*ngridmax
+
                  ! Loop over conservative variables
+                 ! Read density and velocities --> density and momenta
                  do ivar=1,4
                     read(ilun)xx
                     if(ivar==1)then ! Read density
@@ -147,8 +153,8 @@ subroutine init_hydro
                     end do
                  end do
 #endif
-
-                 read(ilun)xx ! Read pressure
+                 ! Read thermal pressure --> total fluid energy
+                 read(ilun)xx
                  do i=1,ncache
                     e=xx(i)/(gamma-1d0)
                     d=max(uold(ind_grid(i)+iskip,1),smallr)
@@ -167,7 +173,8 @@ subroutine init_hydro
                     uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
                  end do
 #if NVAR > 8+NENER
-                 do ivar=9+nener,nvar ! Read passive scalars if any
+                 ! Read passive scalars if any
+                 do ivar=9+nener,nvar
                     read(ilun)xx
                     do i=1,ncache
                        uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)
@@ -180,6 +187,7 @@ subroutine init_hydro
         end do
      end do
      close(ilun)
+
      ! Send the token
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then
@@ -196,7 +204,6 @@ subroutine init_hydro
      call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif
      if(verbose)write(*,*)'HYDRO backup files read completed'
-
   end if
 
 end subroutine init_hydro

@@ -58,7 +58,7 @@ subroutine cmpdt(uu,gg,dx,dt,ncell)
 #if NENER>0
   do irad = 1,nener
      do k = 1, ncell
-        a2(k) = a2(k) + gamma_rad(irad)*(gamma_rad(irad)-1.0d0)*uu(k,8+irad)/uu(k,1)
+        a2(k) = a2(k) + gamma_rad(irad)*(gamma_rad(irad)-1)*uu(k,8+irad)/uu(k,1)
      end do
   end do
 #endif

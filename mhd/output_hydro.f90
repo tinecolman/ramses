@@ -12,7 +12,7 @@ subroutine backup_hydro(filename, filename_desc)
 
   integer :: i, ivar, ncache, ind, ilevel, igrid, iskip, istart, ibound
   integer :: unit_out, unit_info
-  real(dp) :: d, u, v, w, A, B, C, e
+  real(dp) :: d, A, B, C
   integer, allocatable, dimension(:) :: ind_grid
   real(dp), allocatable, dimension(:) :: xdp
   character(LEN = 5) :: nchar
@@ -86,7 +86,8 @@ subroutine backup_hydro(filename, filename_desc)
                        xdp(i) = uold(ind_grid(i)+iskip, 1)
                     end do
                     field_name = 'density'
-                 else ! Write velocity field
+                 else
+                    ! Write velocity field
                     do i = 1, ncache
                        xdp(i) = uold(ind_grid(i)+iskip, ivar)/max(uold(ind_grid(i)+iskip, 1), smallr)
                     end do
@@ -118,21 +119,23 @@ subroutine backup_hydro(filename, filename_desc)
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
 #endif
-              do i = 1, ncache ! Write thermal pressure
+              ! Write thermal pressure
+              do i = 1, ncache
                  d = max(uold(ind_grid(i)+iskip, 1), smallr)
-                 u = uold(ind_grid(i)+iskip, 2)/d
-                 v = uold(ind_grid(i)+iskip, 3)/d
-                 w = uold(ind_grid(i)+iskip, 4)/d
-                 A = 0.5*(uold(ind_grid(i)+iskip, 6)+uold(ind_grid(i)+iskip, nvar+1))
-                 B = 0.5*(uold(ind_grid(i)+iskip, 7)+uold(ind_grid(i)+iskip, nvar+2))
-                 C = 0.5*(uold(ind_grid(i)+iskip, 8)+uold(ind_grid(i)+iskip, nvar+3))
-                 e = uold(ind_grid(i)+iskip, 5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+                 xdp(i) = uold(ind_grid(i)+iskip, 5)
+                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 2)**2/d
+                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 3)**2/d
+                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 4)**2/d
+                 A = 0.5d0*(uold(ind_grid(i)+iskip, 6)+uold(ind_grid(i)+iskip, nvar+1))
+                 B = 0.5d0*(uold(ind_grid(i)+iskip, 7)+uold(ind_grid(i)+iskip, nvar+2))
+                 C = 0.5d0*(uold(ind_grid(i)+iskip, 8)+uold(ind_grid(i)+iskip, nvar+3))
+                 xdp(i) = xdp(i) - 0.5*(A**2+B**2+C**2)
 #if NENER > 0
                  do irad = 1, nener
-                    e = e-uold(ind_grid(i)+iskip, 8+irad)
+                    xdp(i) = xdp(i)-uold(ind_grid(i)+iskip, 8+irad)
                  end do
 #endif
-                 xdp(i) = (gamma-1d0)*e
+                 xdp(i) = (gamma-1d0)*xdp(i)
               end do
               field_name = 'pressure'
               call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
@@ -141,7 +144,7 @@ subroutine backup_hydro(filename, filename_desc)
                  do i = 1, ncache
                     xdp(i) = uold(ind_grid(i)+iskip, ivar)/max(uold(ind_grid(i)+iskip, 1), smallr)
                  end do
-                 if (imetal == ivar) then
+                 if (metal .and. imetal == ivar) then
                     field_name = 'metallicity'
                  else
                     write(field_name, '("scalar_", i0.2)') ivar - 9-nener

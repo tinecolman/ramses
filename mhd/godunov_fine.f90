@@ -65,7 +65,7 @@ subroutine set_unew(ilevel)
      end do
      if(pressure_fix)then
         do i=1,active(ilevel)%ngrid
-           divu(active(ilevel)%igrid(i)+iskip) = 0.0
+           divu(active(ilevel)%igrid(i)+iskip) = 0
         end do
         do i=1,active(ilevel)%ngrid
            d=max(uold(active(ilevel)%igrid(i)+iskip,1),smallr)
@@ -92,13 +92,13 @@ subroutine set_unew(ilevel)
      iskip=ncoarse+(ind-1)*ngridmax
      do ivar=1,nvar+3
         do i=1,reception(icpu,ilevel)%ngrid
-           unew(reception(icpu,ilevel)%igrid(i)+iskip,ivar)=0.0
+           unew(reception(icpu,ilevel)%igrid(i)+iskip,ivar)=0
         end do
      end do
      if(pressure_fix)then
         do i=1,reception(icpu,ilevel)%ngrid
-           divu(reception(icpu,ilevel)%igrid(i)+iskip) = 0.0
-           enew(reception(icpu,ilevel)%igrid(i)+iskip) = 0.0
+           divu(reception(icpu,ilevel)%igrid(i)+iskip) = 0
+           enew(reception(icpu,ilevel)%igrid(i)+iskip) = 0
         end do
      end if
   end do
@@ -188,13 +188,13 @@ subroutine set_uold(ilevel)
   use poisson_commons
   implicit none
   integer::ilevel
-  !--------------------------------------------------------------------------
-  ! This routine sets array uold to its new value unew after the
-  ! hydro step.
-  !--------------------------------------------------------------------------
+  !---------------------------------------------------------
+  ! This routine sets array uold to its new value unew
+  ! after the hydro step.
+  !---------------------------------------------------------
   integer::i,ivar,ind,iskip,nx_loc,ind_cell
   real(dp)::scale,d,u,v,w,A,B,C
-  real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,dx,fact
+  real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,dx
 #if NENER>0
   integer::irad
 #endif
@@ -246,7 +246,6 @@ subroutine set_uold(ilevel)
         end do
      end do
      if(pressure_fix)then
-        fact=(gamma-1.0d0)
         do i=1,active(ilevel)%ngrid
            ind_cell=active(ilevel)%igrid(i)+iskip
            d=max(uold(ind_cell,1),smallr)
@@ -306,11 +305,11 @@ subroutine add_gravity_source_terms(ilevel)
      do i=1,active(ilevel)%ngrid
         ind_cell=active(ilevel)%igrid(i)+iskip
         d=max(unew(ind_cell,1),smallr)
-        u=0.0; v=0.0; w=0.0
+        u=0; v=0; w=0
         if(ndim>0)u=unew(ind_cell,2)/d
         if(ndim>1)v=unew(ind_cell,3)/d
         if(ndim>2)w=unew(ind_cell,4)/d
-        e_kin=0.5*d*(u**2+v**2+w**2)
+        e_kin=0.5d0*d*(u**2+v**2+w**2)
         e_prim=unew(ind_cell,5)-e_kin
         d_old=max(uold(ind_cell,1),smallr)
         fact=d_old/d*0.5*dtnew(ilevel)
@@ -326,7 +325,7 @@ subroutine add_gravity_source_terms(ilevel)
            w=w+f(ind_cell,3)*fact
            unew(ind_cell,4)=d*w
         endif
-        e_kin=0.5*d*(u**2+v**2+w**2)
+        e_kin=0.5d0*d*(u**2+v**2+w**2)
         unew(ind_cell,5)=e_prim+e_kin
      end do
   end do
@@ -452,14 +451,14 @@ subroutine add_pdv_source_terms(ilevel)
            do i=1,ngrid
               ! Compute old thermal energy
               d=max(uold(ind_cell(i),1),smallr)
-              u=0.0; v=0.0; w=0.0
+              u=0; v=0; w=0
               if(ndim>0)u=uold(ind_cell(i),2)/d
               if(ndim>1)v=uold(ind_cell(i),3)/d
               if(ndim>2)w=uold(ind_cell(i),4)/d
               A=0.5*(uold(ind_cell(i),6)+uold(ind_cell(i),nvar+1))
               B=0.5*(uold(ind_cell(i),7)+uold(ind_cell(i),nvar+2))
               C=0.5*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
-              eold=uold(ind_cell(i),5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+              eold=uold(ind_cell(i),5)-0.5d0*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
 #if NENER>0
               do irad=1,nener
                  eold=eold-uold(ind_cell(i),8+irad)
@@ -498,11 +497,11 @@ subroutine add_pdv_source_terms(ilevel)
            ind_cell1=active(ilevel)%igrid(i)+iskip
            ! Compute old thermal energy
            d=max(uold(ind_cell1,1),smallr)
-           u=0.0; v=0.0; w=0.0
+           u=0; v=0; w=0
            if(ndim>0)u=uold(ind_cell1,2)/d
            if(ndim>1)v=uold(ind_cell1,3)/d
            if(ndim>2)w=uold(ind_cell1,4)/d
-           eold=uold(ind_cell1,5)-0.5*d*(u**2+v**2+w**2)
+           eold=uold(ind_cell1,5)-0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
            do irad=1,nener
               eold=eold-uold(ind_cell1,8+irad)
@@ -585,7 +584,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   ! Mesh spacing in that level
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
-  dx=0.5D0**ilevel*scale
+  dx=0.5d0**ilevel*scale
 
   ! Integer constants
   i1min=0; i1max=0; i2min=0; i2max=0; i3min=1; i3max=1

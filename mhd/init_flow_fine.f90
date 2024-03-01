@@ -195,6 +195,7 @@ subroutine init_flow_fine(ilevel)
            if(myid==1)write(*,*)'Reading file '//TRIM(filename)
            if(multiple)then
               ilun=ncpu+myid+103
+
               ! Wait for the token
 #ifndef WITHOUTMPI
               if(IOGROUPSIZE>0) then
@@ -204,6 +205,7 @@ subroutine init_flow_fine(ilevel)
                  end if
               endif
 #endif
+
               open(ilun,file=filename,form='unformatted')
               rewind ilun
               read(ilun) ! skip first line
@@ -237,7 +239,7 @@ subroutine init_flow_fine(ilevel)
                  if(myid==1)then
                     read(10) ((init_plane(i1,i2),i1=1,n1(ilevel)),i2=1,n2(ilevel))
                  else
-                    init_plane=0.0
+                    init_plane=0
                  endif
                  buf_count=n1(ilevel)*n2(ilevel)
 #ifndef WITHOUTMPI
@@ -260,7 +262,7 @@ subroutine init_flow_fine(ilevel)
            if(ncache>0)then
               init_array=0d0
               ! Default value for metals
-              if(cosmo.and.ivar==imetal.and.metal)init_array=z_ave*0.02
+              if(cosmo.and.ivar==imetal.and.metal)init_array=z_ave*0.02d0 ! from solar units
               ! Default value for Bz
               if(cosmo.and.ivar==8)init_array=B_ave
               if(cosmo.and.ivar==nvar+3)init_array=B_ave
@@ -270,13 +272,14 @@ subroutine init_flow_fine(ilevel)
         if(ncache>0)then
            if(cosmo)then
               ! Rescale initial conditions to code units
-              if(.not. cooling)T2_start = 1.356d-2/aexp**2
-              if(ivar==1)init_array=(1.0+dfact(ilevel)*init_array)*omega_b/omega_m
+              if(.not. cooling)T2_start=1.356d-2/aexp**2
+              if(ivar==1)init_array=(1.0d0+dfact(ilevel)*init_array)*omega_b/omega_m
               if(ivar==2)init_array=dfact(ilevel)*vfact(1)*dx_loc/dxini(ilevel)*init_array/vfact(ilevel)
               if(ivar==3)init_array=dfact(ilevel)*vfact(1)*dx_loc/dxini(ilevel)*init_array/vfact(ilevel)
               if(ivar==4)init_array=dfact(ilevel)*vfact(1)*dx_loc/dxini(ilevel)*init_array/vfact(ilevel)
-              if(ivar==5)init_array=(1.0+init_array)*T2_start/scale_T2
+              if(ivar==5)init_array=(1.0d0+init_array)*T2_start/scale_T2
            endif
+
            ! Loop over cells
            do ind=1,twotondim
               iskip=ncoarse+(ind-1)*ngridmax
@@ -308,9 +311,9 @@ subroutine init_flow_fine(ilevel)
      if(ncache>0)deallocate(init_array)
      deallocate(init_plane)
 
-     !-------------------------------------------------------------------
+     !----------------------------------------------------------------
      ! For cosmology runs: compute pressure, prevent negative density
-     !-------------------------------------------------------------------
+     !----------------------------------------------------------------
      if(cosmo)then
         ! Loop over grids by vector sweeps
         do igrid=1,ncache,nvector
@@ -327,7 +330,7 @@ subroutine init_flow_fine(ilevel)
               end do
               ! Prevent negative density
               do i=1,ngrid
-                 rr=max(uold(ind_cell(i),1),0.1*omega_b/omega_m)
+                 rr=max(uold(ind_cell(i),1),0.1d0*omega_b/omega_m)
                  uold(ind_cell(i),1)=rr
               end do
               ! Compute pressure from temperature and density
@@ -368,7 +371,7 @@ subroutine init_flow_fine(ilevel)
               bz=0.5d0*(uold(ind_cell(i),8)+uold(ind_cell(i),nvar+3))
               ek=0.5d0*(vx**2+vy**2+vz**2)
               em=0.5d0*(bx**2+by**2+bz**2)
-              ei=pp/(gamma-1.0)
+              ei=pp/(gamma-1.0d0)
               vv(i)=ei+rr*ek+em
            end do
            ! Scatter to corresponding conservative variable
@@ -514,7 +517,7 @@ subroutine region_condinit(x,q,dx,nn)
 #endif
            ! Compute cell "radius" relative to region center
            if(exp_region(k)<10)then
-              r=(xn**en+yn**en+zn**en)**(1.0/en)
+              r=(xn**en+yn**en+zn**en)**(1.0d0/en)
            else
               r=max(xn,yn,zn)
            end if
@@ -542,7 +545,6 @@ subroutine region_condinit(x,q,dx,nn)
                  q(i,ivar)=var_region(k,ivar-8-nener)
               end do
 #endif
-
            end if
         end do
      end if
@@ -553,13 +555,13 @@ subroutine region_condinit(x,q,dx,nn)
         vol=dx**ndim
         ! Compute CIC weights relative to region center
         do i=1,nn
-           xn=1.0; yn=1.0; zn=1.0
-           xn=max(1.0-abs(x(i,1)-x_center(k))/dx,0.0_dp)
+           xn=1; yn=1; zn=1
+           xn=max(1d0-abs(x(i,1)-x_center(k))/dx, 0.0_dp)
 #if NDIM>1
-           yn=max(1.0-abs(x(i,2)-y_center(k))/dx,0.0_dp)
+           yn=max(1d0-abs(x(i,2)-y_center(k))/dx, 0.0_dp)
 #endif
 #if NDIM>2
-           zn=max(1.0-abs(x(i,3)-z_center(k))/dx,0.0_dp)
+           zn=max(1d0-abs(x(i,3)-z_center(k))/dx,0.0_dp)
 #endif
            r=xn*yn*zn
            ! If cell lies within CIC cloud,

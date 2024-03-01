@@ -44,37 +44,37 @@ module hydro_parameters
   real(dp),dimension(1:MAXBOUND)::C_bound=0
 
   ! Refinement parameters for hydro
-  real(dp)::err_grad_d=-1.0  ! Density gradient
-  real(dp)::err_grad_u=-1.0  ! Velocity gradient
-  real(dp)::err_grad_p=-1.0  ! Pressure gradient
-  real(dp)::err_grad_A=-1.0  ! Bx gradient
-  real(dp)::err_grad_B=-1.0  ! By gradient
-  real(dp)::err_grad_C=-1.0  ! Bz gradient
-  real(dp)::err_grad_B2=-1.0 ! B L2 norm gradient
-  real(dp)::floor_d=1d-10   ! Density floor
-  real(dp)::floor_u=1d-10   ! Velocity floor
-  real(dp)::floor_p=1d-10   ! Pressure floor
-  real(dp)::floor_A=1d-10   ! Bx floor
-  real(dp)::floor_B=1d-10   ! By floor
-  real(dp)::floor_C=1d-10   ! Bz floor
-  real(dp)::floor_b2=1d-10  ! B L2 norm floor
-  real(dp)::mass_sph=0.0D0   ! mass_sph
-  real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1.0
+  real(dp)::err_grad_d=-1.0d0  ! Density gradient
+  real(dp)::err_grad_u=-1.0d0  ! Velocity gradient
+  real(dp)::err_grad_p=-1.0d0  ! Pressure gradient
+  real(dp)::err_grad_A=-1.0d0  ! Bx gradient
+  real(dp)::err_grad_B=-1.0d0  ! By gradient
+  real(dp)::err_grad_C=-1.0d0  ! Bz gradient
+  real(dp)::err_grad_B2=-1.0d0 ! B L2 norm gradient
+  real(dp)::floor_d=1d-10     ! Density floor
+  real(dp)::floor_u=1d-10     ! Velocity floor
+  real(dp)::floor_p=1d-10     ! Pressure floor
+  real(dp)::floor_A=1d-10     ! Bx floor
+  real(dp)::floor_B=1d-10     ! By floor
+  real(dp)::floor_C=1d-10     ! Bz floor
+  real(dp)::floor_b2=1d-10    ! B L2 norm floor
+  real(dp)::mass_sph=0.0d0     ! mass_sph
+  real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1
 
   ! Initial conditions hydro variables
-  real(dp),dimension(1:MAXREGION)::d_region=0.
-  real(dp),dimension(1:MAXREGION)::u_region=0.
-  real(dp),dimension(1:MAXREGION)::v_region=0.
-  real(dp),dimension(1:MAXREGION)::w_region=0.
-  real(dp),dimension(1:MAXREGION)::p_region=0.
-  real(dp),dimension(1:MAXREGION)::A_region=0.
-  real(dp),dimension(1:MAXREGION)::B_region=0.
-  real(dp),dimension(1:MAXREGION)::C_region=0.
+  real(dp),dimension(1:MAXREGION)::d_region=0
+  real(dp),dimension(1:MAXREGION)::u_region=0
+  real(dp),dimension(1:MAXREGION)::v_region=0
+  real(dp),dimension(1:MAXREGION)::w_region=0
+  real(dp),dimension(1:MAXREGION)::p_region=0
+  real(dp),dimension(1:MAXREGION)::A_region=0
+  real(dp),dimension(1:MAXREGION)::B_region=0
+  real(dp),dimension(1:MAXREGION)::C_region=0
 #if NENER>0
-  real(dp),dimension(1:MAXREGION,1:NENER)::prad_region=0.0
+  real(dp),dimension(1:MAXREGION,1:NENER)::prad_region=0
 #endif
 #if NVAR>8+NENER
-  real(dp),dimension(1:MAXREGION,1:NVAR-8-NENER)::var_region=0.0
+  real(dp),dimension(1:MAXREGION,1:NVAR-8-NENER)::var_region=0
 #endif
 
   ! Hydro solver parameters
@@ -85,10 +85,10 @@ module hydro_parameters
   real(dp)::gamma=1.4d0
   real(dp),dimension(1:512)::gamma_rad=1.33333333334d0
   real(dp)::courant_factor=0.5d0
-  real(dp)::difmag=0.0d0
-  real(dp)::smallc=1d-10
-  real(dp)::smallr=1d-10
-  real(dp)::eta_mag=0.0d0
+  real(dp)::difmag=0
+  real(dp)::smallc=1.0d-10
+  real(dp)::smallr=1.0d-10
+  real(dp)::eta_mag=0
   character(LEN=10)::scheme='muscl'
   character(LEN=10)::riemann='llf'
   character(LEN=10)::riemann2d='llf'
