@@ -6,13 +6,23 @@ module hydro_parameters
   use amr_parameters
 
   ! Number of independant variables
+
+  ! Euler variables: density, velocity, pressure
+  integer,parameter::neul=ndim+2
+#ifndef NHYDRO
+  integer,parameter::nhydro=neul
+#else
+  integer,parameter::nhydro=NHYDRO
+#endif
+  ! non-thermal energies
 #ifndef NENER
   integer,parameter::nener=0
 #else
   integer,parameter::nener=NENER
 #endif
+  ! total amount of variables
 #ifndef NVAR
-  integer,parameter::nvar=ndim+2+nener
+  integer,parameter::nvar=nhydro+nener
 #else
   integer,parameter::nvar=NVAR
 #endif
@@ -61,8 +71,8 @@ module hydro_parameters
 #if NENER>0
   real(dp),dimension(1:MAXREGION,1:NENER)::prad_region=0
 #endif
-#if NVAR>NDIM+2+NENER
-  real(dp),dimension(1:MAXREGION,1:NVAR-NDIM-2-NENER)::var_region=0
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:MAXREGION,1:NVAR-NHYDRO-NENER)::var_region=0
 #endif
   ! Hydro solver parameters
   integer ::niter_riemann=10
@@ -82,12 +92,12 @@ module hydro_parameters
   integer ::interpol_type=1
 
   ! Passive variables index
-  integer::imetal=6
-  integer::idelay=6
-  integer::ixion=6
-  integer::ichem=6
-  integer::ivirial1=6
-  integer::ivirial2=6
-  integer::inener=6
+  integer::imetal=nhydro+1
+  integer::idelay=nhydro+1
+  integer::ixion=nhydro+1
+  integer::ichem=nhydro+1
+  integer::ivirial1=nhydro+1
+  integer::ivirial2=nhydro+1
+  integer::inener=nhydro+1
 
 end module hydro_parameters

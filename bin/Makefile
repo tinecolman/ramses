@@ -45,11 +45,11 @@ NPSCAL = 0
 LIGHT_MPI_COMM = 0
 
 # Compute NVAR
-NVAR = 2+$(NDIM)
+NHYDRO = 2+$(NDIM)
 ifeq ($(SOLVER),mhd)
-   NVAR = 8
+   NHYDRO = 8
 endif
-NVAR := $(NVAR)+$(NENER)+$(NPSCAL)+$(NMETALS)
+NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
 ifeq ($(RT),1)
    NVAR := $(NVAR)+$(NIONS)
 endif
@@ -64,7 +64,7 @@ GITREPO = $(shell git config --get remote.$(GITREMOTE).url)
 BUILDDATE = $(shell date +"%D-%T")
 BUILDCOMMAND =${MAKE} ${MAKEFLAGS}
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) \
-          -DNVAR=$(NVAR) -DSOLVER$(SOLVER)
+          -DNVAR=$(NVAR) -DNHYDRO=$(NHYDRO) -DSOLVER$(SOLVER)
 ifeq ($(ATON),1)
    DEFINES += -DATON
 endif

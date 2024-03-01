@@ -621,10 +621,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   real(dp)::dx,dx_loc,scale
   real(dp),dimension(1:3)::xc,skip_loc
 #ifdef SOLVERmhd
-  integer::neul=5
   integer ,dimension(1:nvector,0:twondim),save::ind1
-#else
-  integer::neul=ndim+2
 #endif
   real(dp),dimension(1:nvector,0:twondim  ,1:nvar_all),save::u1
   real(dp),dimension(1:nvector,1:twotondim,1:nvar_all),save::u2

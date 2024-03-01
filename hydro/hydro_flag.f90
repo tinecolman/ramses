@@ -207,11 +207,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      indi = ind_cell(i)
      ! the thermal energy
      dens = max(uold(indi,1),smallr)
-#ifdef SOLVERmhd
-     etherm = uold(indi,5)
-#else
-     etherm = uold(indi,ndim+2)
-#endif
+     etherm = uold(indi,neul)
      etherm = etherm - 0.5d0*uold(indi,2)**2/dens
 #if NDIM > 1 || SOLVERmhd
      etherm = etherm - 0.5d0*uold(indi,3)**2/dens
@@ -229,11 +225,7 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
 #endif
 #if NENER>0
      do irad=1,nener
-#ifdef SOLVERmhd
-        etherm=etherm-uold(indi,8+irad)
-#else
-        etherm=etherm-uold(indi,ndim+2+irad)
-#endif
+        etherm=etherm-uold(indi,nhydro+irad)
      end do
 #endif
      ! the temperature

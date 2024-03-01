@@ -120,7 +120,7 @@ subroutine init_hydro
 
                  ! Loop over conservative variables
                  ! Read density and velocities --> density and momenta
-                 do ivar=1,4
+                 do ivar=1,neul-1
                     read(ilun)xx
                     if(ivar==1)then ! Read density
                        do i=1,ncache
@@ -146,10 +146,10 @@ subroutine init_hydro
                  end do
 #if NENER>0
                  ! Read non-thermal pressures --> non-thermal energies
-                 do ivar=9,8+nener
+                 do ivar=nhydro+1,nhydro+nener
                     read(ilun)xx
                     do i=1,ncache
-                       uold(ind_grid(i)+iskip,ivar)=xx(i)/(gamma_rad(ivar-8)-1d0)
+                       uold(ind_grid(i)+iskip,ivar)=xx(i)/(gamma_rad(ivar-nhydro)-1d0)
                     end do
                  end do
 #endif
@@ -166,15 +166,15 @@ subroutine init_hydro
                     C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
 #if NENER>0
                     do irad=1,nener
-                       e=e+uold(ind_grid(i)+iskip,8+irad)
+                       e=e+uold(ind_grid(i)+iskip,nhydro+irad)
                     end do
 #endif
 
-                    uold(ind_grid(i)+iskip,5)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
+                    uold(ind_grid(i)+iskip,neul)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
                  end do
-#if NVAR > 8+NENER
+#if NVAR>NHYDRO+NENER
                  ! Read passive scalars if any
-                 do ivar=9+nener,nvar
+                 do ivar=nhydro+1+nener,nvar
                     read(ilun)xx
                     do i=1,ncache
                        uold(ind_grid(i)+iskip,ivar)=xx(i)*max(uold(ind_grid(i)+iskip,1),smallr)

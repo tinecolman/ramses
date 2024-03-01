@@ -16,7 +16,7 @@ subroutine boundana(x,u,dx,ibound,ncell)
   ! Positions are in user units:
   ! x(i,1:3) are in [0,boxlen]**ndim.
   ! U is the conservative variable vector. Conventions are here:
-  ! U(i,1): d, U(i,2:ndim+1): d.u,d.v,d.w and U(i,ndim+2): E.
+  ! U(i,1): d, U(i,2:ndim+1): d.u,d.v,d.w and U(i,neul): E.
   ! If MHD, then:
   ! U(i,1): d, U(i,2:4): d.u,d.v,d.w, U(i,5): E,
   ! U(i,6:8): Bleft, U(i,nvar+1:nvar+3): Bright
