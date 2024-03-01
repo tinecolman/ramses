@@ -37,12 +37,6 @@ module hydro_parameters
   real(dp),dimension(1:MAXBOUND)::A_bound=0.0d0
   real(dp),dimension(1:MAXBOUND)::B_bound=0.0d0
   real(dp),dimension(1:MAXBOUND)::C_bound=0.0d0
-#if NENER>0
-  real(dp),dimension(1:MAXBOUND,1:NENER)::prad_bound=0.0
-#endif
-#if NVAR>8+NENER
-  real(dp),dimension(1:MAXBOUND,1:NVAR-8-NENER)::var_bound=0.0
-#endif
 
   ! Refinement parameters for hydro
   real(dp)::err_grad_d=-1.0  ! Density gradient
@@ -60,12 +54,6 @@ module hydro_parameters
   real(dp)::floor_C=1d-10   ! Bz floor
   real(dp)::floor_b2=1d-10  ! B L2 norm floor
   real(dp)::mass_sph=0.0D0   ! mass_sph
-#if NENER>0
-  real(dp),dimension(1:NENER)::err_grad_prad=-1.0
-#endif
-#if NVAR>8+NENER
-  real(dp),dimension(1:NVAR-8-NENER)::err_grad_var=-1.0
-#endif
   real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1.0
 
   ! Initial conditions hydro variables
