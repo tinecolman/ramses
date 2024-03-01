@@ -16,6 +16,8 @@ module hydro_parameters
 #else
   integer,parameter::nvar=NVAR
 #endif
+  integer,parameter::nvar_all=nvar
+
   ! Size of hydro kernel
   integer,parameter::iu1=-1
   integer,parameter::iu2=+4

@@ -149,11 +149,10 @@ SUBROUTINE calc_equilibrium_xion(vars, rtvars, xion)
   implicit none
 #ifdef SOLVERmhd
   integer::neul=5
-  real(dp),dimension(nvar+3)::vars
 #else
   integer::neul=ndim+2
-  real(dp),dimension(nvar)::vars
 #endif
+  real(dp),dimension(nvar_all)::vars
   real(dp),dimension(nrtvar)::rtvars
   real(dp),dimension(nIons)::xion
   integer::ip, iI, idim

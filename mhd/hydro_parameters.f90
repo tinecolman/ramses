@@ -15,6 +15,8 @@ module hydro_parameters
 #else
   integer,parameter::nvar=NVAR
 #endif
+  ! additional vars to store magnetic field on the right cell face
+  integer,parameter::nvar_all=nvar+3
 
   ! Size of hydro kernel
   integer,parameter::iu1=-1

@@ -4,16 +4,12 @@
 !############################################################
 subroutine boundana(x,u,dx,ibound,ncell)
   use amr_parameters, ONLY: dp,ndim,nvector
-  use hydro_parameters, ONLY: nvar,boundary_var
+  use hydro_parameters, ONLY: nvar,nvar_all,boundary_var
   implicit none
   integer ::ibound                        ! Index of boundary region
   integer ::ncell                         ! Number of active cells
   real(dp)::dx                            ! Cell size
-#ifdef SOLVERmhd
-  real(dp),dimension(1:nvector,1:nvar+3)::u ! Conservative variables
-#else
-  real(dp),dimension(1:nvector,1:nvar)::u ! Conservative variables
-#endif
+  real(dp),dimension(1:nvector,1:nvar_all)::u ! Conservative variables
   real(dp),dimension(1:nvector,1:ndim)::x ! Cell center position.
   !================================================================
   ! This routine generates boundary conditions for RAMSES.
@@ -29,11 +25,7 @@ subroutine boundana(x,u,dx,ibound,ncell)
   !================================================================
   integer::ivar,i
 
-#ifdef SOLVERmhd
-  do ivar=1,nvar+3
-#else
-  do ivar=1,nvar
-#endif
+  do ivar=1,nvar_all
      do i=1,ncell
         u(i,ivar)=boundary_var(ibound,ivar)
      end do

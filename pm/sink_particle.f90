@@ -2811,7 +2811,7 @@ subroutine cic_get_vals(fluid_var,ind_grid,xpart,ind_grid_part,ng,np,ilevel,ilev
   use amr_commons
   use pm_commons
   use poisson_commons
-  use hydro_commons, ONLY: nvar,uold
+  use hydro_commons, ONLY: nvar,nvar_all,uold
   implicit none
 
   !----------------------------------------------------------------------------
@@ -2822,11 +2822,7 @@ subroutine cic_get_vals(fluid_var,ind_grid,xpart,ind_grid_part,ng,np,ilevel,ilev
   logical::ilevel_only
 
   integer ,dimension(1:nvector)::ind_grid,ind_grid_part
-#ifdef SOLVERmhd
-  real(dp) ,dimension(1:nvector,1:nvar+3)::fluid_var
-#else
-  real(dp) ,dimension(1:nvector,1:nvar)::fluid_var
-#endif
+  real(dp) ,dimension(1:nvector,1:nvar_all)::fluid_var
   real(dp) ,dimension(1:nvector,1:ndim)::xpart
 
   ! Particle-based arrays
@@ -2897,11 +2893,7 @@ subroutine set_unew_sink(ilevel)
   ! Set unew to uold for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+  do ivar=1,nvar_all
         do i=1,active(ilevel)%ngrid
            unew(active(ilevel)%igrid(i)+iskip,ivar) = uold(active(ilevel)%igrid(i)+iskip,ivar)
         end do
@@ -2912,11 +2904,7 @@ subroutine set_unew_sink(ilevel)
   do icpu=1,ncpu
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         do i=1,reception(icpu,ilevel)%ngrid
 #ifdef LIGHT_MPI_COMM
            unew(reception(icpu,ilevel)%pcomm%igrid(i)+iskip,ivar)=0
@@ -2951,26 +2939,14 @@ subroutine set_uold_sink(ilevel)
   if(verbose)write(*,111)ilevel
 
   ! Reverse update boundaries
-#ifdef SOLVERmhd
-  do ivar=1,nvar+3
-#else
-  do ivar=1,nvar
-#endif
+  do ivar=1,nvar_all
      call make_virtual_reverse_dp(unew(1,ivar),ilevel)
-#ifdef SOLVERmhd
   end do
-#else
-  end do
-#endif
 
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         do i=1,active(ilevel)%ngrid
            uold(active(ilevel)%igrid(i)+iskip,ivar) = unew(active(ilevel)%igrid(i)+iskip,ivar)
         end do
