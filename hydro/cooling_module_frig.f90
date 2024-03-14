@@ -1860,7 +1860,7 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
   integer,dimension(1:nvector),save::ind_cell,ind_leaf
 
   real(kind=8),dimension(1:nvector),save     :: ekin,emag,T2,erad_loc
-  integer                      :: neulS=8+nrad+nextinct, neulP=5
+  integer                      :: neulS=8+nextinct, neulP=5
   real(dp)                     :: testf = 1.d-8
   real(dp)                     :: TT, coeff_chi
 
@@ -1926,11 +1926,11 @@ subroutine simple_chemostep1(ind_grid,ngrid,ilevel) !
      do i=1,nleaf
         erad_loc(i)=0.0d0
      end do
-     do j=1,nrad
-        do i=1,nleaf
-           erad_loc(i)=erad_loc(i)+uold(ind_leaf(i),8+j)
-        enddo
-     enddo
+     !do j=1,nrad
+     !   do i=1,nleaf
+     !      erad_loc(i)=erad_loc(i)+uold(ind_leaf(i),8+j)
+     !   enddo
+     !enddo
      ! Compute temperature 
 !!!!! PH attention facteur (1-x)
      do i=1,nleaf
