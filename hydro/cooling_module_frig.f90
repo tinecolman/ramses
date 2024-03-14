@@ -1163,6 +1163,11 @@ subroutine hot_cold_2(T,n,ref,dRefDT,coeff_chi,XH2)
   CALL HEAT_PH (G0, T_1, phi_pah, x_1, N, hot_ph_1)
   CALL HEAT_PH (G0, T_2, phi_pah, x_2, N, hot_ph_2)
 
+  if(isnan(hot_ph_1) .or. isnan(hot_ph_2) ) then
+     write(*,*) 'hot_ph',hot_ph_1,hot_ph_2
+  endif  
+
+  
   !corrected CR as value seems to be much higher than orif-ginally estimated (McCall+2003)
   hot_cr = 5.0E-27_dp
 

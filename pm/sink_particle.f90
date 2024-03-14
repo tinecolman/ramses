@@ -1168,6 +1168,9 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
   use hydro_commons
   use cloud_module
   use sink_feedback_parameters
+
+  use constants, only: M_sun
+  
   implicit none
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -1208,6 +1211,15 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
   real(dp)::tan_theta,cone_dist,orth_dist,rr2
   real(dp),dimension(1:3)::cone_dir,orth_dir,perp_dir
   real(dp)::v_jets
+
+  real(dp):: mjet_max,scale_m !added py PH 14/01/2024 to avoid large jet velocity
+
+  
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_m=scale_d*scale_l**ndim
+
+
 
 #if NDIM==3
 
@@ -1321,7 +1333,15 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                 !                 v_jets = v_jets_frac * sqrt( facc_star*msink(isink) / rsink_star(isink) )  ! G=1, fraction de la vitesse de liberation
 
                  !PH 09/2023 removes facc_star which is not defined yet in ramses_tine
-                 v_jets = v_jets_frac * sqrt( msink(isink) / rsink_star(isink) )  ! G=1, fraction de la vitesse de liberation
+
+
+
+                 !PH 14/01/2024 introduces a maximum velocity for the jets to avoid unrealistic values (due to sink part not representing a single star)
+                 !30 ms is chosen
+                 !msink(isink)*scale_m/M_sun
+                 mjet_max = 30. * M_sun / scale_m 
+
+                 v_jets = v_jets_frac * sqrt( min(msink(isink),mjet_max) / rsink_star(isink) )  ! G=1, fraction de la vitesse de liberation
 
                  fbk_mom_jets=M_for_jets_all(isink)*v_jets !*1.e5/scale_v !*weight/volume*d/density
                  !Ce que j'ai compris : weight~volume d'une part. CIC
