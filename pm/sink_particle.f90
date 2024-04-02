@@ -1209,7 +1209,7 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
 
   real(dp)::tan_theta,cone_dist,orth_dist,rr2
   real(dp),dimension(1:3)::cone_dir,orth_dir,perp_dir
-  real(dp)::v_jets
+  real(dp)::v_jets, m_sink_old
 
   real(dp)::e_kin_old
 
@@ -1328,7 +1328,8 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                  !PH 09/2023 removes facc_star which is not defined yet in ramses_tine
                  v_jets = v_jets_frac * sqrt( msink(isink) / rsink_star(isink) )  ! G=1, fraction de la vitesse de liberation
 
-                 fbk_mom_jets=M_for_jets_all(isink)*v_jets !*1.e5/scale_v !*weight/volume*d/density
+                 fbk_mom_jets=M_for_jets_all(isink)*v_jets / vol_tot_for_jets_all(isink) !*1.e5/scale_v !*weight/volume*d/density
+
                  !Ce que j'ai compris : weight~volume d'une part. CIC
                  ! volume~volume de la sink; density~density de la sink 
 
@@ -1366,7 +1367,9 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                      !grande.
 
                      !PH comprend pas le rsink_star 11/09/2020
-                     jets_momentum(1:3)=fbk_mom_jets/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) + rsink_star(isink)/sqrt(sum(r_rel(1:3)**2))*0.5*fbk_mom_jets/vol_tot_for_jets_all(isink) *perp_dir(1:3)
+                     jets_momentum(1:3)= fbk_mom_jets*r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) + rsink_star(isink)/sqrt(sum(r_rel(1:3)**2))*0.5*fbk_mom_jets*perp_dir(1:3)
+                     !PS: put in lab frame from sink frame
+                     jets_momentum(1:3)=jets_momentum(1:3) + M_for_jets_all(isink)/vol_tot_for_jets_all(isink) * vsink(isink,1:3)
 
                      unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4) + jets_momentum(1:3) 
 
@@ -1378,7 +1381,7 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                      ! The 2nd neglect the energy produced by the 'anelastic' collision between the jets and the gas - maybe differences when adding B?
                      ! The first method is used (second commented). With 2) few cells end up with little negative temperature
                      !unew(indp(j,ind),5)=unew(indp(j,ind),5) - e_kin_old +0.5*(unew(indp(j,ind),2)**2 + unew(indp(j,ind),3)**2 + unew(indp(j,ind),4)**2)/unew(indp(j,ind),1) 
-                     unew(indp(j,ind),5)=unew(indp(j,ind),5) + 0.5*(jets_momentum(1)**2 + jets_momentum(2)**2 + jets_momentum(3)**2) / (M_for_jets_all(isink)/vol_tot_for_jets_all(isink))
+                     unew(indp(j,ind),5)=unew(indp(j,ind),5) + 0.5*(sum(jets_momentum(1:3)**2)) / (M_for_jets_all(isink)/vol_tot_for_jets_all(isink))
 
 
 
@@ -1386,13 +1389,14 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                      M_jet_new(isink)=M_jet_new(isink)+M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
 
                      !On enleve a la sink la masse mise dans le jet
+                     m_sink_old = msink_new(isink)
                      msink_new(isink)=msink_new(isink)-M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
                      delta_mass_new(isink)=delta_mass_new(isink)-M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
 
 
                      ! Il faudra enlever a la sink la qté de mvt et le moment cinétique mis dans le jet
-                     vsink_new(isink,1:3)=vsink_new(isink,1:3)-fbk_mom_jets*vol_loc/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2))
-                     lsink_new(isink,1:3)=lsink_new(isink,1:3)-cross(r_rel(1:3),fbk_mom_jets/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) *vol_loc)
+                     vsink_new(isink,1:3)=(vsink_new(isink,1:3)*m_sink_old - jets_momentum(1:3)*vol_loc)/msink_new(isink)
+                     lsink_new(isink,1:3)=lsink_new(isink,1:3)-cross(r_rel(1:3),jets_momentum(1:3)*vol_loc)
                      ! Ici pas de moment enlevé à la sink étant donné que r_rel
                      ! et le moment mis dans le jet sont colinéaires
 
