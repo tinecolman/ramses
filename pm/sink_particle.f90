@@ -1014,6 +1014,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 
               if (threshold_accretion.and.d_sink>0.0)then
                  m_acc=c_acc*weight*(d-d_sink)
+                 m_acc_smbh=0
               end if
 
               if (agn_acc_method=='mass') then
@@ -1205,12 +1206,15 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
   real(dp),dimension(1:3)::vv,v_mom
 
   real(dp),dimension(1:3)::r_rel,v_rel,x_acc,p_acc,l_acc
+  real(dp),dimension(1:3)::jets_momentum
   real(dp)::fbk_ener_AGN,fbk_mom_AGN,fbk_mass_jets,fbk_mom_jets
   logical,dimension(1:ndim)::period
 
   real(dp)::tan_theta,cone_dist,orth_dist,rr2
   real(dp),dimension(1:3)::cone_dir,orth_dir,perp_dir
-  real(dp)::v_jets
+  real(dp)::v_jets, m_sink_old
+
+  real(dp)::e_kin_old
 
   real(dp):: mjet_max,scale_m !added py PH 14/01/2024 to avoid large jet velocity
 
@@ -1274,7 +1278,8 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
 
              !PH retrieve the kinetic energy as well
              !we change the velocity of the gas to conserve angular momentum
-             e = e - 0.5*(uold(indp(j,ind),2)**2+uold(indp(j,ind),3)**2+uold(indp(j,ind),4)**2)/uold(indp(j,ind),1)
+             e_kin_old = 0.5*(uold(indp(j,ind),2)**2+uold(indp(j,ind),3)**2+uold(indp(j,ind),4)**2)/uold(indp(j,ind),1) 
+             e = e - e_kin_old
 
 #ifdef SOLVERmhd
              bx1=uold(indp(j,ind),6)
@@ -1314,7 +1319,7 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
              rr2 = r_rel(1)**2+r_rel(2)**2+r_rel(3)**2
              v_mom(1:3) = v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3)
              !The new specific energy that have been added.
-             e = e + 0.5* ( (vv(1)-v_mom(1))**2 + (vv(2)-v_mom(2))**2 + (vv(3)-v_mom(3))**2 )
+             !e = e + 0.5* ( (vv(1)-v_mom(1))**2 + (vv(2)-v_mom(2))**2 + (vv(3)-v_mom(3))**2 )
 
              ! Cloud particle CIC weight
 !             weight=weightp(ind_part(j),ind)
@@ -1343,7 +1348,8 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
 
                  v_jets = v_jets_frac * sqrt( min(msink(isink),mjet_max) / rsink_star(isink) )  ! G=1, fraction de la vitesse de liberation
 
-                 fbk_mom_jets=M_for_jets_all(isink)*v_jets !*1.e5/scale_v !*weight/volume*d/density
+                 fbk_mom_jets=M_for_jets_all(isink)*v_jets / vol_tot_for_jets_all(isink) !*1.e5/scale_v !*weight/volume*d/density
+
                  !Ce que j'ai compris : weight~volume d'une part. CIC
                  ! volume~volume de la sink; density~density de la sink 
 
@@ -1363,7 +1369,6 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                      perp_dir(2)=cone_dir(3)*orth_dir(1) - cone_dir(1)*orth_dir(3)
                      perp_dir(3)=cone_dir(1)*orth_dir(2) - cone_dir(2)*orth_dir(1)
                      
-                     
                      !On donne m=M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
                      !à chaque cellule, et vu que unew(...,1)=densite, on rajoute
                      !m/vol_loc=M_for_jets_all(isink)/vol_tot_for_jets_all(isink)
@@ -1382,22 +1387,36 @@ subroutine protostellar_jets_feedback(ind_grid,ind_part,ind_grid_part,ng,np,ilev
                      !grande.
 
                      !PH comprend pas le rsink_star 11/09/2020
-                     unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4) + fbk_mom_jets/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) + rsink_star(isink)/sqrt(sum(r_rel(1:3)**2))*0.5*fbk_mom_jets/vol_tot_for_jets_all(isink) *perp_dir(1:3)
+                     jets_momentum(1:3)= fbk_mom_jets*r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) + rsink_star(isink)/sqrt(sum(r_rel(1:3)**2))*0.5*fbk_mom_jets*perp_dir(1:3)
+                     !PS: put in lab frame from sink frame
+                     jets_momentum(1:3)=jets_momentum(1:3) + M_for_jets_all(isink)/vol_tot_for_jets_all(isink) * vsink(isink,1:3)
+
+                     unew(indp(j,ind),2:4)=unew(indp(j,ind),2:4) + jets_momentum(1:3) 
 
                      !PH : may be a problem with "e" velocity should be taken into account 11/09/2020
                      unew(indp(j,ind),5)=unew(indp(j,ind),5)+M_for_jets_all(isink)*e/vol_tot_for_jets_all(isink)  !e est defini plus haut
+                     !PS : two possible ways of adding the kinetic contribution of jets. 
+                     ! 1) Add the total energy added by the jets (rho_j * e + 1/2 rho_j v_j^2)
+                     ! 2) Subtract the old kinetic energy, and sum the new one.
+                     ! The 2nd neglect the energy produced by the 'anelastic' collision between the jets and the gas - maybe differences when adding B?
+                     ! The first method is used (second commented). With 2) few cells end up with little negative temperature
+                     !unew(indp(j,ind),5)=unew(indp(j,ind),5) - e_kin_old +0.5*(unew(indp(j,ind),2)**2 + unew(indp(j,ind),3)**2 + unew(indp(j,ind),4)**2)/unew(indp(j,ind),1) 
+                     unew(indp(j,ind),5)=unew(indp(j,ind),5) + 0.5*(sum(jets_momentum(1:3)**2)) / (M_for_jets_all(isink)/vol_tot_for_jets_all(isink))
+
+
 
                      !Comptage de la masse reellement mise dans le jet
                      M_jet_new(isink)=M_jet_new(isink)+M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
 
                      !On enleve a la sink la masse mise dans le jet
+                     m_sink_old = msink_new(isink)
                      msink_new(isink)=msink_new(isink)-M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
                      delta_mass_new(isink)=delta_mass_new(isink)-M_for_jets_all(isink)*vol_loc/vol_tot_for_jets_all(isink)
 
 
                      ! Il faudra enlever a la sink la qté de mvt et le moment cinétique mis dans le jet
-                     vsink_new(isink,1:3)=vsink_new(isink,1:3)-fbk_mom_jets*vol_loc/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2))
-                     lsink_new(isink,1:3)=lsink_new(isink,1:3)-cross(r_rel(1:3),fbk_mom_jets/vol_tot_for_jets_all(isink) *r_rel(1:3)/sqrt(sum(r_rel(1:3)**2)) *vol_loc)
+                     vsink_new(isink,1:3)=(vsink_new(isink,1:3)*m_sink_old - jets_momentum(1:3)*vol_loc)/msink_new(isink)
+                     lsink_new(isink,1:3)=lsink_new(isink,1:3)-cross(r_rel(1:3),jets_momentum(1:3)*vol_loc)
                      ! Ici pas de moment enlevé à la sink étant donné que r_rel
                      ! et le moment mis dans le jet sont colinéaires
 
