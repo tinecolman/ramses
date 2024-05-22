@@ -1138,6 +1138,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                    if(msink(isink)>0.07*M_sun/(scale_d*scale_l**3))then
                        !Add by AV on 18/04/2019 to compute the mass to be put in jets                                          
                        M_for_jets(isink)=M_for_jets(isink) + m_acc/3.0d0
+                       dmfsink(isink) = dmfsink(isink) - m_acc/3.0d0
 
                        !checking if particle is in cone                                                                        
                        cone_dir(1:3)=lsink(isink,1:3)/sqrt(sum(lsink(isink,1:3)**2))
