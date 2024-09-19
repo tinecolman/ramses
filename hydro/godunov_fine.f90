@@ -584,23 +584,11 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
         ! Gather refinement flag
         do i=1,ncache
-           if(igrid_nbor(i)>0) then
-              ind_cell(i) = igrid_nbor(i)+iskip
-              ok(i,i3,j3,k3)=son(ind_cell(i))>0
-           else
-              ok(i,i3,j3,k3)=.false.
-           end if
+           ind_cell(i) = MERGE(igrid_nbor(i)+iskip, ind_cell(i), igrid_nbor(i)>0)
         end do
 
-        ! Gather hydro variables
-        do ivar=1,nvar
-           do i=1,ncache
-              if(igrid_nbor(i)>0) then
-                uloc(i,i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
-              else
-                uloc(i,i3,j3,k3,ivar)=u2(i,ind_son,ivar)
-              end if
-           end do
+        do i=1,ncache
+           ok(i,i3,j3,k3) = (igrid_nbor(i)>0) .and. (son(ind_cell(i))>0)
         end do
 
         ! Gather equilibrium model
