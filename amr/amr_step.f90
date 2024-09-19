@@ -26,7 +26,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Each routine is called using a specific order, don't change it,   !
   ! unless you check all consequences first.                          !
   !-------------------------------------------------------------------!
-  integer::i,idim,ivar
+  integer::i,idim,ivar,mod_tmp
   logical::ok_defrag,output_now_all
   logical,save::first_step=.true.
 
@@ -140,7 +140,8 @@ recursive subroutine amr_step(ilevel,icount)
      call MPI_ALLREDUCE(output_now,output_now_all,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_WORLD,mpi_err)
 #endif
      if(foutput>0)then
-     if(mod(nstep_coarse,foutput)==0.or.aexp>=aout(iout).or.t>=tout(iout) &
+     mod_tmp = mod(nstep_coarse,foutput)
+     if(mod_tmp==0.or.aexp>=aout(iout).or.t>=tout(iout) &
         &.or.aexp>=aout_next.or.t>=tout_next.or.output_now_all.EQV..true.)then
                                call timer('io','start')
         if(.not.ok_defrag)then

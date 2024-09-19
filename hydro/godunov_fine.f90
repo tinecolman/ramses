@@ -498,10 +498,11 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
 
-  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
+  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer
+  integer,dimension(1:nvector),save::ind_cell0
 
   integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer
-  integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh,nexist
+  integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh
   integer::i1min,i1max,j1min,j1max,k1min,k1max
   integer::i2min,i2max,j2min,j2max,k2min,k2max
   integer::i3min,i3max,j3min,j3max,k3min,k3max
@@ -546,16 +547,11 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
      ! Check if neighboring grid exists
      nbuffer=0
-     nexist=0
      ind_father=1+i1+3*j1+9*k1
      do i=1,ncache
         igrid_nbor(i)=son(nbors_father_cells(i,ind_father))
-        if(igrid_nbor(i)>0) then
-           nexist=nexist+1
-           ind_exist(nexist)=i
-        else
+        if(.not. igrid_nbor(i)>0) then
           nbuffer=nbuffer+1
-          ind_nexist(nbuffer)=i
           ind_buffer(nbuffer)=nbors_father_cells(i,ind_father)
         end if
      end do
@@ -580,36 +576,44 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
         ind_son=1+i2+2*j2+4*k2
         iskip=ncoarse+(ind_son-1)*ngridmax
-        do i=1,nexist
-           ind_cell(i)=iskip+igrid_nbor(ind_exist(i))
-        end do
 
         i3=1; j3=1; k3=1
         if(ndim>0)i3=1+2*(i1-1)+i2
         if(ndim>1)j3=1+2*(j1-1)+j2
         if(ndim>2)k3=1+2*(k1-1)+k2
 
+        ! Gather refinement flag
+        do i=1,ncache
+           if(igrid_nbor(i)>0) then
+              ind_cell(i) = igrid_nbor(i)+iskip
+              ok(i,i3,j3,k3)=son(ind_cell(i))>0
+           else
+              ok(i,i3,j3,k3)=.false.
+           end if
+        end do
+
         ! Gather hydro variables
         do ivar=1,nvar
-           do i=1,nexist
-              uloc(ind_exist(i),i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
-           end do
-           do i=1,nbuffer
-              uloc(ind_nexist(i),i3,j3,k3,ivar)=u2(i,ind_son,ivar)
+           do i=1,ncache
+              if(igrid_nbor(i)>0) then
+                uloc(i,i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
+              else
+                uloc(i,i3,j3,k3,ivar)=u2(i,ind_son,ivar)
+              end if
            end do
         end do
 
         ! Gather equilibrium model
         if(strict_equilibrium>0)then
            do idim=1,ndim
-              do i=1,nexist
-                 req_loc(ind_exist(i),i3,j3,k3)=rho_eq(ind_cell(i))
-                 peq_loc(ind_exist(i),i3,j3,k3)=p_eq(ind_cell(i))
-              end do
-              ! Use straight injection for buffer cells
-              do i=1,nbuffer
-                 req_loc(ind_nexist(i),i3,j3,k3)=req2(i,ind_son)
-                 peq_loc(ind_nexist(i),i3,j3,k3)=peq2(i,ind_son)
+              do i=1,ncache
+                 if(igrid_nbor(i)>0) then
+                    req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
+                    peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
+                 else
+                    req_loc(i,i3,j3,k3)=req2(i,ind_son)
+                    peq_loc(i,i3,j3,k3)=peq2(i,ind_son)
+                 end if
               end do
            end do
         end if
@@ -617,34 +621,28 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         ! Gather gravitational acceleration
         if(poisson)then
            do idim=1,ndim
-              do i=1,nexist
-                 gloc(ind_exist(i),i3,j3,k3,idim)=f(ind_cell(i),idim)
-              end do
-              ! Use straight injection for buffer cells
-              do i=1,nbuffer
-                 gloc(ind_nexist(i),i3,j3,k3,idim)=f(ibuffer_father(i,0),idim)
+              do i=1,ncache
+                 if(igrid_nbor(i)>0) then
+                    gloc(i,i3,j3,k3,idim)=f(ind_cell(i),idim)
+                 else
+                    ! Use straight injection for buffer cells
+                    gloc(i,i3,j3,k3,idim)=f(ibuffer_father(i,0),idim)
+                 end if
               end do
            end do
         end if
 
         ! Gather stellar momentum
         if(momentum_feedback>0)then
-           do i=1,nexist
-              ploc(ind_exist(i),i3,j3,k3)=pstarold(ind_cell(i))
-           end do
-           ! Use straight injection for buffer cells
-           do i=1,nbuffer
-              ploc(ind_nexist(i),i3,j3,k3)=pstarold(ibuffer_father(i,0))
+           do i=1,ncache
+              if(igrid_nbor(i)>0) then
+                 ploc(i,i3,j3,k3)=pstarold(ind_cell(i))
+              else
+                 ! Use straight injection for buffer cells
+                 ploc(i,i3,j3,k3)=pstarold(ibuffer_father(i,0))
+              end if
            end do
         end if
-
-        ! Gather refinement flag
-        do i=1,nexist
-           ok(ind_exist(i),i3,j3,k3)=son(ind_cell(i))>0
-        end do
-        do i=1,nbuffer
-           ok(ind_nexist(i),i3,j3,k3)=.false.
-        end do
 
      end do
      end do
