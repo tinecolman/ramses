@@ -1198,37 +1198,31 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                  do l = 1, ngrid
                     dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
                     drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
-                    if((dlft*drgt)<=zero) then
-                       dq(l,i,j,k,n,1) = zero
-                    else if(dlft>0) then
-                       dq(l,i,j,k,n,1) = min(dlft,drgt)
-                    else
-                       dq(l,i,j,k,n,1) = max(dlft,drgt)
-                    end if
+                    dq(l,i,j,k,n,1) = MERGE(zero, &
+                                          & MERGE(min(dlft, drgt), &
+                                                & max(dlft, drgt), &
+                                                & dlft > 0), &
+                                          & (dlft*drgt)<=zero)
                  end do
                  ! slopes in second coordinate direction
                  do l = 1, ngrid
                     dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
                     drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
-                    if((dlft*drgt)<=zero) then
-                       dq(l,i,j,k,n,2) = zero
-                    else if(dlft>0) then
-                       dq(l,i,j,k,n,2) = min(dlft,drgt)
-                    else
-                       dq(l,i,j,k,n,2) = max(dlft,drgt)
-                    end if
+                    dq(l,i,j,k,n,2) = MERGE(zero, &
+                                          & MERGE(min(dlft, drgt), &
+                                                & max(dlft, drgt), &
+                                                & dlft > 0), &
+                                          & (dlft*drgt)<=zero)
                  end do
                  ! slopes in third coordinate direction
                  do l = 1, ngrid
                     dlft = q(l,i,j,k  ,n) - q(l,i,j,k-1,n)
                     drgt = q(l,i,j,k+1,n) - q(l,i,j,k  ,n)
-                    if((dlft*drgt)<=zero) then
-                       dq(l,i,j,k,n,3) = zero
-                    else if(dlft>0) then
-                       dq(l,i,j,k,n,3) = min(dlft,drgt)
-                    else
-                       dq(l,i,j,k,n,3) = max(dlft,drgt)
-                    end if
+                    dq(l,i,j,k,n,3) = MERGE(zero, &
+                                          & MERGE(min(dlft, drgt), &
+                                                & max(dlft, drgt), &
+                                                & dlft > 0), &
+                                          & (dlft*drgt)<=zero)
                  end do
               end do
            end do
