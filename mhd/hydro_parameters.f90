@@ -1,4 +1,5 @@
 module hydro_parameters
+
 #ifdef grackle
   use grackle_parameters
 #endif
@@ -54,7 +55,13 @@ module hydro_parameters
   real(dp),dimension(1:MAXBOUND)::A_bound=0
   real(dp),dimension(1:MAXBOUND)::B_bound=0
   real(dp),dimension(1:MAXBOUND)::C_bound=0
-
+  ! TODO allow other variables in inflow:
+#if NENER>0
+  real(dp),dimension(1:MAXBOUND,1:NENER)::prad_bound=0
+#endif
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:MAXBOUND,1:NVAR-8-NENER)::var_bound=0
+#endif
   ! Refinement parameters for hydro
   real(dp)::err_grad_d=-1.0d0  ! Density gradient
   real(dp)::err_grad_u=-1.0d0  ! Velocity gradient
@@ -71,6 +78,13 @@ module hydro_parameters
   real(dp)::floor_C=1d-10     ! Bz floor
   real(dp)::floor_b2=1d-10    ! B L2 norm floor
   real(dp)::mass_sph=0.0d0     ! mass_sph
+  ! TODO allow for discontinuity-based refine on non-standard hydro vars:
+#if NENER>0
+  real(dp),dimension(1:NENER)::err_grad_prad=-1
+#endif
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:NVAR-NHYDRO-NENER)::err_grad_var=-1
+#endif
   real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1
 
   ! Initial conditions hydro variables
@@ -88,7 +102,6 @@ module hydro_parameters
 #if NVAR>NHYDRO+NENER
   real(dp),dimension(1:MAXREGION,1:NVAR-NHYDRO-NENER)::var_region=0
 #endif
-
   ! Hydro solver parameters
   integer ::niter_riemann=10
   integer ::slope_type=1

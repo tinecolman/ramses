@@ -49,8 +49,13 @@ module hydro_parameters
   real(dp),dimension(1:MAXBOUND)::u_bound=0
   real(dp),dimension(1:MAXBOUND)::v_bound=0
   real(dp),dimension(1:MAXBOUND)::w_bound=0
-  ! TODO allow for other variables in inflow?
-
+  ! TODO allow other variables in inflow:
+#if NENER>0
+  real(dp),dimension(1:MAXBOUND,1:NENER)::prad_bound=0
+#endif
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:MAXBOUND,1:NVAR-NHYDRO-NENER)::var_bound=0
+#endif
   ! Refinement parameters for hydro
   real(dp)::err_grad_d=-1.0d0  ! Density gradient
   real(dp)::err_grad_u=-1.0d0  ! Velocity gradient
@@ -58,8 +63,14 @@ module hydro_parameters
   real(dp)::floor_d=1d-10     ! Density floor
   real(dp)::floor_u=1d-10     ! Velocity floor
   real(dp)::floor_p=1d-10     ! Pressure floor
-  ! TODO: allow for discontinuity-based refine on non-standard hydro vars?
   real(dp)::mass_sph=0.0d0     ! mass_sph
+  ! TODO allow for discontinuity-based refine on non-standard hydro vars:
+#if NENER>0
+  real(dp),dimension(1:NENER)::err_grad_prad=-1
+#endif
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:NVAR-NHYDRO-NENER)::err_grad_var=-1
+#endif
   real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1
 
   ! Initial conditions hydro variables

@@ -64,8 +64,14 @@ subroutine read_hydro_params(nml_ok)
   namelist/boundary_params/nboundary,bound_type &
        & ,ibound_min,ibound_max,jbound_min,jbound_max &
        & ,kbound_min,kbound_max &
+#if NENER>0
+       & ,prad_bound &
+#endif
 #ifdef SOLVERmhd
        & ,A_bound,B_bound,C_bound &
+#endif
+#if NVAR>NHYDRO+NENER
+       & ,var_bound &
 #endif
        & ,d_bound,u_bound,v_bound,w_bound,p_bound,no_inflow
 
