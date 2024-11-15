@@ -37,6 +37,7 @@ Table of Contents
   :maxdepth: 2
 
   dev_docs/developer_guide.md
+  dev_docs/implementation.md
   dev_docs/docs.md
   dev_docs/contributors.md
 
