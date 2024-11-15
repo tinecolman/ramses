@@ -26,7 +26,7 @@ We have
 - for MHD: `nhydro=neul+3`
 
 Additionally, the magnetic field on the right cell face is added at the very end of the variable array.
-This means that when following the evolution of magnetic fields, we need to store 6 additional variables. 
+This means that when following the evolution of magnetic fields, we need to store 6 additional variables.
 
 Further, one can add more variables by setting the corresponding parameters in the Makefile
 - `NPSCAL`: a number of passive scalars
