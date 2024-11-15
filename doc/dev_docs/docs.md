@@ -1,4 +1,4 @@
-# Documentation
+# Building the documentation
 
 Some notes about the Sphinx and Read-The-Docs (RTD) documentation builders:
 

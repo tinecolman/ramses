@@ -53,4 +53,9 @@ To access the magnetic field:
 - on the left side of the cells: neul+1, neul+2, neul+3
 - on the right side of the cells: nvar+1, nvar+2, nvar+3
 
-TODO: indices of nener and passive scalars.
+
+:::{admonition} TODO
+:class: attention
+indices of nener and passive scalars.
+:::
+
