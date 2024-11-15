@@ -34,9 +34,9 @@ Further, one can add more variables by setting the corresponding parameters in t
 - `NENER`: a number of non-thermal energies
 
 The total amount of independent variables is indicated by `nvar`. It includes the hydro variables (Euler variables + 3 left magnetic field), metals, passive scalars and non-thermal energies:
-`̀`̀
+```
 NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
-`̀`̀
+```
 In addition, we defined `nvar_all` which in addition also includes the right magentic field.
 So we have
 - for HYDRO: `nvar_all=nvar`
