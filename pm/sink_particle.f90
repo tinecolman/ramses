@@ -1072,7 +1072,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            dmfsink_new(isink)=dmfsink_new(isink)+m_acc
            !PH 25/04/2022 avoid moving too far the sinks 
            !if(msink_new(isink) .gt. 10.*m_acc) then
-              xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
+           xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
            !endif
            vsink_new(isink,1:ndim)=vsink_new(isink,1:ndim)+p_acc(1:ndim)
            lsink_new(isink,1:ndim)=lsink_new(isink,1:ndim)+l_acc(1:ndim)
@@ -1091,8 +1091,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 
            ! Accrete passive scalars
            do ivar=imetal,nvar
-!!PH
-!!!              unew(indp(j,ind),ivar)=unew(indp(j,ind),ivar)-m_acc*uold(indp(j,ind),ivar)/d/vol_loc
+              unew(indp(j,ind),ivar)=unew(indp(j,ind),ivar)-m_acc*uold(indp(j,ind),ivar)/d/vol_loc
            end do
 
            ! AGN feedback
@@ -1133,8 +1132,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            !---------------------------------                                                                                  
            ! AV tries to set protostellar jet                                                                                  
            !---------------------------------                                                                                  
-           if( .not. on_creation)then
-               if(jets_feedback_sink)then
+           if( (.not. on_creation).and.jets_feedback_sink)then
 !PH 19/05/2020 change the mass at which jet begin to make it consistent                                                        
 !with the accretion luminosity                                                                                                 
 !                   if(msink(isink)>0.15*Msun/(scale_d*scale_l**3))then                                                        
@@ -1152,7 +1150,6 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                            vol_tot_for_jets(isink)=vol_tot_for_jets(isink) + vol_loc
                        endif
                    endif
-               endif
            endif
            !---------------------------------                                                                                          !---------------------------------            
            !END OF PH 09/2023
@@ -2010,8 +2007,7 @@ subroutine make_sink_from_clump(ilevel)
               uold(ind_cell_new(i),4)=d*w
               uold(ind_cell_new(i),5)=e
               do ivar=imetal,nvar
-!!!PH
-!!!                 uold(ind_cell_new(i),ivar)=d*z(ivar)
+                 uold(ind_cell_new(i),ivar)=d*z(ivar)
               end do
            end do
            ! End loop over new sink particle cells

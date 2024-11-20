@@ -262,6 +262,8 @@ subroutine init_part
   else
 
      filetype_loc=filetype
+     if(.not. cosmo)filetype_loc='ascii'
+
      select case (filetype_loc)
 
      case ('grafic')
