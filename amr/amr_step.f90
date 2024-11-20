@@ -34,7 +34,7 @@ recursive subroutine amr_step(ilevel,icount)
 
   if(verbose)write(*,999)icount,ilevel
 
-  call boundary_frig(ilevel)
+  if(use_boundary_frig) call boundary_frig(ilevel)
 
   !if the last time a supernova (based on density peak) occured is 0 then we initialise it to the time t
   !this is to handle restart without having to store t_last_sn (given that corresponds to a preparatory phase)
@@ -282,6 +282,7 @@ recursive subroutine amr_step(ilevel,icount)
 
      if(hydro)then
                                call timer('poisson','start')
+
         ! Add gravity source term with half time step and new force
         if(.not. no_gravity_kick)call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel),1)
 
@@ -501,7 +502,7 @@ recursive subroutine amr_step(ilevel,icount)
   if((hydro).and.(.not.static_gas))then
                                call timer('hydro - ghostzones','start')
 
-     call boundary_frig(ilevel)
+     if(use_boundary_frig) call boundary_frig(ilevel)
 
      do ivar=1,nvar_all
         call make_virtual_fine_dp(uold(1,ivar),ilevel)

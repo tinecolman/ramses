@@ -213,7 +213,7 @@ subroutine condinit_cloud(x,u,dx,nn)
   implicit none
   integer ::nn                              ! Number of cells
   real(dp)::dx                              ! Cell size
-  real(dp),dimension(1:nvector,1:nvar+3)::u ! Conservative variables
+  real(dp),dimension(1:nvector,1:nvar_all)::u ! Conservative variables
   real(dp),dimension(1:nvector,1:ndim)::x ! Cell center position.
   !================================================================
   ! This routine generates initial conditions for RAMSES.
@@ -233,7 +233,7 @@ subroutine condinit_cloud(x,u,dx,nn)
   !================================================================
   integer :: i,j,k,id,iu,iv,iw,ip
   integer :: ivar
-  real(dp),dimension(1:nvector,1:nvar+3),save::q   ! Primitive variables
+  real(dp),dimension(1:nvector,1:nvar_all),save::q   ! Primitive variables
 
   real(dp),save:: first
   real(dp),dimension(1:3,1:100,1:100,1:100),save::q_idl

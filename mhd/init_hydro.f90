@@ -172,7 +172,7 @@ subroutine init_hydro
 
                     uold(ind_grid(i)+iskip,neul)=e+0.5*d*(u**2+v**2+w**2)+0.5*(A**2+B**2+C**2)
                  end do
-#if NVAR > NHYDRO+NENER
+#if NVAR>NHYDRO+NENER
                  ! Read passive scalars if any
 #if NEXTINCT > 0
                  do ivar = nhydro+1+nener,nvar-nextinct

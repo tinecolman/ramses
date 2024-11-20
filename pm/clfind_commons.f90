@@ -26,9 +26,6 @@ module clfind_commons
   integer::peak_recv_tot,peak_send_tot
   integer,allocatable,dimension(:)::peak_send_buf,peak_recv_buf
 
-  !PH 15/05/2023 - mvt communicator to avoid memory issues
-  integer,allocatable,dimension(:,:)::npeak_alltoall
-  integer,allocatable,dimension(:,:)::npeak_alltoall_tot
   ! Spare matrix for saddle points densities
   type(sparse_mat)::sparse_saddle_dens
 

@@ -39,10 +39,6 @@ subroutine init_sink
   allocate(vol_tot_for_jets_all(1:nsinkmax))
   allocate(M_jet_all(1:nsinkmax))
 
-  !Allocate huge clump communicators to avoid memory issue
-  !PH 15/05/2023
-  allocate(npeak_alltoall(1:ncpu,1:ncpu))
-  allocate(npeak_alltoall_tot(1:ncpu,1:ncpu))
   ! Allocate all sink related quantities...
   allocate(idsink(1:nsinkmax))
   idsink=0 ! Important: need to set idsink to zero
