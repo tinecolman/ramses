@@ -90,9 +90,9 @@ subroutine synchydrofine1(ind_cell,ncell,dteff, which_force, ilevel)
   !-------------------------------------------------------------------
   integer::i,idim
 #ifdef SOLVERmhd
-  integer::neul=5,nndim=3
+  integer::nndim=3
 #else
-  integer::neul=ndim+2,nndim=ndim
+  integer::nndim=ndim
 #endif
   real(dp),dimension(1:nvector),save::pp
   integer :: ilevel
@@ -187,4 +187,3 @@ end subroutine synchydrofine1
 !################################################################
 !################################################################
 !################################################################
-

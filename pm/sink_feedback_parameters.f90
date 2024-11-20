@@ -34,7 +34,7 @@ module sink_feedback_parameters
   real(dp):: Vsat=1d99    ! maximum velocity in SN remnants
   real(dp):: sn_r_sat=0d0 ! minimum radius for SN remnant
 
-  real(dp):: Vdisp=1d0    ! dispersion velocity of the stellar objects [km/s] 
+  real(dp):: Vdisp=1d0    ! dispersion velocity of the stellar objects [km/s]
                           ! determines how far SN can explode from the sink
 
   logical::stellar_info=.true.  ! write stellar particles to log file
@@ -60,7 +60,7 @@ module sink_feedback_parameters
   real(dp)::stf_m0=2.728098824280431d1 ! Msun then normalised in code units in read_stellar
   real(dp)::stf_a=6.840015602892084d0
   real(dp)::stf_b=4.353614230584390d0
-  real(dp)::stf_c=1.142166657042991d0 
+  real(dp)::stf_c=1.142166657042991d0
 
   real(dp):: hii_t=0 !fiducial HII region lifetime [yr?], it is normalised in code units in read_stellar
   integer:: feedback_photon_group=-1 ! index of the photon group where to put the radiation
@@ -142,4 +142,3 @@ module sink_feedback_parameters
   logical,dimension(1:NSNMAX)::FB_sourceactive = .false. 
 
 end module sink_feedback_parameters
-

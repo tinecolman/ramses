@@ -6,6 +6,15 @@ module hydro_parameters
   use amr_parameters
 
   ! Number of independant variables
+
+  ! Euler variables: density, velocity, pressure
+  integer,parameter::neul=ndim+2
+#ifndef NHYDRO
+  integer,parameter::nhydro=neul
+#else
+  integer,parameter::nhydro=NHYDRO
+#endif
+  ! non-thermal energies
 #ifndef NENER
   integer,parameter::nener=0
 #else
@@ -66,11 +75,14 @@ integer,parameter::nrad=0
  ! integer,parameter::firstindex_pscal=2+ndim+nener+nextinct ! for passive scalars
 !  integer::lastindex_pscal ! last index for passive scalars other than internal energy
   ! Initialize NVAR
+  ! total amount of variables
 #ifndef NVAR
-  integer,parameter::nvar=ndim+2+nener+nextinct+npscal
+  integer,parameter::nvar=nhydro+nener+nextinct+npscal
 #else
   integer,parameter::nvar=NVAR
 #endif
+  integer,parameter::nvar_all=nvar
+
   ! Size of hydro kernel
   integer,parameter::iu1=-1
   integer,parameter::iu2=+4
@@ -92,11 +104,12 @@ integer,parameter::nrad=0
   real(dp),dimension(1:MAXBOUND)::u_bound=0
   real(dp),dimension(1:MAXBOUND)::v_bound=0
   real(dp),dimension(1:MAXBOUND)::w_bound=0
+  ! TODO allow other variables in inflow:
 #if NENER>0
   real(dp),dimension(1:MAXBOUND,1:NENER)::prad_bound=0
 #endif
-#if NVAR>NDIM+2+NENER
-  real(dp),dimension(1:MAXBOUND,1:NVAR-NDIM-2-NENER)::var_bound=0
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:MAXBOUND,1:NVAR-NHYDRO-NENER)::var_bound=0
 #endif
   ! Refinement parameters for hydro
   real(dp)::err_grad_d=-1.0d0  ! Density gradient
@@ -109,11 +122,12 @@ integer,parameter::nrad=0
 !!! FlorentR - PATCH Temperature extrema
   real(dp)::temp_max = 1d99
 !!! FRenaud
+  ! TODO allow for discontinuity-based refine on non-standard hydro vars:
 #if NENER>0
   real(dp),dimension(1:NENER)::err_grad_prad=-1
 #endif
-#if NVAR>NDIM+2+NENER
-  real(dp),dimension(1:NVAR-NDIM-2)::err_grad_var=-1
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:NVAR-NHYDRO-NENER)::err_grad_var=-1
 #endif
   real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1
 
@@ -129,8 +143,8 @@ integer,parameter::nrad=0
 #if NENER>0
   real(dp),dimension(1:MAXREGION,1:NENER)::prad_region=0
 #endif
-#if NVAR>NDIM+2+NENER
-  real(dp),dimension(1:MAXREGION,1:NVAR-NDIM-2-NENER)::var_region=0
+#if NVAR>NHYDRO+NENER
+  real(dp),dimension(1:MAXREGION,1:NVAR-NHYDRO-NENER)::var_region=0
 #endif
   ! Hydro solver parameters
   integer ::niter_riemann=10
@@ -165,13 +179,13 @@ integer,parameter::nrad=0
   logical ,allocatable, dimension(:,:,:,:,:) :: Mdx_ext_logical
 
   ! Passive variables index
-  integer::imetal=6
-  integer::idelay=6
-  integer::ixion=6
-  integer::ichem=6
-  integer::ivirial1=6
-  integer::ivirial2=6
-  integer::inener=6
+  integer::imetal=nhydro+1
+  integer::idelay=nhydro+1
+  integer::ixion=nhydro+1
+  integer::ichem=nhydro+1
+  integer::ivirial1=nhydro+1
+  integer::ivirial2=nhydro+1
+  integer::inener=nhydro+1
 
 !!! BrucyN - rho_floor
   logical  :: rho_floor  = .false.  ! whether to set a minimal value (equal to smallr) to density

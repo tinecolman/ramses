@@ -48,4 +48,3 @@ cooling_frig=.false. ! This corrects for the default configuration of the branch
 cooling_ism=.false.
 mu_gas=1.4d0
 /
-
