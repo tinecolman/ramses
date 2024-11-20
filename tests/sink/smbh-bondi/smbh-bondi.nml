@@ -51,6 +51,7 @@ beta_fix=0.5
 cooling=.false.
 metal=.false.
 z_ave=1.0
+mu_gas=1
 /
 
 &UNITS_PARAMS
