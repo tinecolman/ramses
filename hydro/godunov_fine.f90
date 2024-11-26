@@ -582,25 +582,41 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         if(ndim>1)j3=1+2*(j1-1)+j2
         if(ndim>2)k3=1+2*(k1-1)+k2
 
-        ! Gather refinement flag
         do i=1,ncache
            ind_cell(i) = MERGE(igrid_nbor(i)+iskip, ind_cell(i), igrid_nbor(i)>0)
         end do
 
+        ! Gather refinement flag
         do i=1,ncache
            ok(i,i3,j3,k3) = (igrid_nbor(i)>0) .and. (son(ind_cell(i))>0)
+        end do
+
+        ! Gather hydro variables
+        do ivar=1,nvar
+         nbuffer=0
+         do i=1,ncache
+            if(igrid_nbor(i)>0) then
+               uloc(i,i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
+            else
+               nbuffer=nbuffer+1
+               uloc(i,i3,j3,k3,ivar)=u2(nbuffer,ind_son,ivar)
+            end if
+         end do
         end do
 
         ! Gather equilibrium model
         if(strict_equilibrium>0)then
            do idim=1,ndim
+              nbuffer=0
               do i=1,ncache
                  if(igrid_nbor(i)>0) then
                     req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
                     peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
+                    ! TC: I'm not sure that ind_cell(i) is the correct index here
                  else
-                    req_loc(i,i3,j3,k3)=req2(i,ind_son)
-                    peq_loc(i,i3,j3,k3)=peq2(i,ind_son)
+                    nbuffer=nbuffer+1
+                    req_loc(i,i3,j3,k3)=req2(nbuffer,ind_son)
+                    peq_loc(i,i3,j3,k3)=peq2(nbuffer,ind_son)
                  end if
               end do
            end do
