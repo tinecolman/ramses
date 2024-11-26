@@ -612,7 +612,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
                  if(igrid_nbor(i)>0) then
                     req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
                     peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
-                    ! TC: I'm not sure that ind_cell(i) is the correct index here
                  else
                     nbuffer=nbuffer+1
                     req_loc(i,i3,j3,k3)=req2(nbuffer,ind_son)
@@ -625,12 +624,14 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         ! Gather gravitational acceleration
         if(poisson)then
            do idim=1,ndim
+              nbuffer=0
               do i=1,ncache
                  if(igrid_nbor(i)>0) then
                     gloc(i,i3,j3,k3,idim)=f(ind_cell(i),idim)
                  else
                     ! Use straight injection for buffer cells
-                    gloc(i,i3,j3,k3,idim)=f(ibuffer_father(i,0),idim)
+                  nbuffer=nbuffer+1
+                  gloc(i,i3,j3,k3,idim)=f(ibuffer_father(nbuffer,0),idim)
                  end if
               end do
            end do
