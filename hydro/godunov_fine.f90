@@ -498,9 +498,8 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
 
-  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer
-  integer,dimension(1:nvector),save::ind_cell0
-
+  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer, shift_nexist
+  
   integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh
   integer::i1min,i1max,j1min,j1max,k1min,k1max
@@ -552,6 +551,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         igrid_nbor(i)=son(nbors_father_cells(i,ind_father))
         if(.not. igrid_nbor(i)>0) then
           nbuffer=nbuffer+1
+          shift_nexist(i) = nbuffer
           ind_buffer(nbuffer)=nbors_father_cells(i,ind_father)
         end if
      end do
@@ -598,8 +598,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
             if(igrid_nbor(i)>0) then
                uloc(i,i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
             else
-               nbuffer=nbuffer+1
-               uloc(i,i3,j3,k3,ivar)=u2(nbuffer,ind_son,ivar)
+               uloc(i,i3,j3,k3,ivar)=u2(shift_nexist(i),ind_son,ivar)
             end if
          end do
         end do
@@ -613,9 +612,8 @@ subroutine godfine1(ind_grid,ncache,ilevel)
                     req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
                     peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
                  else
-                    nbuffer=nbuffer+1
-                    req_loc(i,i3,j3,k3)=req2(nbuffer,ind_son)
-                    peq_loc(i,i3,j3,k3)=peq2(nbuffer,ind_son)
+                    req_loc(i,i3,j3,k3)=req2(shift_nexist(i),ind_son)
+                    peq_loc(i,i3,j3,k3)=peq2(shift_nexist(i),ind_son)
                  end if
               end do
            end do
@@ -630,8 +628,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
                     gloc(i,i3,j3,k3,idim)=f(ind_cell(i),idim)
                  else
                     ! Use straight injection for buffer cells
-                  nbuffer=nbuffer+1
-                  gloc(i,i3,j3,k3,idim)=f(ibuffer_father(nbuffer,0),idim)
+                  gloc(i,i3,j3,k3,idim)=f(ibuffer_father(shift_nexist(i),0),idim)
                  end if
               end do
            end do
