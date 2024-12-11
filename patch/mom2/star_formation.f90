@@ -331,12 +331,10 @@ subroutine star_formation(ilevel)
 
                        CASE (5)
                           ! Virial parameter
-                          alpha0    = (5.0*(sigma2+cs2))/(pi*factG*d*dx_loc**2)
+                          alpha0    = (15.0*(sigma2+cs2))/(pi*factG*d*dx_loc**2)
                           M2        = max(sigma2/cs2,smallr)
                           ! Turbulent forcing parameter (Federrath 2008 & 2010)
-                          b_turb    = 0.4
-                          ! Fudge for alpha dependence (KM 2005).
-                          ! phi_x     = 1.12
+                          b_turb    = 1.0 ! 1=compressive 0.3=solenidal
                           ! The prefered value for eps_star = 1.0,
                           ! which represents the theoretical maximum efficiency.
                           sigs      = log(1.0+(b_turb**2)*(M2))
