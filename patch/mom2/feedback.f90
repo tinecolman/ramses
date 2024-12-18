@@ -522,6 +522,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  write(ilun,'(E24.12)',advance='no') uvar/unew(indp(j),1)
               enddo
               write(ilun,'(I10)',advance='no') typep(ind_part(i))%tag
+              write(ilun,'(E24.12)',advance='no') current_time
               write(ilun,'(A1)') ' '
            endif
         endif
