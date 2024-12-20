@@ -69,6 +69,7 @@ subroutine thermal_feedback(ilevel)
            endif
         enddo
         write(ilun,'(A5)',advance='no') 'tag  '
+        write(ilun,'(A4)',advance='no') 'tp  '
         write(ilun,'(A1)') ' '
      else
         open(ilun, file=fileloc, status='old', position='append', action='write', form='formatted')
