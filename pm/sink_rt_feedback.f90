@@ -133,7 +133,7 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
   real(dp),intent(in)::dt
   real(dp),dimension(1:nsink,1:ngroups),intent(out):: sink_ioni_flux !this arrays gathers the ionising flux by looping over stellar object
   integer:: istellar,isink,ig
-  real(dp)::M_stellar,Flux_stellar
+  real(dp)::M_stellar,Flux_stellar,Flux_stellar_HII,Flux_stellar_HeII
   real(dp),dimension(1:ngroups)::nphotons
 
   sink_ioni_flux = 0d0
@@ -152,6 +152,8 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
      ! Reset the photon counter
      nphotons = 0d0
      Flux_stellar = 0
+     Flux_stellar_HII = 0
+     Flux_stellar_HeII = 0
 
      !! Use singlestar_module (reads SB99-derived tables)
      !if (use_ssm) then
@@ -171,8 +173,20 @@ SUBROUTINE gather_ioni_flux(dt,sink_ioni_flux)
      if (t - tstellar(istellar) < hii_t) then
         !remember vaccafits is in code units because the corresponding parameters have been normalised in read_stellar_params (stf_K and stf_m0)
         call vaccafit(M_stellar,Flux_stellar)
-        nphotons(feedback_photon_group) = Flux_stellar
-     endif
+        ! This is total ionising flux
+        ! PS 2024: HeII/Total flux is given by (averaged over the star's MS)
+        !             Q0/Q1 = -0.1729 + 0.0096 mass[MSun] if M<40
+        !             Q0/Q1 = 0.1659 + 0.0014 mass[MSun] if M>40
+        !  see Schaerer (1997, 1998)
+        if (activate_sink_HeII_ionisation) then
+            call schaerer1998(M_stellar,Flux_stellar, Flux_stellar_HII, Flux_stellar_HeII)
+            nphotons(feedback_photon_group) = Flux_stellar_HII
+            nphotons(feedback_photon_group+1) = Flux_stellar_HeII
+        else
+            ! Usual Vacca1996 prescription, all the flux goes in HII
+            nphotons(feedback_photon_group) = Flux_stellar
+        endif 
+    endif
 
      do ig=1,ngroups
         ! Remove negative photon counts
@@ -586,4 +600,29 @@ END SUBROUTINE
 !################################################################
 !################################################################
 !################################################################
+
+SUBROUTINE schaerer1998(M,tot_ion_flux, HII_ion_flux, HeII_ion_flux)
+          use amr_parameters,only:dp
+  use sink_feedback_parameters
+  implicit none
+  !             Q0/Q1 = -0.1729 + 0.0096 mass[MSun] if M<40
+  !             Q0/Q1 = 0.1659 + 0.0014 mass[MSun] if M>40
+
+  
+  real(dp),intent(in)::M,tot_ion_flux
+  real(dp),intent(out)::HII_ion_flux, HeII_ion_flux
+  real(dp):: scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  real(dp):: msun, M_sun, ratio
+  M_sun = 1.98892d33
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  msun = M_sun / scale_d / scale_l**3
+  if (M/msun < 40 ) then
+        ratio = max(-0.1729 + 0.0096 * (M/msun), 0.)
+  else
+        ratio = 0.1659 + 0.0014 * (M/msun)
+  endif
+  HeII_ion_flux = tot_ion_flux*ratio
+  HII_ion_flux = tot_ion_flux*(1-ratio)
+END SUBROUTINE    
 #endif
+

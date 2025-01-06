@@ -64,6 +64,7 @@ module sink_feedback_parameters
 
   real(dp):: hii_t=0 !fiducial HII region lifetime [yr?], it is normalised in code units in read_stellar
   integer:: feedback_photon_group=-1 ! index of the photon group where to put the radiation
+  logical:: activate_sink_HeII_ionisation=.false. ! Activating the HeII radiation input
 
   ! commons
 
@@ -76,6 +77,7 @@ module sink_feedback_parameters
 !  character(LEN=15)::feedback_scheme='protostel_jets'
   logical::jets_feedback_sink = .false. !protostellar feedback emanates from the sink
   real(dp)::v_jets_frac=0.333                ! fraction of liberation velocity for protostellar jets    
+  real(dp)::m_min_jets=0.07                  ! Threshold for activating the jets in M_sun
 
   !---------------------------------------------------------------------
   ! TC: Everything below here is currently not used. Leave in for future

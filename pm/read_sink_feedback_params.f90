@@ -25,6 +25,7 @@ subroutine read_stellar_params()
                          !& FB_radius, FB_r_refine, &
                          !& ssm_table_directory, use_ssm, &
                          & Vdisp, stellar_info, &
+                         & activate_sink_HeII_ionisation, &
                          & sn_freq_mult,use_sn_nopart,sn_min_dens, sn_r_min,sn_mass_ref
 
   real(dp):: scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
