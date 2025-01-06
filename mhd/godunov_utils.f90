@@ -115,6 +115,9 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   use hydro_parameters
   use amr_commons, ONLY: emag_tot
   use const
+#ifdef RT
+  use rt_parameters
+#endif
   implicit none
   ! dummy arguments
   integer nn,ilevel
@@ -130,7 +133,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   real(dp),dimension(1:nvector),save::eking,ekinm,ekind
   real(dp),dimension(1:nvector),save::emagg,emagm,emagd
   real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres
-
   ! Convert to primitive variables
   do k = 1,nn
      ug(k,1) = max(ug(k,1),smallr)
@@ -257,7 +259,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
         ok(k) = ok(k) .or. error > err_grad_B
      end do
   end if
-
   if(err_grad_C >= 0.)then
      idim = 3
      do k=1,nn
@@ -288,6 +289,36 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
         end do
      end do
   end if
+
+#ifdef RT
+  ! Ionization state (only Hydrogen)
+  if(rt_err_grad_xHII >= 0.) then !---------------------------------------
+     do k=1,nn
+        dg=min(1d0,max(0d0,ug(k,iIons)))
+        dm=min(1d0,max(0d0,um(k,iIons)))
+        dd=min(1d0,max(0d0,ud(k,iIons)))
+        error=2.0d0*MAX( &
+             & ABS((dd-dm)/(dd+dm+rt_floor_xHII)) , &
+             & ABS((dm-dg)/(dm+dg+rt_floor_xHII)) )
+        ok(k) = ok(k) .or. error > rt_err_grad_xHII
+        end do
+  end if
+
+  ! Neutral state (only Hydrogen)
+  if(rt_err_grad_xHI  >= 0.) then !---------------------------------------
+     do k=1,nn
+        dg=min(1d0,max(0d0,1d0 - ug(k,iIons)))
+        dm=min(1d0,max(0d0,1d0 - um(k,iIons)))
+        dd=min(1d0,max(0d0,1d0 - ud(k,iIons)))
+        error=2.0d0*MAX( &
+             & ABS((dd-dm)/(dd+dm+rt_floor_xHI)) , &
+             & ABS((dm-dg)/(dm+dg+rt_floor_xHI)) )
+        ok(k) = ok(k) .or. error > rt_err_grad_xHI
+     end do
+  end if
+#endif
+
+
 
   if(ischeme.eq.1)then
      if(m_refine(ilevel) >= 0.)then
