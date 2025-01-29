@@ -19,7 +19,7 @@ rho    = data["data"]["density"]
 vx     = data["data"]["velocity_x"]
 vy     = data["data"]["velocity_y"]
 vz     = data["data"]["velocity_z"]
-p    = data["data"]["pressure"]
+p      = data["data"]["pressure"]
 
 xmin = np.amin(x-0.5*dx)
 xmax = np.amax(x+0.5*dx)
@@ -88,4 +88,4 @@ for c in cb:
 fig.savefig('strat-disk.pdf',bbox_inches='tight')
 
 # Check results against reference solution
-visu_ramses.check_solution(data["data"],'strat-disk', threshold=1e-30, overwrite=True)
+visu_ramses.check_solution(data["data"],'strat-disk', threshold=1e-30)

@@ -34,7 +34,6 @@ jeans_refine=12,12,12,12,12,12
 /
 
 &OUTPUT_PARAMS
-noutput=2
 tend=0.2
 /
 
@@ -69,9 +68,8 @@ c_acc=0.1
 /
 
 &STELLAR_PARAMS
-!iseed=21
-!sn_feedback_sink=.True.
-stellar_strategy=.false.
+stellar_info=.false.
+stellar_strategy='local'
 nstellarmax=10000
 imf_index=-2.35
 imf_low=8.
