@@ -1,0 +1,11 @@
+CLUSTER_ACCOUNT=p200525
+
+# cluster information
+CLUSTER_PARTITION=cpu
+CLUSTER_QOS=default
+CLUSTER_CORES_PER_NODE=128
+CLUSTER_SCRATCH=/home/users/u102032/myruns
+
+# compilation modules
+MODULE_COMPILER=GCC
+MODULE_MPI=OpenMPI/4.1.5-GCC-12.3.0

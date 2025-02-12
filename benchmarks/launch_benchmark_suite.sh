@@ -1,0 +1,255 @@
+#!/bin/bash
+#######################################################################
+#
+# Script to run the RAMSES performance tests
+#
+# Usage:
+#   ./launch_benchmark_suite.sh
+#
+# Options:
+#   - Specify on which cluster you are
+#       ./launch_benchmark_suite.sh -c meluxina
+#   - Select setup
+#       ./launch_benchmark_suite.sh -t cosmo
+#   - Select weak or strong scaling
+#       ./launch_benchmark_suite.sh -s weak
+#   - Select maximum number of nodes
+#       ./launch_benchmark_suite.sh -n 40
+#
+#######################################################################
+
+#######################################################################
+# Determine the parameters for running the performance tests
+#######################################################################
+NODESMAX=2
+CLUSTER=zapus;
+SELECTTEST=false;
+STRONGSCALING=true;
+WEAKSCALING=false
+VERBOSE=false;
+DELDATA=true;
+BRANCH=dev
+while getopts "c:t:wn:dv" OPTION; do
+   case $OPTION in
+      c)
+         CLUSTER=$OPTARG;
+      ;;
+      t)
+         SELECTTEST=true;
+         TESTNUMBER=$OPTARG;
+      ;;
+      w)
+         WEAKSCALING=true;
+      ;;
+      n)
+         NODESMAX=$OPTARG;
+      ;;
+      d)
+         DELDATA=false;
+      ;;
+      v)
+         VERBOSE=true;
+      ;;
+   esac
+done
+
+
+#######################################################################
+# Setup paths and commands
+#######################################################################
+
+# useful definitions
+RAMSES_BENCHMARK_DIR=$(pwd);                      # The benchmark suite directory
+BIN_DIRECTORY="${RAMSES_BENCHMARK_DIR}/../bin";   # The bin directory
+RETURN_TO_BIN="cd ${BIN_DIRECTORY}";
+EXECNAME="benchmark_exe_";
+BEFORETEST="before-test.sh";
+AFTERTEST="after-test.sh";
+DATE=`date +%F`
+LOGFILE="${RAMSES_BENCHMARK_DIR}/benchmark_suite.log";
+line="--------------------------------------------";
+
+# begin logfile
+echo > $LOGFILE;
+
+# set cluster info
+source HPCclusters/${CLUSTER}/set_cluster_info.sh
+
+# get the latest version of the code
+git checkout ${BRANCH} >> $LOGFILE 2>&1;
+git pull >> $LOGFILE 2>&1;
+THIS_COMMIT=$(git rev-parse --short HEAD)
+GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g');
+GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
+
+# create directory on scratch
+BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}
+mkdir ${BENCHMARK_DIR}
+
+
+#######################################################################
+# Welcome message
+#######################################################################
+
+echo "############################################" | tee -a $LOGFILE;
+echo "#    Launching RAMSES performance tests    #" | tee -a $LOGFILE;
+echo "############################################" | tee -a $LOGFILE;
+echo "Repository url: ${GIT_URL}" >> $LOGFILE;
+echo "Commit hash: ${THIS_COMMIT}" >> $LOGFILE;
+echo $line >> $LOGFILE;
+
+
+#######################################################################
+# Generate list of tests from scanning directory
+#######################################################################
+
+# list subdirectories of setups base directory, which contain individual tests
+testlist="setups/*";
+
+# Count number of tests
+testname=( $testlist );
+ntests=${#testname[@]};
+all_tests_ok=true;
+
+# Include all tests by default
+# TODO, selection as in test suite
+for ((n=0;n<$ntests;n++)); do
+   testnum[n]=$n;
+done
+
+# Write list of tests
+echo "Will perform the following tests:" | tee -a $LOGFILE;
+for ((i=0;i<$ntests;i++)); do
+   n=${testnum[i]};
+   j=$(($n + 1));
+   if [ $j -lt 10 ] ; then
+      echo " [ ${j}] ${testname[n]}" | tee -a $LOGFILE;
+   else
+      echo " [${j}] ${testname[n]}" | tee -a $LOGFILE;
+   fi
+done
+echo $line | tee -a $LOGFILE;
+
+# setup number of nodes array
+BENCHMARK_NBNODES_LIST=(1)
+n=2
+while [ ${n} -le ${NODESMAX} ]; do
+   BENCHMARK_NBNODES_LIST+=(${n})
+   echo ${BENCHMARK_NBNODES_LIST}
+   n=$((n*2))
+done
+
+#######################################################################
+# Setup 
+#######################################################################
+
+
+#######################################################################
+# Loop through all tests
+#######################################################################
+for ((i=0;i<$ntests;i++)); do
+
+   cd ${BENCHMARK_DIR}
+
+   # Get test number
+   n=${testnum[i]};
+   ip1=$(($i + 1));
+   echo "Test ${ip1}/${ntests}: ${testname[n]}" | tee -a $LOGFILE;
+
+   # Get raw test name for namelist, pdf and tex files
+   nslash=$(grep -o "/" <<< "${testname[n]}" | wc -l);
+   if [ $nslash -gt 0 ] ; then
+      np1=$(($nslash + 1));
+      rawname[i]=$(echo ${testname[n]} | cut -d '/' -f$np1);
+   else
+      rawname[i]=${testname[n]};
+   fi
+
+   # Read test configuration file
+   FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
+
+   # Recompile source code
+   $RETURN_TO_BIN;
+   make clean >> $LOGFILE 2>&1;
+   echo "Compiling source" | tee -a $LOGFILE;
+   MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} ${FLAGS}";
+   $MAKESTRING >> $LOGFILE 2>&1;
+
+   # load scaling configuration
+   source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
+
+   # check if stuff needs to be downloaded
+   #if [ -f ${BEFORETEST} ]; then
+   #   ${SHELL} ${BEFORETEST} >> $LOGFILE 2>&1;
+   #fi
+
+   # ------- STRONG SCALING -----------
+
+   # create subdirectory for setup
+   LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}_${STRONG_SCALING_RESO}
+   mkdir ${LAUNCH_DIR}
+   cd ${LAUNCH_DIR}
+
+   # create job scripts for each node configuration and launch jobs to queue
+   for NBNODES in ${BENCHMARK_NBNODES_LIST[@]}; do
+      # make subdirectory
+      mkdir nodes${NBNODES}
+      cd nodes${NBNODES}
+      # add executable
+      cp ${BIN_DIRECTORY}/${EXECNAME}3d .
+      # add input file
+      cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${rawname[i]}_${STRONG_SCALING_RESO}.nml .
+      # create job script
+      source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
+      #launch job
+      JOB_ID=1
+      #$(sbatch job.sh)
+      echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
+      cd ..
+   done
+
+   # launch additional weak scaling jobs
+   if ${WEAKSCALING}; then
+      nconfigs=${#WEAK_SCALING_RESO[@]};
+      for ((w=0;w<$nconfigs;w++)); do
+         # create new subdir for different resolution
+         LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}_${WEAK_SCALING_RESO[w]}
+         mkdir ${LAUNCH_DIR}
+         cd ${LAUNCH_DIR}
+         mkdir nodes${WEAK_SCALING_NNODES[w]}
+         cd nodes${WEAK_SCALING_NNODES[w]}
+         cp ${BIN_DIRECTORY}/${EXECNAME}3d .
+         cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${rawname[i]}_${WEAK_SCALING_RESO[w]}.nml .
+         # create job script
+         source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
+         #launch job
+         JOB_ID=1
+         #$(sbatch job.sh)
+         echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
+         cd ..
+      done
+   fi
+
+done
+
+#######################################################################
+# Clean up
+#######################################################################
+if ${DELDATA} ; then
+   for ((i=0;i<$ntests;i++)); do
+      n=${testnum[i]};
+      cd ${RAMSES_BENCHMARK_DIR}/${testname[n]};
+      $DELETE_RESULTS;
+      if [ -f ${AFTERTEST} ]; then
+         ${SHELL} ${AFTERTEST};
+      fi
+   done
+   $RETURN_TO_BIN;
+   if $VERBOSE ; then
+      make clean 2>&1 | tee -a $LOGFILE;
+   else
+      make clean >> $LOGFILE 2>&1;
+   fi
+   rm -f ${EXECNAME}*d;
+fi
+
