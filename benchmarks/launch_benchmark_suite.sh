@@ -28,7 +28,7 @@ STRONGSCALING=true;
 WEAKSCALING=false
 VERBOSE=false;
 DELDATA=true;
-BRANCH=dev
+BRANCH=performance_tests
 while getopts "c:t:wn:dv" OPTION; do
    case $OPTION in
       c)
@@ -194,7 +194,7 @@ for ((i=0;i<$ntests;i++)); do
    make clean >> $LOGFILE 2>&1;
    echo "Compiling source" | tee -a $LOGFILE;
    MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} ${FLAGS}";
-   source HPCclusters/${CLUSTER}/compile_code.sh
+   source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh
 
    # load scaling configuration
    source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
