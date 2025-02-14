@@ -3,7 +3,7 @@
 echo "#!/bin/bash -l" > job.sh
 
 # SLURM job settings
-echo "#SBATCH --job-name=${TEST_NAME}_N${NBNODES}" >> job.sh
+echo "#SBATCH --job-name=${TEST_NAME}" >> job.sh
 echo "#SBATCH --account=${CLUSTER_ACCOUNT}" >> job.sh
 echo "#SBATCH --partition=${CLUSTER_PARTITION}" >> job.sh
 echo "#SBATCH --qos=${CLUSTER_QOS}" >> job.sh

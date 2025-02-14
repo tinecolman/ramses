@@ -194,7 +194,7 @@ for ((i=0;i<$ntests;i++)); do
    make clean >> $LOGFILE 2>&1;
    echo "Compiling source" | tee -a $LOGFILE;
    MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} ${FLAGS}";
-   $MAKESTRING >> $LOGFILE 2>&1;
+   source HPCclusters/${CLUSTER}/compile_code.sh
 
    # load scaling configuration
    source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
@@ -223,8 +223,7 @@ for ((i=0;i<$ntests;i++)); do
       # create job script
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
       #launch job
-      JOB_ID=1
-      #$(sbatch job.sh)
+      JOB_ID=$(sbatch job.sh)
       echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
       cd ..
    done
