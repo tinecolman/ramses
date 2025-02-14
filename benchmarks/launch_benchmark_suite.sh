@@ -21,7 +21,7 @@
 #######################################################################
 # Determine the parameters for running the performance tests
 #######################################################################
-NODESMAX=2
+NODESMAX=64
 CLUSTER=zapus;
 SELECTTEST=false;
 STRONGSCALING=true;
@@ -226,8 +226,10 @@ for ((i=0;i<$ntests;i++)); do
       TEST_NAMELIST=${rawname[i]}_${STRONG_SCALING_RESO}.nml
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
       #launch job
-      JOB_ID=$(sbatch job.sh)
-      echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
+      for iter in $(seq 3); do
+         JOB_ID=$(sbatch job.sh)
+         echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
+      done
       cd ..
    done
 
