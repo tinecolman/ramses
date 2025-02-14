@@ -8,8 +8,8 @@ echo "#SBATCH --account=${CLUSTER_ACCOUNT}" >> job.sh
 echo "#SBATCH --partition=${CLUSTER_PARTITION}" >> job.sh
 echo "#SBATCH --qos=${CLUSTER_QOS}" >> job.sh
 echo "#SBATCH --nodes=${NBNODES}" >> job.sh
-echo "#SBATCH --ntasks-per-node=$(( $CLUSTER_CORES_PER_NODE/$NBTHREADS ))" >> job.sh
-echo "#SBATCH --cpus-per-task=${NBTHREADS}" >> job.sh
+echo "#SBATCH --ntasks-per-node=${CLUSTER_CORES_PER_NODE}" >> job.sh
+echo "#SBATCH --cpus-per-task=1" >> job.sh
 echo "#SBATCH --threads-per-core=1" >> job.sh
 echo "#SBATCH --exclusive" >> job.sh
 echo "#SBATCH --time=${TEST_TIME}" >> job.sh

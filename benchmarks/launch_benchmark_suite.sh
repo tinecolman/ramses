@@ -193,7 +193,7 @@ for ((i=0;i<$ntests;i++)); do
    $RETURN_TO_BIN;
    make clean >> $LOGFILE 2>&1;
    echo "Compiling source" | tee -a $LOGFILE;
-   MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} ${FLAGS}";
+   MAKESTRING="make EXEC=${EXECNAME} ${FLAGS}";
    source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh
 
    # load scaling configuration
@@ -221,6 +221,9 @@ for ((i=0;i<$ntests;i++)); do
       # add input file
       cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${rawname[i]}_${STRONG_SCALING_RESO}.nml .
       # create job script
+      TEST_NAME=${rawname[i]}
+      TEST_EXECUTABLE=${EXECNAME}3d
+      TEST_NAMELIST=${rawname[i]}_${STRONG_SCALING_RESO}.nml
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
       #launch job
       JOB_ID=$(sbatch job.sh)
@@ -270,6 +273,6 @@ if ${DELDATA} ; then
    else
       make clean >> $LOGFILE 2>&1;
    fi
-   rm -f ${EXECNAME}*d;
+   # rm -f ${EXECNAME}*d;
 fi
 
