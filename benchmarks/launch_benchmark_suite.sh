@@ -108,14 +108,36 @@ testlist="setups/*";
 
 # Count number of tests
 testname=( $testlist );
-ntests=${#testname[@]};
+ntests_all=${#testname[@]};
 all_tests_ok=true;
 
-# Include all tests by default
-# TODO, selection as in test suite
-for ((n=0;n<$ntests;n++)); do
-   testnum[n]=$n;
-done
+if $SELECTTEST ; then
+   # Split test selection with commas
+   s1=$(echo $TESTNUMBER | sed 's/,/ /g');
+   testsegs=( $s1 );
+   nseg=${#testsegs[@]};
+   echo ${nseg}
+
+   ntests=0;
+
+   # Search for dashes in individual segments
+   for ((n=0;n<$nseg;n++)); do
+      # No dash, just include test in list
+      if [ ${testsegs[n]} -gt 0 ] && [ ${testsegs[n]} -le ${ntests_all} ] ; then
+         testnum[${ntests}]=$((${testsegs[n]} - 1));
+         ntests=$((ntests + 1));
+      else
+         echo "Selected test ${testsegs[n]} does not exist! Ignoring test" | tee -a $LOGFILE;
+      fi
+   done
+
+else
+   # Include all tests by default
+   for ((n=0;n<$ntests_all;n++)); do
+      testnum[n]=$n;
+   done
+   ntests=$ntests_all
+fi
 
 # Write list of tests
 echo "Will perform the following tests:" | tee -a $LOGFILE;
@@ -135,7 +157,6 @@ BENCHMARK_NBNODES_LIST=(1)
 n=2
 while [ ${n} -le ${NODESMAX} ]; do
    BENCHMARK_NBNODES_LIST+=(${n})
-   echo ${BENCHMARK_NBNODES_LIST}
    n=$((n*2))
 done
 
