@@ -186,15 +186,15 @@ for ((i=0;i<$ntests;i++)); do
    # ------- STRONG SCALING -----------
 
    # create subdirectory for setup
-   LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}_${STRONG_SCALING_RESO}
+   LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}
    mkdir ${LAUNCH_DIR}
    cd ${LAUNCH_DIR}
 
    # create job scripts for each node configuration and launch jobs to queue
    for NBNODES in ${BENCHMARK_NBNODES_LIST[@]}; do
       # make subdirectory
-      mkdir nodes${NBNODES}
-      cd nodes${NBNODES}
+      mkdir nodes${NBNODES}_reso${STRONG_SCALING_RESO}
+      cd nodes${NBNODES}_reso${STRONG_SCALING_RESO}
       # add executable
       cp ${BIN_DIRECTORY}/${EXECNAME}3d .
       # add input file
