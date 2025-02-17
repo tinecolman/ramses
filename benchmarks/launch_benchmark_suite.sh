@@ -28,7 +28,7 @@ STRONGSCALING=true;
 WEAKSCALING=false
 VERBOSE=false;
 DELDATA=true;
-BRANCH=performance_tests
+BRANCH=performance_tests;
 while getopts "c:t:wn:dv" OPTION; do
    case $OPTION in
       c)
@@ -52,6 +52,10 @@ while getopts "c:t:wn:dv" OPTION; do
       ;;
    esac
 done
+
+UPDATECODE="update-code.sh"
+COMPILECODE="compile_code.sh"
+BEFORETEST="before-test.sh";
 
 
 #######################################################################
@@ -77,7 +81,12 @@ source HPCclusters/${CLUSTER}/set_cluster_info.sh
 
 # get the latest version of the code
 git checkout ${BRANCH} >> $LOGFILE 2>&1;
-git pull >> $LOGFILE 2>&1;
+if [ -f ${UPDATECODE} ]; then
+   # special attention needed to pull the code
+   ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
+else
+   git pull >> $LOGFILE 2>&1;
+fi
 THIS_COMMIT=$(git rev-parse --short HEAD)
 GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g');
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
@@ -190,11 +199,16 @@ for ((i=0;i<$ntests;i++)); do
    FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
 
    # Recompile source code
+   MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPI=1 ${FLAGS}";
    $RETURN_TO_BIN;
    make clean >> $LOGFILE 2>&1;
    echo "Compiling source" | tee -a $LOGFILE;
-   MAKESTRING="make EXEC=${EXECNAME} ${FLAGS}";
-   source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh
+   if [ -f ${COMPILECODE} ]; then
+      # special attention needed for compilation
+      source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/${COMPILECODE}
+   else
+      $MAKESTRING >> $LOGFILE 2>&1;
+   fi
 
    # load scaling configuration
    source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
