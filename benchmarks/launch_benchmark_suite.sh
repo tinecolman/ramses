@@ -10,7 +10,7 @@
 #   - Specify on which cluster you are
 #       ./launch_benchmark_suite.sh -c meluxina
 #   - Select setup
-#       ./launch_benchmark_suite.sh -t cosmo
+#       ./launch_benchmark_suite.sh -t 2
 #   - Select weak or strong scaling
 #       ./launch_benchmark_suite.sh -s weak
 #   - Select maximum number of nodes
@@ -53,10 +53,6 @@ while getopts "c:t:wn:dv" OPTION; do
    esac
 done
 
-UPDATECODE="update-code.sh"
-COMPILECODE="compile_code.sh"
-BEFORETEST="before-test.sh";
-
 
 #######################################################################
 # Setup paths and commands
@@ -78,6 +74,8 @@ echo > $LOGFILE;
 
 # set cluster info
 source HPCclusters/${CLUSTER}/set_cluster_info.sh
+UPDATECODE="HPCclusters/${CLUSTER}/update-code.sh"
+COMPILECODE="HPCclusters/${CLUSTER}compile_code.sh"
 
 # get the latest version of the code
 git checkout ${BRANCH} >> $LOGFILE 2>&1;
