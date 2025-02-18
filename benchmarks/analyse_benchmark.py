@@ -29,7 +29,11 @@ import subprocess
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as colorsx
-import matplotlib.cm as cmx
+from collections import OrderedDict
+
+reso_strong = 1024
+nodes_strong = [1,2,4,8,16,32,64]
+
 
 #######################################################################
 # I/O
@@ -44,7 +48,7 @@ def get_timings_from_log(run_dir):
 
 ''' load previous data from file into dicts format '''
 def load_data(benchmark_file):
-    data = {}
+    data = OrderedDict()
 
     try: 
         with open(benchmark_file, 'r') as f:
@@ -58,7 +62,7 @@ def load_data(benchmark_file):
 
                 # cast times to float
                 if (currentline[4]=='[]'):
-                    timing = np.nan
+                    items = []
                 else:
                     items = [float(i) for i in (currentline[4][1:-2]).strip().split()]
 
@@ -82,7 +86,6 @@ def write_data(benchmark_file, data):
                 f.write(f"{date},{commit},{reso},{nodes},{data[entry][subentry]}\n")
 
     print("Updated", benchmark_file)
-
 
 ''' add data to the dict '''
 def add_data(data, benchmark_info, configs):
@@ -159,56 +162,118 @@ def plot_strong_scaling(benchmark_dir, reso_strong, nodes_strong):
 
 
 '''  '''
-#TODO update for refactoring data dict
-def plot_execution_time(benchmark_dir_list, reso_strong, nodes_strong):
+def plot_execution_time(data, reso_strong, nodes_strong, axes=None):
 
-    dates = []
-    times = {}
-    errors_min = {}
-    errors_max = {}
-    for n in nodes_strong:
-        times[n] = []
-        errors_min[n] = []
-        errors_max[n] = []
+    dates = {n:[] for n in nodes_strong}
+    times = {n:[] for n in nodes_strong}
+    errors_min = {n:[] for n in nodes_strong}
+    errors_max = {n:[] for n in nodes_strong}
 
-    for benchmark_dir in benchmark_dir_list:
-        #dates.append(benchmark_dir[-16:-6])
-        dates.append(benchmark_dir[-25:-17]+'\n'+benchmark_dir[-16:-6])
+    for entry in data:
         # gather data from log files
         for n in nodes_strong:
-            subdir_name = 'nodes'+str(n)+'_reso'+str(reso_strong)
-            time, error_min, error_max = get_timings_total(benchmark_dir+'/'+subdir_name)
+            subentry = str(reso_strong)+' '+str(n)
+            time, error_min, error_max = process_times(data[entry][subentry])
+            dates[n].append(entry)
             times[n].append(time)
             errors_min[n].append(error_min)
             errors_max[n].append(error_max)
 
     # create colors
-    cmap = cmx.get_cmap('managua')
+    cmap = plt.get_cmap('managua')
     cNorm  = colorsx.Normalize(vmin=0, vmax=len(nodes_strong)-1)
     colorVals =  []
     for val in range(len(nodes_strong)):
         colorVals.append(cmap(cNorm(val)))
 
     # plot
-    plt.figure(figsize=[5,4])
-    for i, c in zip(nodes_strong,colorVals):
-        plt.errorbar(dates, times[i], yerr=[errors_min[i],errors_max[i]], fmt='o', markersize=5,
-                     label=str(i)+' nodes', color=c)
+    save_plot=False
+    if axes==None:
+        fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(5,4))
+        save_plot=True
+    for n, c in zip(nodes_strong,colorVals):
+        print(dates[n], times[n])
+        axes.errorbar(dates[n], times[n], yerr=[errors_min[n],errors_max[n]], fmt='o', markersize=5,
+                     label=str(n)+' nodes', color=c)
         # plot a line from the last point to make comparison easier
-        plt.plot([dates[0],dates[-1]], [times[i][-1],times[i][-1]], ls=':', lw=1.3, color=c)
+        axes.plot([dates[n][0],dates[n][-1]], [times[n][-1],times[n][-1]], ls=':', lw=1.3, color=c)
 
-    plt.ylabel('execution time [s]')
-    plt.yscale('log')
-    plt.legend()
-    plt.savefig('execution_time.png', bbox_inches='tight', dpi=200)
+    axes.set_ylabel('execution time [s]')
+    axes.set_yscale('log')
+    axes.legend()
+    if save_plot:
+        plt.savefig('execution_time.png', bbox_inches='tight', dpi=200)
+        plt.close()
+
+
+''' Show evolution of execution time on EuroHPC systems '''
+def eurohpc_dashboard(test_name):
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8,5))
+
+    for cluster, ax in zip(['marenostrum','meluxina'], axes.flatten()):
+        benchmark_file = 'timings_'+cluster+'_'+test_name+'.txt'
+        data = load_data(benchmark_file)
+        plot_execution_time(data, reso_strong, nodes_strong, axes=ax)
+        ax.set_title(cluster)
+
+    plt.savefig(f'eurohpc_dashboard_{test_name}.png', bbox_inches='tight', dpi=200)
     plt.close()
 
-
-if __name__ == '__main__':
+''' (for testing purposes) add locally stored benchmark results to file '''
+def make_files():
 
     test = 'sedov'
-    bench_home = '/home/tcolman/Dropbox/SPACE/benchmarks/marenostrum/'
     branch = 'performance_tests'
+    reso_strong = 1024
+    nodes_strong = [1,2,4,8,16,32,64]
+    configs = []
+    for n in nodes_strong:
+        configs.append((n, reso_strong))
+
+    # load marenostrum 
+    bench_home = '/home/tcolman/Dropbox/SPACE/benchmarks/marenostrum/'
+    benchmark_info = {'system': 'marenostrum',
+                      'test': test,
+                      'branch': branch,
+                      'scratch': bench_home,
+                      'commit': '24fe23ee',
+                      'date': '2025-02-17'}
+    benchmark_file = 'timings_'+benchmark_info['system']+'_'+benchmark_info['test']+'.txt'
+    data = load_data(benchmark_file)
+    data = add_data(data, benchmark_info, configs)
+
+    benchmark_info = {'system': 'marenostrum',
+                      'test': test,
+                      'branch': branch,
+                      'scratch': bench_home,
+                      'commit': 'b5104a59',
+                      'date': '2025-02-17'}
+    data = add_data(data, benchmark_info, configs)
+    write_data(benchmark_file,data)
+
+    # load meluxina
+    bench_home = '/home/tcolman/Dropbox/SPACE/benchmarks/meluxina/'
+    benchmark_info = {'system': 'meluxina',
+                      'test': test,
+                      'branch': branch,
+                      'scratch': bench_home,
+                      'commit': 'c41fffd1',
+                      'date': '2025-02-14'}
+    benchmark_file = 'timings_'+benchmark_info['system']+'_'+benchmark_info['test']+'.txt'
+    data = load_data(benchmark_file)
+    data = add_data(data, benchmark_info, configs)
+
+    benchmark_info = {'system': 'meluxina',
+                      'test': test,
+                      'branch': branch,
+                      'scratch': bench_home,
+                      'commit': 'c172e905',
+                      'date': '2025-02-18'}
+    data = add_data(data, benchmark_info, configs)
+    write_data(benchmark_file,data)
+
+if __name__ == '__main__':
 
     '''
     import argparse
@@ -223,36 +288,10 @@ if __name__ == '__main__':
     test = args.test
     '''
 
-
-    #benchmark_dir_list = [bench_home+'benchmark_'+branch+'_24fe23ee_2025-02-17/'+test,
-    #                      bench_home+'benchmark_'+branch+'_b5104a59_2025-02-17/'+test]
-    reso_strong = 1024
-    nodes_strong = [1,2,4,8,16,32,64]
-    configs = []
-    for n in nodes_strong:
-        configs.append((n, reso_strong))
-    #plot_execution_time(benchmark_dir_list, reso_strong, nodes_strong)
-
-    benchmark_info = {'system': 'marenostrum',
-                      'test': test,
-                      'branch': branch,
-                      'scratch': bench_home,
-                      'commit': '24fe23ee',
-                      'date': '2025-02-17'}
-
-    benchmark_file = 'timings_'+benchmark_info['system']+'_'+benchmark_info['test']+'.txt'
-
-    data = load_data(benchmark_file)
-    data = add_data(data, benchmark_info, configs)
-
-    benchmark_info = {'system': 'marenostrum',
-                      'test': test,
-                      'branch': branch,
-                      'scratch': bench_home,
-                      'commit': 'b5104a59',
-                      'date': '2025-02-17'}
-
-    data = add_data(data, benchmark_info, configs)
-    write_data(benchmark_file,data)
-
     # make figures
+    #plot_execution_time(data, reso_strong, nodes_strong)
+
+
+    #make_files()
+
+    eurohpc_dashboard('sedov')

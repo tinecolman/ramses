@@ -77,8 +77,12 @@ source HPCclusters/${CLUSTER}/set_cluster_info.sh
 UPDATECODE="HPCclusters/${CLUSTER}/update-code.sh"
 COMPILECODE="HPCclusters/${CLUSTER}compile_code.sh"
 
+# check if we are on the correct branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "Benchmarking branch ${CURRENT_BRANCH}"
+
 # get the latest version of the code
-git checkout ${BRANCH} >> $LOGFILE 2>&1;
+#git checkout ${BRANCH} >> $LOGFILE 2>&1;
 if [ -f ${UPDATECODE} ]; then
    # special attention needed to pull the code
    ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
