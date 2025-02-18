@@ -19,27 +19,101 @@ Several plots are produced:
                   Previous measurements are shown in differently colored lines
                   using a colormap. The legend indicates the data of the benchmark.
 
-The processed data is stored in text files, which are uploaded to the git.
-The name of the file is: timings_<system>_<testname>_<short commit hash>_<benchmark date>.txt
+The raw data is stored in text files, which are uploaded to the git.
+The name of the file is: timings_<system>_<testname>.txt
 The file contains a table with several columns:
-# resolution, number of nodes, total execution time
-A header is written at the top. Possibilty to extend to store individual timers.
+   benchmark date, short commit hash, resolution, number of nodes, list of total execution times
 '''
 
 import subprocess
 import numpy as np
-import os
-import re
 from matplotlib import pyplot as plt
 import matplotlib.colors as colorsx
 import matplotlib.cm as cmx
 
-''' Get average time and error bars from total time printed in log files, for a certain resolution-node config '''
-def get_timings_total(run_dir):
-    # grep total time from logfiles
+#######################################################################
+# I/O
+#######################################################################
+
+''' Use grep to get the times from all logfiles in a directory '''
+def get_timings_from_log(run_dir):
     subprocess.call("grep --no-filename 'Total elapsed time' {}/*.log".format(run_dir) +" | awk '{print $4}' > total_time.txt", shell=True)
     total_time=np.loadtxt('total_time.txt', unpack=True)
     total_time=np.array([total_time]).flatten()
+    return total_time
+
+''' load previous data from file into dicts format '''
+def load_data(benchmark_file):
+    data = {}
+
+    try: 
+        with open(benchmark_file, 'r') as f:
+            for line in f:
+                currentline = line.strip().split(',')
+
+                # create benchmark entry if not already in dict
+                entry_name = currentline[1]+'\n'+currentline[0] #commit name + date
+                if entry_name not in data:
+                    data[entry_name] = {}
+
+                # cast times to float
+                if (currentline[4]=='[]'):
+                    timing = np.nan
+                else:
+                    items = [float(i) for i in (currentline[4][1:-2]).strip().split()]
+
+                # add data to entry
+                subentry_name = currentline[2]+' '+currentline[3] #reso nodes
+                data[entry_name][subentry_name] = items
+    except:
+        print("No data to load.")
+
+    return data
+
+''' write the data from dicts format into file '''
+def write_data(benchmark_file, data):
+
+    with open(benchmark_file, 'w') as f:
+        for entry in data:
+            date = entry[-10:]
+            commit = entry[:8]
+            for subentry in data[entry]:
+                [reso, nodes] = subentry.split()
+                f.write(f"{date},{commit},{reso},{nodes},{data[entry][subentry]}\n")
+
+    print("Updated", benchmark_file)
+
+
+''' add data to the dict '''
+def add_data(data, benchmark_info, configs):
+    # directory where to search log files
+    benchmark_dir = f"benchmark_{benchmark_info['branch']}_{benchmark_info['commit']}_{benchmark_info['date']}"
+    benchmark_dir = f"{benchmark_info['scratch']}/{benchmark_dir}/{benchmark_info['test']}"
+
+    # check if entry exists
+    entry_name = benchmark_info['commit'] + '\n' + benchmark_info['date']
+    if entry_name not in data:
+        data[entry_name] = {}
+
+    # load and store timings for all configurations
+    for (nnodes, reso) in configs:
+        # get times from log
+        subdir_name = 'nodes'+str(nnodes)+'_reso'+str(reso)
+        total_times = get_timings_from_log(benchmark_dir+'/'+subdir_name)
+        # add to dict, overwrite if already exist
+        subentry_name = str(reso)+' '+str(nnodes) #reso nodes
+        data[entry_name][subentry_name] = total_times
+
+    print('Loaded data for benchmark', benchmark_info['commit'], benchmark_info['date'])
+    return data
+
+
+#######################################################################
+# Analysis and plotting
+#######################################################################
+
+''' Get average time and error bars from the gathered total times printed in the log files '''
+def process_times(total_time):
     if len(total_time)>0:
         # take the average and determine the error
         time = np.sum(total_time) / len(total_time)
@@ -52,20 +126,6 @@ def get_timings_total(run_dir):
     return time, error_min, error_max
 
 
-''' Construct filename where timings are stored.
-'''
-def get_test_filename(test_name):
-    return "timings_" + test_name
-
-''' Append new data to file '''
-def update_history(file_name):
-    return
-
-
-''' Load previous data '''
-def load_history(file_name):
-    return
-
 '''  '''
 def plot_strong_scaling(benchmark_dir, reso_strong, nodes_strong):
 
@@ -73,7 +133,7 @@ def plot_strong_scaling(benchmark_dir, reso_strong, nodes_strong):
     times, errors_min, errors_max = [], [], []
     for nnodes in nodes_strong:
         subdir_name = 'nodes'+str(nnodes)+'_reso'+str(reso_strong)
-        time, error_min, error_max = get_timings_total(benchmark_dir+'/'+subdir_name)
+        time, error_min, error_max, Nav = get_timings_total(benchmark_dir+'/'+subdir_name)
         times.append(time)
         errors_min.append(error_min)
         errors_max.append(error_max)
@@ -99,6 +159,7 @@ def plot_strong_scaling(benchmark_dir, reso_strong, nodes_strong):
 
 
 '''  '''
+#TODO update for refactoring data dict
 def plot_execution_time(benchmark_dir_list, reso_strong, nodes_strong):
 
     dates = []
@@ -145,10 +206,53 @@ def plot_execution_time(benchmark_dir_list, reso_strong, nodes_strong):
 
 if __name__ == '__main__':
 
-    bench_home = '/home/tcolman/Dropbox/SPACE/benchmarks/marenostrum/'
     test = 'sedov'
-    benchmark_dir_list = [bench_home+'benchmark_performance_tests_24fe23ee_2025-02-17/'+test,
-                          bench_home+'benchmark_performance_tests_b5104a59_2025-02-17/'+test]
+    bench_home = '/home/tcolman/Dropbox/SPACE/benchmarks/marenostrum/'
+    branch = 'performance_tests'
+
+    '''
+    import argparse
+    parser = argparse.ArgumentParser(description="Analyse benchmark data.")
+    parser.add_argument('-s', '--scratch', help="scratch directory")
+    parser.add_argument('-b', '--branch', help="Name of the benchmarked branch")
+    parser.add_argument('-t', '--test', help="Name of the test case")
+    args = parser.parse_args()
+
+    bench_home = args.scratch
+    branch = args.branch
+    test = args.test
+    '''
+
+
+    #benchmark_dir_list = [bench_home+'benchmark_'+branch+'_24fe23ee_2025-02-17/'+test,
+    #                      bench_home+'benchmark_'+branch+'_b5104a59_2025-02-17/'+test]
     reso_strong = 1024
     nodes_strong = [1,2,4,8,16,32,64]
-    plot_execution_time(benchmark_dir_list, reso_strong, nodes_strong)
+    configs = []
+    for n in nodes_strong:
+        configs.append((n, reso_strong))
+    #plot_execution_time(benchmark_dir_list, reso_strong, nodes_strong)
+
+    benchmark_info = {'system': 'marenostrum',
+                      'test': test,
+                      'branch': branch,
+                      'scratch': bench_home,
+                      'commit': '24fe23ee',
+                      'date': '2025-02-17'}
+
+    benchmark_file = 'timings_'+benchmark_info['system']+'_'+benchmark_info['test']+'.txt'
+
+    data = load_data(benchmark_file)
+    data = add_data(data, benchmark_info, configs)
+
+    benchmark_info = {'system': 'marenostrum',
+                      'test': test,
+                      'branch': branch,
+                      'scratch': bench_home,
+                      'commit': 'b5104a59',
+                      'date': '2025-02-17'}
+
+    data = add_data(data, benchmark_info, configs)
+    write_data(benchmark_file,data)
+
+    # make figures
