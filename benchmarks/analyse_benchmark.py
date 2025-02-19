@@ -20,7 +20,6 @@ Several plots are produced:
                   using a colormap. The legend indicates the data of the benchmark.
 '''
 
-import subprocess
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors as colorsx
@@ -172,6 +171,7 @@ def plot_execution_time(data, axes=None):
 
     axes.set_ylabel('execution time [s]')
     axes.set_yscale('log')
+    axes.tick_params(axis='x', labelrotation=90)
     axes.legend()
     if save_plot:
         plt.savefig('execution_time.png', bbox_inches='tight', dpi=200)
@@ -203,12 +203,15 @@ def make_files():
     test='sedov'
 
     cluster = 'marenostrum'
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_24fe23ee_2025-02-17', test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_b5104a59_2025-02-17', test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_24fe23ee_2025-02-17/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_b5104a59_2025-02-17/'+test, test)
 
     cluster = 'meluxina'
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c41fffd1_2025-02-14', test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c172e905_2025-02-18', test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c41fffd1_2025-02-14/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c172e905_2025-02-18/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c172e905_2025-02-19/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c3a66c16_2025-02-19/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_8543d1bb_2025-02-19/'+test, test)
 
 
 if __name__ == '__main__':

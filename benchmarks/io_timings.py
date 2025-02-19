@@ -80,12 +80,13 @@ def write_data(benchmark_file, data):
             commit = entry[:8]
             for subentry in data[entry]:
                 [reso, nodes] = subentry.split()
-                f.write(f"{date},{commit},{reso},{nodes},{data[entry][subentry]}\n")
+                timings_string = str(data[entry][subentry]).replace(',','')
+                f.write(f"{date},{commit},{reso},{nodes},{timings_string}\n")
 
     print("Updated", benchmark_file)
 
 ''' add data to the dict '''
-def add_data(data, benchmark_dir, test_name):
+def add_data(data, benchmark_dir):
 
     date, commit = get_info_from_dir_name(benchmark_dir)
 
@@ -106,7 +107,7 @@ def add_data(data, benchmark_dir, test_name):
         subentry_name = str(reso)+' '+str(nnodes) #reso nodes
         data[entry_name][subentry_name] = total_times
 
-    #print('Loaded data for benchmark', commit, date, test_name)
+    #print('Loaded data for benchmark', commit, date)
     return data
 
 
@@ -116,7 +117,7 @@ def update_timings(cluster, benchmark_dir, test_name):
     # load existing data
     data = load_data(benchmark_file)
     # add/update benchmark entry
-    data = add_data(data, benchmark_dir, test_name)
+    data = add_data(data, benchmark_dir)
     # update file
     write_data(benchmark_file, data)
 
