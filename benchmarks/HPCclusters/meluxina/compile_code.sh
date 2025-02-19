@@ -16,6 +16,7 @@ echo "" >> compile_job.slm
 # modules
 echo "module load ${MODULE_COMPILER}" >> compile_job.slm
 echo "module load ${MODULE_MPI}" >> compile_job.slm
+echo "" >> compile_job.slm
 # run command
 echo "$MAKESTRING >> $LOGFILE 2>&1;" >> compile_job.slm
 

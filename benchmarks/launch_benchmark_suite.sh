@@ -95,7 +95,7 @@ GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
 
 # create directory on scratch
 BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}
-mkdir ${BENCHMARK_DIR}
+mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 
 #######################################################################
@@ -127,10 +127,8 @@ if $SELECTTEST ; then
    s1=$(echo $TESTNUMBER | sed 's/,/ /g');
    testsegs=( $s1 );
    nseg=${#testsegs[@]};
-   echo ${nseg}
 
    ntests=0;
-
    # Search for dashes in individual segments
    for ((n=0;n<$nseg;n++)); do
       # No dash, just include test in list
@@ -224,13 +222,13 @@ for ((i=0;i<$ntests;i++)); do
 
    # create subdirectory for setup
    LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}
-   mkdir ${LAUNCH_DIR}
+   mkdir ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
    # create job scripts for each node configuration and launch jobs to queue
    for NBNODES in ${BENCHMARK_NBNODES_LIST[@]}; do
       # make subdirectory
-      mkdir nodes${NBNODES}_reso${STRONG_SCALING_RESO}
+      mkdir nodes${NBNODES}_reso${STRONG_SCALING_RESO} >> $LOGFILE 2>&1;
       cd nodes${NBNODES}_reso${STRONG_SCALING_RESO}
       # add executable
       cp ${BIN_DIRECTORY}/${EXECNAME}3d .
@@ -300,6 +298,6 @@ if ${DELDATA} ; then
    else
       make clean >> $LOGFILE 2>&1;
    fi
-   # rm -f ${EXECNAME}*d;
+   rm -f ${EXECNAME}*d;
 fi
 
