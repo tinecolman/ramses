@@ -209,6 +209,7 @@ for ((i=0;i<$ntests;i++)); do
    else
       $MAKESTRING >> $LOGFILE 2>&1;
    fi
+   # TODO catch compilation error and abort
 
    # load scaling configuration
    source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
