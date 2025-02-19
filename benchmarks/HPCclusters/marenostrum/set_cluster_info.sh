@@ -1,4 +1,6 @@
 CLUSTER_ACCOUNT=ehpc39
+#TODO change to CLUSTER_ALLOCATION
+#ADD as a script input param -A myalloc
 
 # cluster information
 CLUSTER_PARTITION=gpp
