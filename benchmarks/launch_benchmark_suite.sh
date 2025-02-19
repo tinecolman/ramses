@@ -243,8 +243,10 @@ for ((i=0;i<$ntests;i++)); do
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
       #launch job
       for iter in $(seq 3); do
-         JOB_ID=$(sbatch job.sh)
-         echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
+         SUBMIT_MESSAGE=$(sbatch job.sh)
+         STRINGARRAY=($SUBMIT_MESSAGE)
+         JOB_ID=${STRINGARRAY[-1]}
+         echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [JOB ID ${JOB_ID}]" | tee -a $LOGFILE;
       done
       cd ..
    done
@@ -272,7 +274,8 @@ for ((i=0;i<$ntests;i++)); do
    fi
 
    # launch dependency job to gather results
-   # todo
+   source ${CLUSTER}/gather_results.sh
+   sbatch --dependency=$(squeue --noheader --format %i --name ${TEST_NAME}) io_${TEST_NAME}.sh
 
 done
 
