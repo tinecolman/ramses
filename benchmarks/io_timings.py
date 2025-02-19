@@ -15,8 +15,8 @@ from collections import OrderedDict
 ''' dissect name of the benchmark directory '''
 def get_info_from_dir_name(benchmark_dir):
     parts = benchmark_dir.split('/')
-    date = parts[-2][-10:]
-    commit = parts[-2][-19:-11]
+    date = parts[-2][-19:-9]
+    commit = parts[-2][-8:]
     return date, commit
 
 ''' get a list of configurations for which the test has been executated '''

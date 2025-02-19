@@ -223,7 +223,7 @@ for ((i=0;i<$ntests;i++)); do
    # ------- STRONG SCALING -----------
 
    # create subdirectory for setup
-   LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}
+   LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}/${rawname[i]}
    mkdir ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
@@ -252,6 +252,7 @@ for ((i=0;i<$ntests;i++)); do
    done
 
    # launch additional weak scaling jobs
+   # TODO update
    if ${WEAKSCALING}; then
       nconfigs=${#WEAK_SCALING_RESO[@]};
       for ((w=0;w<$nconfigs;w++)); do
