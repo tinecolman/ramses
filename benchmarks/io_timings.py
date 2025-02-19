@@ -15,17 +15,16 @@ from collections import OrderedDict
 ''' dissect name of the benchmark directory '''
 def get_info_from_dir_name(benchmark_dir):
     parts = benchmark_dir.split('/')
-    date = parts[-1][-10:]
-    commit = parts[-1][-19:-11]
+    date = parts[-2][-10:]
+    commit = parts[-2][-19:-11]
     return date, commit
 
 ''' get a list of configurations for which the test has been executated '''
-def get_configs(benchmark_dir, test_name):
+def get_configs(benchmark_dir):
     configs = []
     # list subdirectories in benchmark test
-    path=os.path.join(benchmark_dir, test_name)
-    for item in os.listdir(path):
-        name = os.path.join(path, item)
+    for item in os.listdir(benchmark_dir):
+        name = os.path.join(benchmark_dir, item)
         if os.path.isdir(name) and item.startswith('nodes'):
             # get number of nodes and resolution of config
             [nodes, reso] = item.split('_')
@@ -96,13 +95,13 @@ def add_data(data, benchmark_dir, test_name):
         data[entry_name] = {}
 
     # get a list of the num_nodes-resolution configurations used
-    configs = get_configs(benchmark_dir, test_name)
+    configs = get_configs(benchmark_dir)
 
     # load and store timings for all configurations
     for (nnodes, reso) in configs:
         # get times from log
         subdir_name = 'nodes'+str(nnodes)+'_reso'+str(reso)
-        total_times = get_timings_from_log(benchmark_dir+'/'+test_name+'/'+subdir_name)
+        total_times = get_timings_from_log(benchmark_dir+'/'+subdir_name)
         # add to dict, overwrite if already exist
         subentry_name = str(reso)+' '+str(nnodes) #reso nodes
         data[entry_name][subentry_name] = total_times

@@ -24,4 +24,4 @@ echo "module load ${MODULE_PYTHON}" >> ${JOB_FILE}
 echo "" >> ${JOB_FILE}
 
 # run command
-echo "python io_timings.py ${CLUSTER} ${RAMSES_BENCHMARK_DIR} ${TEST_NAME}" >> ${JOB_FILE}
+echo "python io_timings.py ${CLUSTER} ${LAUNCH_DIR} ${TEST_NAME}" >> ${JOB_FILE}

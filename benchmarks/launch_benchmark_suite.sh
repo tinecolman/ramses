@@ -274,8 +274,11 @@ for ((i=0;i<$ntests;i++)); do
    fi
 
    # launch dependency job to gather results
-   source ${CLUSTER}/gather_results.sh
-   sbatch --dependency=$(squeue --noheader --format %i --name ${TEST_NAME}) io_${TEST_NAME}.sh
+   cd ${RAMSES_BENCHMARK_DIR}
+   source HPCclusters/${CLUSTER}/gather_results.sh
+   DEPS=$(squeue --noheader --format %i --name ${TEST_NAME} | paste -sd,)
+   sbatch --dependency=${DEPS} io_${TEST_NAME}.sh
+
 
 done
 
