@@ -24,4 +24,4 @@ echo "$MAKESTRING >> $LOGFILE 2>&1;" >> compile_job.slm
 sbatch compile_job.slm
 
 # wait for compilation to finish
-sleep 90
+sleep 180

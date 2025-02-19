@@ -94,7 +94,7 @@ GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
 
 # create directory on scratch
-BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}
+BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}
 mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 
@@ -223,7 +223,7 @@ for ((i=0;i<$ntests;i++)); do
    # ------- STRONG SCALING -----------
 
    # create subdirectory for setup
-   LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}/${rawname[i]}
+   LAUNCH_DIR=$BENCHMARK_DIR/${rawname[i]}
    mkdir ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
@@ -257,9 +257,6 @@ for ((i=0;i<$ntests;i++)); do
       nconfigs=${#WEAK_SCALING_RESO[@]};
       for ((w=0;w<$nconfigs;w++)); do
          # create new subdir for different resolution
-         LAUNCH_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${THIS_COMMIT}_${DATE}/${rawname[i]}_${WEAK_SCALING_RESO[w]}
-         mkdir ${LAUNCH_DIR}
-         cd ${LAUNCH_DIR}
          mkdir nodes${WEAK_SCALING_NNODES[w]}
          cd nodes${WEAK_SCALING_NNODES[w]}
          cp ${BIN_DIRECTORY}/${EXECNAME}3d .
