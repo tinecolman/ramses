@@ -74,8 +74,8 @@ echo > $LOGFILE;
 
 # set cluster info
 source HPCclusters/${CLUSTER}/set_cluster_info.sh
-UPDATECODE="HPCclusters/${CLUSTER}/update-code.sh"
-COMPILECODE="HPCclusters/${CLUSTER}compile_code.sh"
+UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
+COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
 
 # check if we are on the correct branch
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -199,17 +199,18 @@ for ((i=0;i<$ntests;i++)); do
    FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
 
    # Recompile source code
+   set -e
    MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPI=1 ${FLAGS}";
    $RETURN_TO_BIN;
    make clean >> $LOGFILE 2>&1;
    echo "Compiling source" | tee -a $LOGFILE;
    if [ -f ${COMPILECODE} ]; then
       # special attention needed for compilation
-      source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/${COMPILECODE}
+      source ${COMPILECODE}
    else
       $MAKESTRING >> $LOGFILE 2>&1;
    fi
-   # TODO catch compilation error and abort
+   set +e
 
    # load scaling configuration
    source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
