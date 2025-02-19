@@ -26,5 +26,11 @@ echo "" >> ${JOB_FILE}
 # run command
 echo "python io_timings.py ${CLUSTER} ${LAUNCH_DIR} ${TEST_NAME} >> ${LOGFILE} " >> ${JOB_FILE}
 
+# clean up
 echo "rm total_time.txt" >> ${JOB_FILE}
+
+# push to git
+echo "git add timings_${CLUSTER}_${TEST_NAME}.txt" >> ${JOB_FILE}
+echo "git commit -m 'update benchmark ${CLUSTER} ${TEST_NAME}'" >> ${JOB_FILE}
+echo "git push" >> ${JOB_FILE}
 
