@@ -10,7 +10,6 @@ The file contains a table with several columns:
 
 import os
 import subprocess
-import numpy as np
 from collections import OrderedDict
 
 ''' dissect name of the benchmark directory '''
@@ -41,8 +40,8 @@ def get_configs(benchmark_dir, test_name):
 ''' Use grep to get the times from all logfiles in a directory '''
 def get_timings_from_log(run_dir):
     subprocess.call("grep --no-filename 'Total elapsed time' {}/*.log".format(run_dir) +" | awk '{print $4}' > total_time.txt", shell=True)
-    total_time=np.loadtxt('total_time.txt', unpack=True)
-    total_time=np.array([total_time]).flatten()
+    with open('total_time.txt', 'r') as file:
+        total_time = [float(line.strip()) for line in file]
     return total_time
 
 ''' load previous data from file into dicts format '''
