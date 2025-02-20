@@ -48,6 +48,25 @@ def process_times(total_time):
         error_max=0
     return time, error_min, error_max
 
+''' Take together timings executed on different day of the same month, for the same commit '''
+def merge_data_for_month(data):
+    merged_data = OrderedDict()
+    print(data)
+
+    for entry in data:
+        # remove day from entry date
+        new_entry = entry[:-3]
+        # add commit-year-month enrty to new dict
+        if new_entry not in merged_data:
+            merged_data[new_entry] = {}
+        for subentry in data[entry]:
+            if subentry not in merged_data[new_entry]:
+                merged_data[new_entry][subentry] = []
+            # join lists
+            merged_data[new_entry][subentry] += data[entry][subentry]
+
+    print(merged_data)
+    return merged_data
 
 def gather_execution_time_data(data):
     # make an entry for each possible number of nodes
@@ -129,7 +148,8 @@ def plot_strong_scaling(data, reso_strong, axes=None):
         axes.plot(nodes, speedups, color=c, label=entry)
 
     # plot last entry also as circles
-    axes.scatter(nodes, speedups, color=c)
+    if strong_scaling: #if dict is not empty
+        axes.scatter(nodes, speedups, color=c)
     
     # add ideal scaling line
     axes.plot([1,max_nodes],[1,max_nodes], c=(0.25,0.85,0.25),ls=':', lw=2)
@@ -169,11 +189,11 @@ def plot_execution_time(data, axes=None):
         # plot a line from the last point to make comparison easier
         axes.plot([dates[n][0],dates[n][-1]], [times[n][-1],times[n][-1]], ls=':', lw=1.3, color=c)
 
-    axes.set_ylabel('execution time [s]')
-    axes.set_yscale('log')
-    axes.tick_params(axis='x', labelrotation=90)
-    axes.legend()
     if save_plot:
+        axes.set_ylabel('execution time [s]')
+        axes.set_yscale('log')
+        axes.tick_params(axis='x', labelrotation=90)
+        axes.legend()
         plt.savefig('execution_time.png', bbox_inches='tight', dpi=200)
         plt.close()
 
@@ -181,17 +201,33 @@ def plot_execution_time(data, axes=None):
 ''' Show evolution of execution time on EuroHPC systems '''
 def eurohpc_dashboard(test_name, statistic='time', reso_strong=1024):
 
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8,5), sharey=True)
+    #euroHPC_systems = ['discoverer', 'karolina', 'meluxina', 'vega',
+    #                   'deucalion', 'leonardo', 'lumi', 'marenostrum']
+    euroHPC_systems = ['meluxina']
 
-    for cluster, ax in zip(['marenostrum','meluxina'], axes.flatten()):
-        benchmark_file = 'timings_'+cluster+'_'+test_name+'.txt'
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10,8), sharey=True)
+
+    for cluster, ax in zip(euroHPC_systems, axes.flatten()):
+        benchmark_file = 'results/timings_'+cluster+'_'+test_name+'.txt'
         data = load_data(benchmark_file)
+        data = merge_data_for_month(data)
         if statistic=='time':
             plot_execution_time(data, axes=ax)
         elif statistic=='strong':
             plot_strong_scaling(data, reso_strong, axes=ax)
         ax.set_title(cluster)
 
+    # fanciness
+    if statistic=='time':
+        axes[0,0].set_ylabel('execution time [s]')
+        axes[1,0].set_ylabel('execution time [s]')
+        axes[0,0].set_yscale('log')
+        for ax in axes.flatten():
+            ax.tick_params(axis='x', labelrotation=90)
+            ax.legend()
+
+    #fig.subplots_adjust(wspace=0.1)
+    fig.tight_layout()
     plt.savefig(f'eurohpc_dashboard_{statistic}_{test_name}.png', bbox_inches='tight', dpi=200)
     plt.close()
 
@@ -203,15 +239,15 @@ def make_files():
     test='sedov'
 
     cluster = 'marenostrum'
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_24fe23ee_2025-02-17/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_b5104a59_2025-02-17/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_24fe23ee_2025-02-17/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_b5104a59_2025-02-17/'+test, test)
 
     cluster = 'meluxina'
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c41fffd1_2025-02-14/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c172e905_2025-02-18/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c172e905_2025-02-19/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_c3a66c16_2025-02-19/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_8543d1bb_2025-02-19/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-14_c41fffd1/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-18_c172e905/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_c172e905/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_c3a66c16/'+test, test)
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_8543d1bb/'+test, test)
 
 
 if __name__ == '__main__':
@@ -219,6 +255,6 @@ if __name__ == '__main__':
     #make_files()
 
     eurohpc_dashboard('sedov', statistic='time')
-    eurohpc_dashboard('sedov', statistic='strong', reso_strong=1024)
+    #eurohpc_dashboard('sedov', statistic='strong', reso_strong=1024)
 
     # maybe cool to have the combo weak-strong scaling plot

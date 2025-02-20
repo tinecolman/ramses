@@ -113,7 +113,7 @@ def add_data(data, benchmark_dir):
 
 ''' Update the timings with a new benchmark '''
 def update_timings(cluster, benchmark_dir, test_name):
-    benchmark_file = 'timings_'+cluster+'_'+test_name+'.txt'
+    benchmark_file = 'results/timings_'+cluster+'_'+test_name+'.txt'
     # load existing data
     data = load_data(benchmark_file)
     # add/update benchmark entry

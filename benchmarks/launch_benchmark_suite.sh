@@ -1,7 +1,7 @@
 #!/bin/bash
 #######################################################################
 #
-# Script to run the RAMSES performance tests
+# Script to run the RAMSES performance benchmarks
 #
 # Usage:
 #   ./launch_benchmark_suite.sh
@@ -92,6 +92,9 @@ fi
 THIS_COMMIT=$(git rev-parse --short HEAD)
 GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g');
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
+
+# get commit date
+#git show --no-patch --format=%ci ${THIS_COMMIT}
 
 # create directory on scratch
 BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}

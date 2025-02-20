@@ -2,6 +2,19 @@
 
 ## Overview of the performance of RAMSES
 
+This page gives an overview of the performance of RAMSES on various supercomputers, for a selection of typical setups.
+It provides strong and weak scaling plots, as well as a comparison of the execution time on different systems.
+A description of the setups can be found on THIS PAGE.
+
+### EuroHPC systems
+
+Some sentence of eurohpc.
+An overview of the EuroHPC systems can be found on THIS PAGE.
+
+![strong scaling for the sedov test on the EuroHPC systems](../benchmarks/results/eurohpc_dashboard_strong_sedov.png)
+
+### French systems
+
 Here I will put plots that will be updated automatically
 
 ## List of benchmark setups
