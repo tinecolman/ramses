@@ -50,3 +50,9 @@ If you are navigating using the GitHub webpage for a quick look at the markdown 
 1. Running the automatic test suite
 2. Creating a new test
 3. Creating a new group of tests
+# [Chapter 7. Benchmarks](./wiki/Benchmarks.md)
+1. Overview of the performance of RAMSES
+2. List of benchmark setups
+3. How to run the benchmarks on your machine
+4. How to add a new benchmark setup
+5. Technical details of the markmark scripts
