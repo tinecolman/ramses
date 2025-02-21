@@ -30,7 +30,6 @@ Table of Contents
   wiki/Runtime_Parameters.md
   wiki/Advanced_Simulations.md
   wiki/Testing.md
-  wiki/Benchmarks.md
   wiki/User_Tools.md
 
 .. toctree::
@@ -41,6 +40,13 @@ Table of Contents
   dev_docs/implementation.md
   dev_docs/docs.md
   dev_docs/contributors.md
+
+.. toctree::
+  :caption: RAMSES in an HPC environment
+  :maxdepth: 2
+
+  hpc_docs/HPC_systems.md
+  hpc_docs/Benchmarks.md
 
 .. |github tag| image:: https://img.shields.io/badge/GitHub-black.svg?style=flat&logo=github
     :target: https://github.com/ramses-organisation/ramses
