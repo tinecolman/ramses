@@ -1,30 +1,30 @@
+#!/bin/bash
+
+# Define output file
+OUTPUT_FILE="job.sh"
+
 # ------------------- Construct job script ------------
 
-echo "#!/bin/bash -l" > job.sh
+cat <<JOBSCRIPT > "$OUTPUT_FILE"
+#!/bin/bash -l
+#SBATCH --job-name=${TEST_NAME}
+#SBATCH --account=${CLUSTER_ALLOCATION_ID}
+#SBATCH --partition=${CLUSTER_PARTITION}
+#SBATCH --qos=${CLUSTER_QOS}
+#SBATCH --nodes=${NBNODES}
+#SBATCH --ntasks-per-node=${CLUSTER_CORES_PER_NODE}
+#SBATCH --cpus-per-task=1
+#SBATCH --threads-per-core=1
+#SBATCH --exclusive
+#SBATCH --time=${TEST_TIME}
+#SBATCH --output=slurm_%j.out
+#SBATCH --error=slurm_%j.err
 
-# SLURM job settings
-echo "#SBATCH --job-name=${TEST_NAME}" >> job.sh
-echo "#SBATCH --account=${CLUSTER_ALLOCATION_ID}" >> job.sh
-echo "#SBATCH --partition=${CLUSTER_PARTITION}" >> job.sh
-echo "#SBATCH --qos=${CLUSTER_QOS}" >> job.sh
-echo "#SBATCH --nodes=${NBNODES}" >> job.sh
-echo "#SBATCH --ntasks-per-node=${CLUSTER_CORES_PER_NODE}" >> job.sh
-echo "#SBATCH --cpus-per-task=1" >> job.sh
-echo "#SBATCH --threads-per-core=1" >> job.sh
-echo "#SBATCH --exclusive" >> job.sh
-echo "#SBATCH --time=${TEST_TIME}" >> job.sh
-echo "#SBATCH --output=slurm_%j.out" >> job.sh
-echo "#SBATCH --error=slurm_%j.err" >> job.sh
+module load ${MODULE_COMPILER}
+module load ${MODULE_MPI}
 
-echo "" >> job.sh
+export DATE=`date +%F_%Hh%M`
 
-# modules
-echo "module load ${MODULE_COMPILER}" >> job.sh
-echo "module load ${MODULE_MPI}" >> job.sh
+srun ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log
 
-echo "" >> job.sh
-echo 'export DATE=`date +%F_%Hh%M`' >> job.sh
-echo "" >> job.sh
-
-# run command
-echo "srun ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log" >> job.sh
+JOBSCRIPT

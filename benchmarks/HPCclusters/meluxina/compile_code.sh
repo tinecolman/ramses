@@ -1,27 +1,26 @@
+#!/bin/bash
+
+# Define output file
+OUTPUT_FILE="compile_job.sh"
+
 # ------------------- Construct compile job script ------------
-echo "#!/bin/bash -l" > compile_job.slm
-# SLURM job settings
-echo "#SBATCH --job-name=compile" >> compile_job.slm
-echo "#SBATCH --account=${CLUSTER_ALLOCATION_ID}" >> compile_job.slm
-echo "#SBATCH --partition=${CLUSTER_PARTITION}" >> compile_job.slm
-echo "#SBATCH --qos=${CLUSTER_QOS}" >> compile_job.slm
-echo "#SBATCH --nodes=1" >> compile_job.slm
-echo "#SBATCH --ntasks-per-node=1" >> compile_job.slm
-echo "#SBATCH --cpus-per-task=1" >> compile_job.slm
-echo "#SBATCH --threads-per-core=1" >> compile_job.slm
-echo "#SBATCH --time=00:05:00" >> compile_job.slm
-echo "#SBATCH --output=compile.out" >> compile_job.slm
-echo "#SBATCH --error=compile.err" >> compile_job.slm
-echo "" >> compile_job.slm
-# modules
-echo "module load ${MODULE_COMPILER}" >> compile_job.slm
-echo "module load ${MODULE_MPI}" >> compile_job.slm
-echo "" >> compile_job.slm
-# run command
-echo "$MAKESTRING >> $LOGFILE 2>&1;" >> compile_job.slm
 
-# launch script
-sbatch compile_job.slm
+cat <<COMPILEJOB > "$OUTPUT_FILE"
+#!/bin/bash -l
+#SBATCH --job-name=compile
+#SBATCH --account=${CLUSTER_ALLOCATION_ID}
+#SBATCH --partition=${CLUSTER_PARTITION}
+#SBATCH --qos=${CLUSTER_QOS}
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --threads-per-core=1
+#SBATCH --time=00:05:00
+#SBATCH --output=compile.out
+#SBATCH --error=compile.err
 
-# wait for compilation to finish
-sleep 180
+module load ${MODULE_COMPILER}
+module load ${MODULE_MPI}
+
+$MAKESTRING >> $LOGFILE 2>&1;
+COMPILEJOB
