@@ -1,12 +1,8 @@
-CLUSTER_ACCOUNT=ehpc39
-#TODO change to CLUSTER_ALLOCATION
-#ADD as a script input param -A myalloc
-
 # cluster information
 CLUSTER_PARTITION=gpp
 CLUSTER_QOS=gp_ehpc
 CLUSTER_CORES_PER_NODE=112
-CLUSTER_SCRATCH=/gpfs/scratch/${CLUSTER_ACCOUNT}
+CLUSTER_SCRATCH=/gpfs/scratch/${CLUSTER_ALLOCATION_ID}
 
 # compilation modules
 COMPILER_FLAVOR=INTEL

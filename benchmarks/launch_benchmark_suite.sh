@@ -173,9 +173,35 @@ while [ ${n} -le ${NODESMAX} ]; do
 done
 
 #######################################################################
-# Setup 
+# Select project allocation to run on 
 #######################################################################
 
+# Get the list of project IDs for the current user, ignoring headers
+# works for slurm
+MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account | tail -n +3)
+# Count the number of projects
+NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
+
+# Process the number of projects
+if [[ $NUM_PROJECTS -eq 1 ]]; then
+    CLUSTER_ALLOCATION_ID="$MY_PROJECTS"
+    echo "Automatically selected project: $CLUSTER_ALLOCATION_ID"
+elif [[ $NUM_PROJECTS -gt 1 ]]; then
+    echo "Multiple projects found. Please select one:"
+    select CLUSTER_ALLOCATION_ID in $MY_PROJECTS; do
+        if [[ -n "$CLUSTER_ALLOCATION_ID" ]]; then
+            echo "You selected: $CLUSTER_ALLOCATION_ID"
+            break
+        else
+            echo "Invalid selection, please try again."
+        fi
+    done
+else
+    echo "No valid project found."
+    exit 1
+fi
+
+# The selected project is now stored in $CLUSTER_ALLOCATION_ID
 
 #######################################################################
 # Loop through all tests

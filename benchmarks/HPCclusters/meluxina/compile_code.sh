@@ -2,7 +2,7 @@
 echo "#!/bin/bash -l" > compile_job.slm
 # SLURM job settings
 echo "#SBATCH --job-name=compile" >> compile_job.slm
-echo "#SBATCH --account=${CLUSTER_ACCOUNT}" >> compile_job.slm
+echo "#SBATCH --account=${CLUSTER_ALLOCATION_ID}" >> compile_job.slm
 echo "#SBATCH --partition=${CLUSTER_PARTITION}" >> compile_job.slm
 echo "#SBATCH --qos=${CLUSTER_QOS}" >> compile_job.slm
 echo "#SBATCH --nodes=1" >> compile_job.slm

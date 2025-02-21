@@ -6,7 +6,7 @@ echo "#!/bin/bash -l" > ${JOB_FILE}
 
 # SLURM job settings
 echo "#SBATCH --job-name=io-${TEST_NAME}" >> ${JOB_FILE}
-echo "#SBATCH --account=${CLUSTER_ACCOUNT}" >> ${JOB_FILE}
+echo "#SBATCH --account=${CLUSTER_ALLOCATION_ID}" >> ${JOB_FILE}
 echo "#SBATCH --partition=${CLUSTER_PARTITION}" >> ${JOB_FILE}
 echo "#SBATCH --qos=${CLUSTER_QOS}" >> ${JOB_FILE}
 echo "#SBATCH --nodes=1" >> ${JOB_FILE}
