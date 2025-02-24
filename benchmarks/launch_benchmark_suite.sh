@@ -72,27 +72,24 @@ line="--------------------------------------------";
 # begin logfile
 echo > $LOGFILE;
 
-
 # check if we are on the correct branch
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-echo "Benchmarking branch ${CURRENT_BRANCH}"
 
 # get the latest version of the code
 #git checkout ${BRANCH} >> $LOGFILE 2>&1;
-if [ -f ${UPDATECODE} ]; then
-   # special attention needed to pull the code
-   ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
-else
-   git pull >> $LOGFILE 2>&1;
-fi
+#if [ -f ${UPDATECODE} ]; then
+#   # special attention needed to pull the code
+#   ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
+#else
+#   git pull >> $LOGFILE 2>&1;
+#fi
+
 THIS_COMMIT=$(git rev-parse --short HEAD)
 GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g');
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
 
 # get commit date
 #git show --no-patch --format=%ci ${THIS_COMMIT}
-
-
 
 #######################################################################
 # Welcome message
@@ -102,9 +99,9 @@ echo "############################################" | tee -a $LOGFILE;
 echo "#    Launching RAMSES performance tests    #" | tee -a $LOGFILE;
 echo "############################################" | tee -a $LOGFILE;
 echo "Repository url: ${GIT_URL}" >> $LOGFILE;
+echo "Branch: ${CURRENT_BRANCH}" >> $LOGFILE;
 echo "Commit hash: ${THIS_COMMIT}" >> $LOGFILE;
 echo $line >> $LOGFILE;
-
 
 #######################################################################
 # Generate list of tests from scanning directory
@@ -171,7 +168,7 @@ done
 
 # Get the list of project IDs for the current user, ignoring headers
 # works for slurm
-MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account | tail -n +3)
+MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3)
 # Count the number of projects
 NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
 
