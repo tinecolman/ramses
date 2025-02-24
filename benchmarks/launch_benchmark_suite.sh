@@ -55,7 +55,7 @@ done
 
 
 #######################################################################
-# Setup paths and commands
+# Setup code repository
 #######################################################################
 
 # useful definitions
@@ -72,10 +72,6 @@ line="--------------------------------------------";
 # begin logfile
 echo > $LOGFILE;
 
-# set cluster info
-source HPCclusters/${CLUSTER}/set_cluster_info.sh
-UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
-COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
 
 # check if we are on the correct branch
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -96,9 +92,6 @@ GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
 # get commit date
 #git show --no-patch --format=%ci ${THIS_COMMIT}
 
-# create directory on scratch
-BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}
-mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 
 #######################################################################
@@ -202,6 +195,19 @@ else
 fi
 
 # The selected project is now stored in $CLUSTER_ALLOCATION_ID
+
+#######################################################################
+# Set cluster parameters 
+#######################################################################
+
+# set cluster info
+source HPCclusters/${CLUSTER}/set_cluster_info.sh
+UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
+COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
+
+# create directory on scratch
+BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}
+mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 #######################################################################
 # Loop through all tests
