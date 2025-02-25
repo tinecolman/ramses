@@ -28,7 +28,6 @@ STRONGSCALING=true;
 WEAKSCALING=false
 VERBOSE=false;
 DELDATA=true;
-BRANCH=performance_tests;
 while getopts "c:t:wn:dv" OPTION; do
    case $OPTION in
       c)
@@ -53,12 +52,10 @@ while getopts "c:t:wn:dv" OPTION; do
    esac
 done
 
-
 #######################################################################
-# Setup code repository
+# Useful definitions
 #######################################################################
 
-# useful definitions
 RAMSES_BENCHMARK_DIR=$(pwd);                      # The benchmark suite directory
 BIN_DIRECTORY="${RAMSES_BENCHMARK_DIR}/../bin";   # The bin directory
 RETURN_TO_BIN="cd ${BIN_DIRECTORY}";
@@ -72,8 +69,15 @@ line="--------------------------------------------";
 # begin logfile
 echo > $LOGFILE;
 
-# check if we are on the correct branch
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+#######################################################################
+# Setup code repository
+#######################################################################
+
+# get info of repo
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+COMMIT=$(git rev-parse --short HEAD)
+GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g')
+GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))}
 
 # get the latest version of the code
 #git checkout ${BRANCH} >> $LOGFILE 2>&1;
@@ -83,28 +87,60 @@ CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 #else
 #   git pull >> $LOGFILE 2>&1;
 #fi
-
-THIS_COMMIT=$(git rev-parse --short HEAD)
-GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g');
-GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
-
 # get commit date
-#git show --no-patch --format=%ci ${THIS_COMMIT}
+#git show --no-patch --format=%ci ${COMMIT}
 
-#######################################################################
 # Welcome message
-#######################################################################
-
-echo "############################################" | tee -a $LOGFILE;
-echo "#    Launching RAMSES performance tests    #" | tee -a $LOGFILE;
-echo "############################################" | tee -a $LOGFILE;
-echo "Repository url: ${GIT_URL}" >> $LOGFILE;
-echo "Branch: ${CURRENT_BRANCH}" >> $LOGFILE;
-echo "Commit hash: ${THIS_COMMIT}" >> $LOGFILE;
-echo $line >> $LOGFILE;
+echo "#################################################" | tee -a $LOGFILE
+echo "#    Launching RAMSES performance benchmarks    #" | tee -a $LOGFILE
+echo "#################################################" | tee -a $LOGFILE
+echo "Repository url: ${GIT_URL}" >> $LOGFILE
+echo "Branch: ${BRANCH}" >> $LOGFILE
+echo "Commit hash: ${COMMIT}" >> $LOGFILE
+echo $line >> $LOGFILE
 
 #######################################################################
-# Generate list of tests from scanning directory
+# Select project allocation to run on
+#######################################################################
+
+# Get the list of project IDs for the current user, ignoring headers
+# works for slurm
+MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3)
+# Count the number of projects
+NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
+
+# Process the number of projects
+if [[ $NUM_PROJECTS -eq 1 ]]; then
+    CLUSTER_ALLOCATION_ID="$MY_PROJECTS"
+    echo "Automatically selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
+elif [[ $NUM_PROJECTS -gt 1 ]]; then
+    echo "Multiple projects found. Please select one:"
+    select CLUSTER_ALLOCATION_ID in $MY_PROJECTS; do
+        if [[ -n "$CLUSTER_ALLOCATION_ID" ]]; then
+            echo "You selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
+            break
+        else
+            echo "Invalid selection, please try again."
+        fi
+    done
+else
+    echo "No valid allocation ID found." | tee -a $LOGFILE
+    exit 1
+fi
+
+# The selected project is now stored in $CLUSTER_ALLOCATION_ID
+
+#######################################################################
+# Set cluster parameters 
+#######################################################################
+
+source HPCclusters/${CLUSTER}/set_cluster_info.sh
+UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
+COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
+MODULES="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/modules.sh"
+
+#######################################################################
+# Generate list of tests by scanning directory
 #######################################################################
 
 # list subdirectories of setups base directory, which contain individual tests
@@ -142,7 +178,7 @@ else
 fi
 
 # Write list of tests
-echo "Will perform the following tests:" | tee -a $LOGFILE;
+echo "Will launch the following benchmarks:" | tee -a $LOGFILE;
 for ((i=0;i<$ntests;i++)); do
    n=${testnum[i]};
    j=$(($n + 1));
@@ -162,53 +198,15 @@ while [ ${n} -le ${NODESMAX} ]; do
    n=$((n*2))
 done
 
-#######################################################################
-# Select project allocation to run on 
-#######################################################################
-
-# Get the list of project IDs for the current user, ignoring headers
-# works for slurm
-MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3)
-# Count the number of projects
-NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
-
-# Process the number of projects
-if [[ $NUM_PROJECTS -eq 1 ]]; then
-    CLUSTER_ALLOCATION_ID="$MY_PROJECTS"
-    echo "Automatically selected project: $CLUSTER_ALLOCATION_ID"
-elif [[ $NUM_PROJECTS -gt 1 ]]; then
-    echo "Multiple projects found. Please select one:"
-    select CLUSTER_ALLOCATION_ID in $MY_PROJECTS; do
-        if [[ -n "$CLUSTER_ALLOCATION_ID" ]]; then
-            echo "You selected: $CLUSTER_ALLOCATION_ID"
-            break
-        else
-            echo "Invalid selection, please try again."
-        fi
-    done
-else
-    echo "No valid project found."
-    exit 1
-fi
-
-# The selected project is now stored in $CLUSTER_ALLOCATION_ID
-
-#######################################################################
-# Set cluster parameters 
-#######################################################################
-
-# set cluster info
-source HPCclusters/${CLUSTER}/set_cluster_info.sh
-UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
-COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
-
-# create directory on scratch
-BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${THIS_COMMIT}
-mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 #######################################################################
 # Loop through all tests
 #######################################################################
+
+# create directory on scratch
+BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${COMMIT}
+mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
+
 for ((i=0;i<$ntests;i++)); do
 
    cd ${BENCHMARK_DIR}
@@ -229,6 +227,9 @@ for ((i=0;i<$ntests;i++)); do
 
    # Read test configuration file
    FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
+
+   # load modules
+   source $MODULES >> $LOGFILE 2>&1
 
    # Recompile source code
    set -e

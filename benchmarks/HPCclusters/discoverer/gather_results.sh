@@ -6,7 +6,6 @@ OUTPUT_FILE="io_$TEST_NAME.sh"
 # ------------------- Construct job script ------------
 
 cat <<JOBSCRIPT > "$OUTPUT_FILE"
-
 #!/bin/bash -l
 #SBATCH --job-name=${TEST_NAME}
 #SBATCH --account=${CLUSTER_ALLOCATION_ID}
