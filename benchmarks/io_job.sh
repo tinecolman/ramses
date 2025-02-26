@@ -3,7 +3,7 @@
 # append commands
 cat <<JOBSCRIPT >> "$OUTPUT_FILE"
 module load ${MODULE_PYTHON}
-python io_timings.py ${CLUSTER} ${LAUNCH_DIR} ${TEST_NAME} >> ${LOGFILE}"
+python io_timings.py ${CLUSTER} ${LAUNCH_DIR} ${TEST_NAME} >> ${LOGFILE}
 
 # clean up
 rm total_time.txt
