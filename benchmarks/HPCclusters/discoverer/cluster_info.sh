@@ -8,5 +8,5 @@ CLUSTER_SCHEDULER=SLURM
 
 # compilation modules
 COMPILER_FLAVOR=GNU
-MODULE_PYTHON=python/3/latest
+MODULE_PYTHON=intel.universe
 RUN_COMMAND=srun
