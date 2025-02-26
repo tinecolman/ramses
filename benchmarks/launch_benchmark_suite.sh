@@ -108,7 +108,9 @@ echo $line >> $LOGFILE
 #######################################################################
 
 # Get the list of project IDs for the current user, ignoring headers (works only for slurm)
-MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3)
+# taking care of long account names (format)
+# removing duplicates (sort -u)
+MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3 | awk '{print $1}' | sort -u)
 # Count the number of projects
 NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
 
