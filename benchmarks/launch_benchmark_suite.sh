@@ -114,12 +114,13 @@ NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
 
 # Process the number of projects
 if [[ $NUM_PROJECTS -eq 1 ]]; then
-    CLUSTER_ALLOCATION_ID="$MY_PROJECTS"
+    CLUSTER_ALLOCATION_ID=$(echo "$MY_PROJECTS" | xargs)
     echo "Automatically selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
 elif [[ $NUM_PROJECTS -gt 1 ]]; then
     echo "Multiple projects found. Please select one:"
     select CLUSTER_ALLOCATION_ID in $MY_PROJECTS; do
         if [[ -n "$CLUSTER_ALLOCATION_ID" ]]; then
+            CLUSTER_ALLOCATION_ID=$(echo "$CLUSTER_ALLOCATION_ID" | xargs)
             echo "You selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
             break
         else
@@ -139,7 +140,7 @@ source ${CLUSTER_INFO}
 
 # create directory on scratch
 BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${COMMIT}
-mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
+mkdir -p ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 #######################################################################
 # Generate list of tests by scanning directory
@@ -268,7 +269,7 @@ for ((i=0;i<$ntests;i++)); do
 
    # create subdirectory for setup
    LAUNCH_DIR=$BENCHMARK_DIR/${rawname[i]}
-   mkdir ${LAUNCH_DIR} >> $LOGFILE 2>&1;
+   mkdir -p ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
    # load scaling configuration
@@ -298,7 +299,7 @@ for ((i=0;i<$ntests;i++)); do
       RESO=${RESO_LIST[i]}
 
       # make subdirectory
-      mkdir nodes${NBNODES}_reso${RESO} >> $LOGFILE 2>&1;
+      mkdir -p nodes${NBNODES}_reso${RESO} >> $LOGFILE 2>&1;
       cd nodes${NBNODES}_reso${RESO}
 
       # Copy executable and input file   
