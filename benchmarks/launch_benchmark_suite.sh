@@ -222,11 +222,7 @@ for ((i=0;i<$ntests;i++)); do
    else
       rawname[i]=${testname[n]};
    fi
-
    TEST_NAME=${rawname[i]}
-   TEST_EXECUTABLE=${EXECNAME}3d
-   JOB_NAME=$TEST_NAME
-   NTASKS_PER_NODE=${CLUSTER_CORES_PER_NODE}
 
    # Read test configuration file
    FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
@@ -237,6 +233,7 @@ for ((i=0;i<$ntests;i++)); do
    # Recompile source code
    set -e
    MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPI=1 ${FLAGS}";
+   TEST_EXECUTABLE=${EXECNAME}3d
    cd ${RAMSES_BIN_DIR};
    make clean >> $LOGFILE 2>&1;
    if [ -f ${COMPILECODE} ]; then
@@ -292,6 +289,9 @@ for ((i=0;i<$ntests;i++)); do
       done
    fi
 
+   JOB_NAME=$TEST_NAME
+   NTASKS_PER_NODE=${CLUSTER_CORES_PER_NODE}
+
    # Loop over configurations
    for ((i=0; i<${#NODES_LIST[@]}; i++)); do
       NBNODES=${NODES_LIST[i]}
@@ -303,7 +303,7 @@ for ((i=0;i<$ntests;i++)); do
 
       # Copy executable and input file   
       cp ${RAMSES_BIN_DIR}/${EXECNAME}3d .
-      TEST_NAMELIST=${rawname[i]}_${RESO}.nml
+      TEST_NAMELIST=${TEST_NAME}_${RESO}.nml
       cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${TEST_NAMELIST} .
 
       # create job script by combining job params, modules and run command
@@ -311,6 +311,7 @@ for ((i=0;i<$ntests;i++)); do
       COMMANDSTRING="${RUN_COMMAND} ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log"
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
       cat $MODULES >> $OUTPUT_FILE
+      echo "" >> "$OUTPUT_FILE"
       echo "$COMMANDSTRING" >> "$OUTPUT_FILE"
 
       # launch job multiple times
@@ -326,6 +327,10 @@ for ((i=0;i<$ntests;i++)); do
    # launch dependency job to gather results
    cd ${RAMSES_BENCHMARK_DIR}
    OUTPUT_FILE="io_${TEST_NAME}.sh"
+   NBNODES=1
+   NTASKS_PER_NODE=1
+   JOB_NAME=io-${TEST_NAME}
+   source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
    source io_job.sh
    DEPS=$(squeue --noheader --format %i --name ${TEST_NAME} | paste -sd,)
    sbatch --dependency=${DEPS} $OUTPUT_FILE

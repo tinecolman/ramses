@@ -7,6 +7,7 @@ OUTPUT_FILE="compile_job.sh"
 NBNODES=1
 NTASKS_PER_NODE=1
 JOB_NAME=compile
+TEST_TIME="00:05:00"
 source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
 
 # append modules to load
