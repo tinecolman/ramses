@@ -8,6 +8,5 @@ CLUSTER_SCHEDULER=SLURM
 
 # compilation modules
 COMPILER_FLAVOR=GNU
-MODULE_COMPILER=gcc/latest
-MODULE_MPI=openmpi/5/gcc/latest
 MODULE_PYTHON=python/3/latest
+RUN_COMMAND=srun

@@ -6,6 +6,3 @@ module load gmp/6
 #module load libfabric/1/latest
 module load gcc/latest
 module load openmpi/5/gcc/latest
-
-MODULE_PYTHON=python/3/latest
-

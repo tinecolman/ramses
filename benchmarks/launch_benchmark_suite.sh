@@ -21,7 +21,7 @@
 #######################################################################
 # Determine the parameters for running the performance tests
 #######################################################################
-NODESMAX=64
+NODESMAX=32
 CLUSTER=zapus;
 SELECTTEST=false;
 STRONGSCALING=true;
@@ -57,11 +57,15 @@ done
 #######################################################################
 
 RAMSES_BENCHMARK_DIR=$(pwd);                      # The benchmark suite directory
-BIN_DIRECTORY="${RAMSES_BENCHMARK_DIR}/../bin";   # The bin directory
-RETURN_TO_BIN="cd ${BIN_DIRECTORY}";
+RAMSES_BIN_DIR="${RAMSES_BENCHMARK_DIR}/../bin";   # The bin directory
 EXECNAME="benchmark_exe_";
 BEFORETEST="before-test.sh";
 AFTERTEST="after-test.sh";
+CLUSTER_INFO="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/cluster_info.sh"
+UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
+COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
+MODULES="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/modules.sh"
+
 DATE=`date +%F`
 LOGFILE="${RAMSES_BENCHMARK_DIR}/benchmark_suite.log";
 line="--------------------------------------------";
@@ -103,8 +107,7 @@ echo $line >> $LOGFILE
 # Select project allocation to run on
 #######################################################################
 
-# Get the list of project IDs for the current user, ignoring headers
-# works for slurm
+# Get the list of project IDs for the current user, ignoring headers (works only for slurm)
 MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3)
 # Count the number of projects
 NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
@@ -128,16 +131,15 @@ else
     exit 1
 fi
 
-# The selected project is now stored in $CLUSTER_ALLOCATION_ID
-
 #######################################################################
 # Set cluster parameters 
 #######################################################################
 
-source HPCclusters/${CLUSTER}/set_cluster_info.sh
-UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
-COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
-MODULES="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/modules.sh"
+source ${CLUSTER_INFO}
+
+# create directory on scratch
+BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${COMMIT}
+mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 #######################################################################
 # Generate list of tests by scanning directory
@@ -203,10 +205,6 @@ done
 # Loop through all tests
 #######################################################################
 
-# create directory on scratch
-BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${COMMIT}
-mkdir ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
-
 for ((i=0;i<$ntests;i++)); do
 
    cd ${BENCHMARK_DIR}
@@ -225,6 +223,11 @@ for ((i=0;i<$ntests;i++)); do
       rawname[i]=${testname[n]};
    fi
 
+   TEST_NAME=${rawname[i]}
+   TEST_EXECUTABLE=${EXECNAME}3d
+   JOB_NAME=$TEST_NAME
+   NTASKS_PER_NODE=${CLUSTER_CORES_PER_NODE}
+
    # Read test configuration file
    FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
 
@@ -234,7 +237,7 @@ for ((i=0;i<$ntests;i++)); do
    # Recompile source code
    set -e
    MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPI=1 ${FLAGS}";
-   $RETURN_TO_BIN;
+   cd ${RAMSES_BIN_DIR};
    make clean >> $LOGFILE 2>&1;
    if [ -f ${COMPILECODE} ]; then
       # submit a job script to compile the code
@@ -261,36 +264,56 @@ for ((i=0;i<$ntests;i++)); do
    fi
    set +e
 
-   # load scaling configuration
-   source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
-
    # check if stuff needs to be downloaded
    #if [ -f ${BEFORETEST} ]; then
    #   ${SHELL} ${BEFORETEST} >> $LOGFILE 2>&1;
    #fi
-
-   # ------- STRONG SCALING -----------
 
    # create subdirectory for setup
    LAUNCH_DIR=$BENCHMARK_DIR/${rawname[i]}
    mkdir ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
-   # create job scripts for each node configuration and launch jobs to queue
-   for NBNODES in ${BENCHMARK_NBNODES_LIST[@]}; do
+   # load scaling configuration
+   source ${RAMSES_BENCHMARK_DIR}/${testname[n]}/scaling_config.sh
+   NODES_LIST=()
+   RESO_LIST=()
+   for NBNODES in "${BENCHMARK_NBNODES_LIST[@]}"; do
+      # Add strong scaling configs
+      NODES_LIST+=("$NBNODES")
+      RESO_LIST+=("$STRONG_SCALING_RESO")
+   done
+   if ${WEAKSCALING}; then
+      # Add weak scaling cases if enabled
+      nconfigs=${#WEAK_SCALING_RESO[@]}
+      for ((w=0; w<nconfigs; w++)); do
+         NODES_LIST+=("${WEAK_SCALING_NNODES[w]}")
+         RESO_LIST+=("${WEAK_SCALING_RESO[w]}")
+      done
+   fi
+
+   # Loop over configurations
+   for ((i=0; i<${#NODES_LIST[@]}; i++)); do
+      NBNODES=${NODES_LIST[i]}
+      RESO=${RESO_LIST[i]}
+
       # make subdirectory
-      mkdir nodes${NBNODES}_reso${STRONG_SCALING_RESO} >> $LOGFILE 2>&1;
-      cd nodes${NBNODES}_reso${STRONG_SCALING_RESO}
-      # add executable
-      cp ${BIN_DIRECTORY}/${EXECNAME}3d .
-      # add input file
-      cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${rawname[i]}_${STRONG_SCALING_RESO}.nml .
-      # create job script
-      TEST_NAME=${rawname[i]}
-      TEST_EXECUTABLE=${EXECNAME}3d
-      TEST_NAMELIST=${rawname[i]}_${STRONG_SCALING_RESO}.nml
-      source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
-      #launch job
+      mkdir nodes${NBNODES}_reso${RESO} >> $LOGFILE 2>&1;
+      cd nodes${NBNODES}_reso${RESO}
+
+      # Copy executable and input file   
+      cp ${RAMSES_BIN_DIR}/${EXECNAME}3d .
+      TEST_NAMELIST=${rawname[i]}_${RESO}.nml
+      cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${TEST_NAMELIST} .
+
+      # create job script by combining job params, modules and run command
+      OUTPUT_FILE="job.sh"
+      COMMANDSTRING="${RUN_COMMAND} ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log"
+      source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
+      cat $MODULES >> $OUTPUT_FILE
+      echo "$COMMANDSTRING" >> "$OUTPUT_FILE"
+
+      # launch job multiple times
       for iter in $(seq 3); do
          SUBMIT_MESSAGE=$(sbatch job.sh)
          STRINGARRAY=($SUBMIT_MESSAGE)
@@ -300,32 +323,12 @@ for ((i=0;i<$ntests;i++)); do
       cd ..
    done
 
-   # launch additional weak scaling jobs
-   # TODO update
-   if ${WEAKSCALING}; then
-      nconfigs=${#WEAK_SCALING_RESO[@]};
-      for ((w=0;w<$nconfigs;w++)); do
-         # create new subdir for different resolution
-         mkdir nodes${WEAK_SCALING_NNODES[w]}
-         cd nodes${WEAK_SCALING_NNODES[w]}
-         cp ${BIN_DIRECTORY}/${EXECNAME}3d .
-         cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${rawname[i]}_${WEAK_SCALING_RESO[w]}.nml .
-         # create job script
-         source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/generate_job_script.sh
-         #launch job
-         JOB_ID=1
-         #$(sbatch job.sh)
-         echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [${JOB_ID}]" | tee -a $LOGFILE;
-         cd ..
-      done
-   fi
-
    # launch dependency job to gather results
    cd ${RAMSES_BENCHMARK_DIR}
-   source HPCclusters/${CLUSTER}/gather_results.sh
+   OUTPUT_FILE="io_${TEST_NAME}.sh"
+   source io_job.sh
    DEPS=$(squeue --noheader --format %i --name ${TEST_NAME} | paste -sd,)
-   sbatch --dependency=${DEPS} io_${TEST_NAME}.sh
-
+   sbatch --dependency=${DEPS} $OUTPUT_FILE
 
 done
 
@@ -341,7 +344,7 @@ if ${DELDATA} ; then
          ${SHELL} ${AFTERTEST};
       fi
    done
-   $RETURN_TO_BIN;
+   cd ${RAMSES_BIN_DIR};
    if $VERBOSE ; then
       make clean 2>&1 | tee -a $LOGFILE;
    else
