@@ -77,22 +77,22 @@ echo > $LOGFILE;
 # Setup code repository
 #######################################################################
 
+# get the latest version of the code
+if [[ "$COMMIT_TAG" == "latest" ]]; then
+   if [ -f ${UPDATECODE} ]; then
+      # special attention needed to pull the code
+      ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
+   else
+      git pull >> $LOGFILE 2>&1;
+   fi
+fi
+
 # get info of repo
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 COMMIT=$(git rev-parse --short HEAD)
+COMMIT_DATE=$(git show --no-patch --format=%ci ${COMMIT})
 GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g')
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))}
-
-# get the latest version of the code
-#git checkout ${BRANCH} >> $LOGFILE 2>&1;
-#if [ -f ${UPDATECODE} ]; then
-#   # special attention needed to pull the code
-#   ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
-#else
-#   git pull >> $LOGFILE 2>&1;
-#fi
-# get commit date
-#git show --no-patch --format=%ci ${COMMIT}
 
 # Welcome message
 echo "#################################################" | tee -a $LOGFILE
