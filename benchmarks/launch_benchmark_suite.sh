@@ -21,6 +21,7 @@
 #######################################################################
 # Determine the parameters for running the performance tests
 #######################################################################
+COMMIT_TAG=latest
 NODESMAX=32
 CLUSTER=zapus;
 SELECTTEST=false;
@@ -28,10 +29,13 @@ STRONGSCALING=true;
 WEAKSCALING=false
 VERBOSE=false;
 DELDATA=true;
-while getopts "c:t:wn:dv" OPTION; do
+while getopts "c:m:t:wn:dv" OPTION; do
    case $OPTION in
       c)
          CLUSTER=$OPTARG;
+      ;;
+      m)
+         COMMIT_TAG=$OPTARG;
       ;;
       t)
          SELECTTEST=true;
