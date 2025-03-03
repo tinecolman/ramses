@@ -1,0 +1,11 @@
+# cluster information
+CLUSTER_PARTITION=qcpu
+CLUSTER_CORES_PER_NODE=128
+CLUSTER_SCRATCH=/home/$USER/space_archive/
+
+CLUSTER_SCHEDULER=SLURM
+
+# compilation modules
+COMPILER_FLAVOR=GNU
+MODULE_PYTHON=Python
+RUN_COMMAND=srun
