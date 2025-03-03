@@ -1,7 +1,10 @@
 #!/bin/bash
 
-CLUSTER_PARTITION=cpu
-CLUSTER_QOS=default
+CLUSTER_PARTITION=dcgp_usr_prod
+CLUSTER_QOS=normal
+if [[ $NBNODES -gt 16 ]]; then
+    CLUSTER_QOS=dcgp_qos_bprod
+fi
 
 cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #!/bin/bash -l
@@ -10,7 +13,7 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --partition=${CLUSTER_PARTITION}
 #SBATCH --qos=${CLUSTER_QOS}
 #SBATCH --nodes=${NBNODES}
-#SBATCH --ntasks-per-node=${NTASKS_PER_NODE}
+#SBATCH --ntasks-per-node=${CLUSTER_CORES_PER_NODE}
 #SBATCH --cpus-per-task=1
 #SBATCH --threads-per-core=1
 #SBATCH --exclusive

@@ -1,0 +1,9 @@
+CLUSTER_SCHEDULER=SLURM
+CLUSTER_SCRATCH=
+CLUSTER_CORES_PER_NODE=128
+
+COMPILER_FLAVOR=GNU
+RUN_COMMAND=srun
+MPIF90="ftn -fallow-argument-mismatch"
+# mismatch flag needed to circumvent MPI_ALLREDUCE error
+MODULE_PYTHON=

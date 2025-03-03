@@ -22,6 +22,4 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --output=slurm_%j.out
 #SBATCH --error=slurm_%j.err
 
-export DATE=\$(date +%F_%Hh%M)
-
 JOBSCRIPT
