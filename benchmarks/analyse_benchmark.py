@@ -28,6 +28,11 @@ from io_timings import update_timings, load_data
 from collections import OrderedDict
 
 
+TAGS = {'ebcb6769':'dev2023-04',
+        '00717e77':'dev2023-10',
+        #'d2c4c9e':'dev2024-04', # broken
+        '7308417b':'dev2024-10'}
+
 reso_strong = 1024
 nodes_strong = [1,2,4,8,16,32,64]
 
@@ -39,6 +44,36 @@ TAGS = {'ebcb676':'dev2023-04',
 #######################################################################
 # Analysis and plotting
 #######################################################################
+
+''' Remove or combine data entries '''
+def filter_data(data, timescale='long'):
+    merged_data = OrderedDict()
+
+    for entry in data:
+        if timescale=='long':
+            # we just can to plot those points corresponding to tags to get the longterm evolution
+            commit = entry[0:8]
+            if commit not in TAGS:
+                continue
+            new_entry = TAGS[commit]
+        #elif timescale=='medium':
+            # we want to plot the evolution per month on the cluster
+        #elif timescale=='short':
+            # we want to plot each commit individually
+        else:
+            #Take together timings executed on different day of the same month, for the same commit
+            # remove day from entry date
+            new_entry = entry[:-3]
+
+        if new_entry not in merged_data:
+            merged_data[new_entry] = {}
+        for subentry in data[entry]:
+            if subentry not in merged_data[new_entry]:
+                merged_data[new_entry][subentry] = []
+            # join lists
+            merged_data[new_entry][subentry] += data[entry][subentry]
+
+    return merged_data
 
 ''' Get average time and error bars from the gathered total times printed in the log files '''
 def process_times(total_time):
@@ -52,26 +87,6 @@ def process_times(total_time):
         error_min=0
         error_max=0
     return time, error_min, error_max
-
-''' Take together timings executed on different day of the same month, for the same commit '''
-def merge_data_for_month(data):
-    merged_data = OrderedDict()
-    print(data)
-
-    for entry in data:
-        # remove day from entry date
-        new_entry = entry[:-3]
-        # add commit-year-month enrty to new dict
-        if new_entry not in merged_data:
-            merged_data[new_entry] = {}
-        for subentry in data[entry]:
-            if subentry not in merged_data[new_entry]:
-                merged_data[new_entry][subentry] = []
-            # join lists
-            merged_data[new_entry][subentry] += data[entry][subentry]
-
-    print(merged_data)
-    return merged_data
 
 def gather_execution_time_data(data):
     # make an entry for each possible number of nodes
@@ -204,18 +219,22 @@ def plot_execution_time(data, axes=None):
 
 
 ''' Show evolution of execution time on EuroHPC systems '''
-def eurohpc_dashboard(test_name, statistic='time', reso_strong=1024):
+def eurohpc_dashboard(test_name, statistic='time', reso_strong=1024, timescale='short'):
 
     #euroHPC_systems = ['discoverer', 'karolina', 'meluxina', 'vega',
     #                   'deucalion', 'leonardo', 'lumi', 'marenostrum']
-    euroHPC_systems = ['meluxina']
+    euroHPC_systems = ['discoverer']
 
     fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10,8), sharey=True)
 
     for cluster, ax in zip(euroHPC_systems, axes.flatten()):
+        # load the data and process
         benchmark_file = 'results/timings_'+cluster+'_'+test_name+'.txt'
         data = load_data(benchmark_file)
-        data = merge_data_for_month(data)
+        print(data)
+        data = filter_data(data, timescale)
+        print(data)
+
         if statistic=='time':
             plot_execution_time(data, axes=ax)
         elif statistic=='strong':
@@ -248,18 +267,24 @@ def make_files():
     #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_b5104a59_2025-02-17/'+test, test)
 
     cluster = 'meluxina'
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-14_c41fffd1/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-18_c172e905/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_c172e905/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_c3a66c16/'+test, test)
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_8543d1bb/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-14_c41fffd1/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-18_c172e905/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_c172e905/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_c3a66c16/'+test, test)
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_8543d1bb/'+test, test)
+
+    cluster = 'discoverer'
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_ebcb6769/'+test, test) #dev2023-04
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_00717e77/'+test, test) #dev2023-10
+    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_7308417b/'+test, test) #dev2024-10
+
 
 
 if __name__ == '__main__':
 
     #make_files()
 
-    eurohpc_dashboard('sedov', statistic='time')
+    eurohpc_dashboard('sedov', statistic='time',  timescale='long')
     #eurohpc_dashboard('sedov', statistic='strong', reso_strong=1024)
 
     # maybe cool to have the combo weak-strong scaling plot

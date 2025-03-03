@@ -232,7 +232,7 @@ for ((i=0;i<$ntests;i++)); do
    TEST_NAME=${rawname[i]}
 
    # Read test configuration file
-   FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${testname[n]}/config.txt | cut -d ':' -f2);
+   FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${TEST_NAME}/config.txt | cut -d ':' -f2);
 
    # load modules
    source $MODULES >> $LOGFILE 2>&1
@@ -274,7 +274,7 @@ for ((i=0;i<$ntests;i++)); do
    #fi
 
    # create subdirectory for setup
-   LAUNCH_DIR=$BENCHMARK_DIR/${rawname[i]}
+   LAUNCH_DIR=$BENCHMARK_DIR/${TEST_NAME}
    mkdir -p ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
@@ -311,12 +311,14 @@ for ((i=0;i<$ntests;i++)); do
       # Copy executable and input file   
       cp ${RAMSES_BIN_DIR}/${EXECNAME}3d .
       TEST_NAMELIST=${TEST_NAME}_${RESO}.nml
-      cp ${RAMSES_BENCHMARK_DIR}/${testname[n]}/${TEST_NAMELIST} .
+      cp ${RAMSES_BENCHMARK_DIR}/${TEST_NAME}/${TEST_NAMELIST} .
 
       # create job script by combining job params, modules and run command
       OUTPUT_FILE="job.sh"
       COMMANDSTRING="${RUN_COMMAND} ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log"
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
+      # add the date, which is used to add the execution timestamp to the name of the log-file of the simulation.
+      echo "export DATE=\$(date +%F_%Hh%M)" >> "$OUTPUT_FILE"
       cat $MODULES >> $OUTPUT_FILE
       echo "" >> "$OUTPUT_FILE"
       echo "$COMMANDSTRING" >> "$OUTPUT_FILE"
@@ -326,7 +328,7 @@ for ((i=0;i<$ntests;i++)); do
          SUBMIT_MESSAGE=$(sbatch job.sh)
          STRINGARRAY=($SUBMIT_MESSAGE)
          JOB_ID=${STRINGARRAY[-1]}
-         echo "Launched benchmark ${rawname[i]} on ${NBNODES} nodes [JOB ID ${JOB_ID}]" | tee -a $LOGFILE;
+         echo "Launched benchmark ${TEST_NAME} on ${NBNODES} nodes [JOB ID ${JOB_ID}]" | tee -a $LOGFILE;
       done
       cd ..
    done

@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# cluster specific settings
+# QoS is mandatory for Discoverer
+CLUSTER_PARTITION=cn
+CLUSTER_QOS=$CLUSTER_ALLOCATION_ID
+
 cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #!/bin/bash -l
 #SBATCH --job-name=${JOB_NAME}

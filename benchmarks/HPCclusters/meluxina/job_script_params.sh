@@ -1,5 +1,8 @@
 #!/bin/bash
 
+CLUSTER_PARTITION=cpu
+CLUSTER_QOS=default
+
 cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #!/bin/bash -l
 #SBATCH --job-name=${JOB_NAME}

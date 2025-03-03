@@ -1,5 +1,7 @@
 #!/bin/bash
 
+CLUSTER_PARTITION=qcpu
+
 cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #!/bin/bash -l
 #SBATCH --job-name=${JOB_NAME}

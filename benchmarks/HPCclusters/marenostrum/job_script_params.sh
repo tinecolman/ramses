@@ -1,5 +1,8 @@
 #!/bin/bash
 
+CLUSTER_PARTITION=gpp
+CLUSTER_QOS=gp_ehpc
+
 cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #!/bin/bash -l
 #SBATCH --job-name=${JOB_NAME}
@@ -16,6 +19,6 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --error=slurm_%j.err
 
 export DATE=\$(date +%F_%Hh%M)
-echo "export KMP_AFFINITY=\"granularity=fine,compact,1,0\"" >> job.sh
+export KMP_AFFINITY=\"granularity=fine,compact,1,0\"
 
 JOBSCRIPT
