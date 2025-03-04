@@ -28,18 +28,26 @@ from io_timings import update_timings, load_data
 from collections import OrderedDict
 
 
-TAGS = {'ebcb6769':'dev2023-04',
+TAGS = {'9e7b310b':'dev2017-09', # mpi not functioning?
+        #'':'dev2018-04',
+        #'':'dev2018-10',
+        #'':'dev2019-04',
+        #'':'dev2019-10',
+        #'':'dev2020-04',
+        #'':'dev2020-10',
+        #'':'dev2021-04',
+        #'':'dev2021-10',
+        #'7c2b0363':'dev2022-04', # broken
+        #'cce4cf97':'dev2022-10', # broken
+        'ebcb6769':'dev2023-03',
         '00717e77':'dev2023-10',
         #'d2c4c9e':'dev2024-04', # broken
         '7308417b':'dev2024-10'}
+# broken ones all have floating point exeception error
 
 reso_strong = 1024
 nodes_strong = [1,2,4,8,16,32,64]
 
-TAGS = {'ebcb676':'dev2023-04',
-        '00717e7':'dev2023-10',
-        'd2c4c9e':'dev2024-04',
-        '7308417':'dev2024-10'}
 
 #######################################################################
 # Analysis and plotting
@@ -50,11 +58,12 @@ def filter_data(data, timescale='long'):
     merged_data = OrderedDict()
 
     for entry in data:
-        if timescale=='long':
+        commit = entry[0:8]
+        if timescale=='long' and (commit not in TAGS):
             # we just can to plot those points corresponding to tags to get the longterm evolution
-            commit = entry[0:8]
-            if commit not in TAGS:
-                continue
+            continue
+
+        if commit in TAGS:
             new_entry = TAGS[commit]
         #elif timescale=='medium':
             # we want to plot the evolution per month on the cluster
@@ -63,7 +72,7 @@ def filter_data(data, timescale='long'):
         else:
             #Take together timings executed on different day of the same month, for the same commit
             # remove day from entry date
-            new_entry = entry[:-3]
+            new_entry = entry#[:-3]
 
         if new_entry not in merged_data:
             merged_data[new_entry] = {}
@@ -160,7 +169,6 @@ def plot_strong_scaling(data, reso_strong, axes=None):
     # plot all entries as lines
     max_nodes = 1
     for entry, c in zip(strong_scaling,colorVals):
-        print(strong_scaling[entry])
         nodes = strong_scaling[entry][0]
         max_nodes = max(max_nodes, max(nodes))
         times = strong_scaling[entry][1]
@@ -189,25 +197,26 @@ def plot_execution_time(data, axes=None):
 
     #gather data for plotting
     dates, times, errors_min, errors_max = gather_execution_time_data(data)
-    nodes_strong = dates.keys()
+    nodes_strong = [1,2,4,8,16,32,64]#dates.keys()
 
     # create colors
     cmap = plt.get_cmap('managua')
-    cNorm  = colorsx.Normalize(vmin=0, vmax=len(nodes_strong)-1)
-    colorVals =  []
-    for val in range(len(nodes_strong)):
-        colorVals.append(cmap(cNorm(val)))
+    cNorm  = colorsx.LogNorm(vmin=1, vmax=max(nodes_strong)/2.)
+    colorVals = {}
+    for val in nodes_strong:
+        colorVals[val] = cmap(cNorm(val))
+    print(colorVals)
 
     # plot
     save_plot=False
     if axes==None:
         fig, axes = plt.subplots(nrows=1, ncols=1, figsize=(5,4))
         save_plot=True
-    for n, c in zip(nodes_strong,colorVals):
+    for n in dates.keys():
         axes.errorbar(dates[n], times[n], yerr=[errors_min[n],errors_max[n]], fmt='o', markersize=5,
-                     label=str(n)+' nodes', color=c)
+                     label=str(n)+' nodes', color=colorVals[n])
         # plot a line from the last point to make comparison easier
-        axes.plot([dates[n][0],dates[n][-1]], [times[n][-1],times[n][-1]], ls=':', lw=1.3, color=c)
+        axes.plot([dates[n][0],dates[n][-1]], [times[n][-1],times[n][-1]], ls=':', lw=1.3, color=colorVals[n])
 
     if save_plot:
         axes.set_ylabel('execution time [s]')
@@ -223,17 +232,16 @@ def eurohpc_dashboard(test_name, statistic='time', reso_strong=1024, timescale='
 
     #euroHPC_systems = ['discoverer', 'karolina', 'meluxina', 'vega',
     #                   'deucalion', 'leonardo', 'lumi', 'marenostrum']
-    euroHPC_systems = ['discoverer']
+    euroHPC_systems = ['discoverer', 'meluxina','marenostrum',
+                       'karolina', 'vega', 'leonardo']
 
-    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10,8), sharey=True)
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(10,8), sharey=True, sharex=(statistic=='strong'))
 
     for cluster, ax in zip(euroHPC_systems, axes.flatten()):
         # load the data and process
         benchmark_file = 'results/timings_'+cluster+'_'+test_name+'.txt'
         data = load_data(benchmark_file)
-        print(data)
         data = filter_data(data, timescale)
-        print(data)
 
         if statistic=='time':
             plot_execution_time(data, axes=ax)
@@ -274,9 +282,9 @@ def make_files():
     #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_performance_tests_2025-02-19_8543d1bb/'+test, test)
 
     cluster = 'discoverer'
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_ebcb6769/'+test, test) #dev2023-04
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_00717e77/'+test, test) #dev2023-10
-    update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_7308417b/'+test, test) #dev2024-10
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_ebcb6769/'+test, test) #dev2023-04
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_00717e77/'+test, test) #dev2023-10
+    #update_timings(cluster, bench_home+'/'+cluster+'/'+'benchmark_HEAD_2025-02-27_7308417b/'+test, test) #dev2024-10
 
 
 
@@ -284,7 +292,9 @@ if __name__ == '__main__':
 
     #make_files()
 
-    eurohpc_dashboard('sedov', statistic='time',  timescale='long')
+    #eurohpc_dashboard('sedov', statistic='time',  timescale='short')
+    #eurohpc_dashboard('sedov', statistic='time',  timescale='long')
+    eurohpc_dashboard('sedov', statistic='strong', reso_strong=1024, timescale='short')
     #eurohpc_dashboard('sedov', statistic='strong', reso_strong=1024)
 
     # maybe cool to have the combo weak-strong scaling plot
