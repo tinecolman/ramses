@@ -142,6 +142,8 @@ fi
 # Set cluster parameters 
 #######################################################################
 
+# TODO make MPIF90 more elegant
+MPIF90=mpif90
 source ${CLUSTER_INFO}
 
 # create directory on scratch
@@ -240,7 +242,7 @@ for ((i=0;i<$ntests;i++)); do
 
    # Recompile source code
    set -e
-   MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPI=1 ${FLAGS}";
+   MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPIF90=${MPIF90} MPI=1 ${FLAGS}";
    TEST_EXECUTABLE=${EXECNAME}3d
    cd ${RAMSES_BIN_DIR};
    make clean >> $LOGFILE 2>&1;
