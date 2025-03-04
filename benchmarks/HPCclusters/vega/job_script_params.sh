@@ -12,6 +12,7 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --cpus-per-task=1
 #SBATCH --threads-per-core=1
 #SBATCH --exclusive
+#SBATCH --mem 249G
 #SBATCH --time=${TEST_TIME}
 #SBATCH --output=slurm_%j.out
 #SBATCH --error=slurm_%j.err
