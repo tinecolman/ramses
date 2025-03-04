@@ -1,21 +1,15 @@
 # Benchmarks
 
+As of 2025, we continuously assess the performance of RAMSES on various supercomputers, for a selection of typical setups. The scripts to do so have been developed in the context of the SPACE CoE project. The scripts, setups and results can be found in the `benchmarks` directory included in the RAMSES code repository.
+
 ## Overview of the performance of RAMSES
 
-This page gives an overview of the performance of RAMSES on various supercomputers, for a selection of typical setups.
-It provides strong and weak scaling plots, as well as a comparison of the execution time on different systems.
-A description of the setups can be found on THIS PAGE.
+Strong scaling for the sedov test on the EuroHPC systems
+![strong scaling for the sedov test on the EuroHPC systems](eurohpc_dashboard_strong_sedov.png)
 
-### EuroHPC systems
+Evolution of the execution time for the sedov test on the EuroHPC systems
+![strong scaling for the sedov test on the EuroHPC systems](eurohpc_dashboard_time_sedov.png)
 
-Some sentence of eurohpc.
-An overview of the EuroHPC systems can be found on THIS PAGE.
-
-![strong scaling for the sedov test on the EuroHPC systems](../benchmarks/results/eurohpc_dashboard_strong_sedov.png)
-
-### French systems
-
-Here I will put plots that will be updated automatically
 
 ## List of benchmark setups
 
