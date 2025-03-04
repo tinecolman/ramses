@@ -275,7 +275,7 @@ for ((i=0;i<$ntests;i++)); do
    #fi
 
    # create subdirectory for setup
-   LAUNCH_DIR=$BENCHMARK_DIR/setups/${TEST_NAME}
+   LAUNCH_DIR=$BENCHMARK_DIR/${TEST_NAME}
    mkdir -p ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
