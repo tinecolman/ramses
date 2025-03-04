@@ -33,6 +33,9 @@ jobs:
     run:
         name: "Tests"
         runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                test-family: [hydro,mhd,poisson,rt,sink,turb,tracer]
         steps:
         - name: Checkout repository
           uses: actions/checkout@v4
@@ -53,15 +56,15 @@ jobs:
           run: |
             cd tests/poisson/cosmo
             bash before-test.sh
-        - name: Run tests
+        - name: "Run tests ${{ matrix.test-family }}"
           run: |
             cd tests
-            bash run_test_suite.sh -p 2 -v
-        - name: Upload artifacts
+            bash run_test_suite.sh -p 2 -v -t ${{ matrix.test-family }}
+        - name: "Upload artifacts  ${{ matrix.test-family }}"
           uses: actions/upload-artifact@v4
           if: always()
           with:
-            name: test-results
+            name: "test-results ${{ matrix.test-family }}"
             path: |
               tests/test_results.pdf
               tests/test_suite.log
