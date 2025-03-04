@@ -219,7 +219,6 @@ for ((i=0;i<$ntests;i++)); do
    # Get test number
    n=${testnum[i]};
    ip1=$(($i + 1));
-   echo "Test ${ip1}/${ntests}: ${testname[n]}" | tee -a $LOGFILE;
 
    # Get raw test name for namelist, pdf and tex files
    nslash=$(grep -o "/" <<< "${testname[n]}" | wc -l);
@@ -231,8 +230,10 @@ for ((i=0;i<$ntests;i++)); do
    fi
    TEST_NAME=${rawname[i]}
 
+   echo "Test ${ip1}/${ntests}: ${TEST_NAME}" | tee -a $LOGFILE;
+
    # Read test configuration file
-   FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/${TEST_NAME}/config.txt | cut -d ':' -f2);
+   FLAGS=$(grep FLAGS ${RAMSES_BENCHMARK_DIR}/setups/${TEST_NAME}/config.txt | cut -d ':' -f2);
 
    # load modules
    source $MODULES >> $LOGFILE 2>&1
@@ -274,7 +275,7 @@ for ((i=0;i<$ntests;i++)); do
    #fi
 
    # create subdirectory for setup
-   LAUNCH_DIR=$BENCHMARK_DIR/${TEST_NAME}
+   LAUNCH_DIR=$BENCHMARK_DIR/setups/${TEST_NAME}
    mkdir -p ${LAUNCH_DIR} >> $LOGFILE 2>&1;
    cd ${LAUNCH_DIR}
 
@@ -311,7 +312,7 @@ for ((i=0;i<$ntests;i++)); do
       # Copy executable and input file   
       cp ${RAMSES_BIN_DIR}/${EXECNAME}3d .
       TEST_NAMELIST=${TEST_NAME}_${RESO}.nml
-      cp ${RAMSES_BENCHMARK_DIR}/${TEST_NAME}/${TEST_NAMELIST} .
+      cp ${RAMSES_BENCHMARK_DIR}/setups/${TEST_NAME}/${TEST_NAMELIST} .
 
       # create job script by combining job params, modules and run command
       OUTPUT_FILE="job.sh"
