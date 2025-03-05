@@ -21,6 +21,12 @@
 #######################################################################
 # Determine the parameters for running the performance tests
 #######################################################################
+# TODO add allocation as an optiona parameter
+# don't auto set allocation when this is given
+
+# TODO make this script work without having to submit job scripts.
+
+
 COMMIT_TAG=latest
 NODESMAX=32
 CLUSTER=zapus;
@@ -80,15 +86,23 @@ echo > $LOGFILE;
 # Setup code repository
 #######################################################################
 
+# TODO
+# CI/CD should do the pulling
+# give optional input parameter to the script.
+# if a commit is set, it will clone a copy of the code,
+# checkout the correct commit and do the compilation in this coppied version
+# otherwise we use the local code
+# ramses_dir = ../bin
+
 # get the latest version of the code
-if [[ "$COMMIT_TAG" == "latest" ]]; then
-   if [ -f ${UPDATECODE} ]; then
-      # special attention needed to pull the code
-      ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
-   else
-      git pull >> $LOGFILE 2>&1;
-   fi
-fi
+#if [[ "$COMMIT_TAG" == "latest" ]]; then
+#   if [ -f ${UPDATECODE} ]; then
+#      # special attention needed to pull the code
+#      ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
+#   else
+#      git pull >> $LOGFILE 2>&1;
+#   fi
+#fi
 
 # get info of repo
 BRANCH=$(git rev-parse --abbrev-ref HEAD)

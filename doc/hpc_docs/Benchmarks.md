@@ -1,6 +1,23 @@
 # Benchmarks
 
-As of 2025, we continuously assess the performance of RAMSES on various supercomputers, for a selection of typical setups. The scripts to do so have been developed in the context of the SPACE CoE project. The scripts, setups and results can be found in the `benchmarks` directory included in the RAMSES code repository.
+As of 2025, we continuously assess the performance of RAMSES on various supercomputers, for a selection of typical setups. The scripts to do so have been developed in the context of the SPACE CoE project and are stored in the `benchmarks` directory included in the RAMSES source code repository. The results can be found in the submodule `benchmarks/results`, which is stored in a seperate repository under the github ramses-organisation:
+
+(Temporary repo) 
+https://github.com/tinecolman/ramses-benchmarks-prototype
+
+
+This submodule will will be pulled when running the benchmarks.
+
+## Overview of the performance of RAMSES
+
+Here we highlight some of the results from the benchmarks. Figures for other setups and other machines can be found in the `ramses-benchmarks` repository.
+
+Strong scaling for the sedov test on the EuroHPC systems
+![strong scaling for the sedov test on the EuroHPC systems](eurohpc_dashboard_strong_sedov.png)
+
+Evolution of the execution time for the sedov test on the EuroHPC systems
+![strong scaling for the sedov test on the EuroHPC systems](eurohpc_dashboard_time_sedov.png)
+
 
 ## How to use the benchmark script
 The benchmark script works similar to the test suite script.
@@ -19,23 +36,16 @@ By default, this will execute all benchmarks defined in the `benchmarks/setups` 
 The script is going to create and submit job scripts to run all the benchmarks simulations on  different number of nodes. By default, 1, 2, 4, 8 and 16 nodes are used. The maximum number of nodes can be set using the command line agrument `-n`, for example `-n 4` will modify the behaviour to launch only on 1, 2 and 4 nodes. For each configuration, a number of identical jobs will be launched to get more statistics on the execution time and detect outliers. By default, each run is repeated 3 times.
 To also execute the benchmark setups with different resolutions to obtain weak scaling data, add the command line flag `-w`.
 
-After launching all jobs for a benchmark case, an additional dependency job is launched to gather the resulting timings from the log files. The are then stored in text files in the `benchmarks/results` subdirectory. There is a file for each combination of cluster and setup. Inside a file, one line contains one data entry, for example:
+After launching all jobs for a benchmark case, an additional dependency job is launched to gather the resulting timings from the log files. The results will then be transmitted automatically to the `ramses-benchmarks`. To gain write access to this repository, contact one of its admins. 
+
+Inside the `ramses-benchmarks` repository, there is a file for each combination of cluster and setup. Inside a file, one line contains one data entry, for example:
 ```
 2025-02-27,ebcb6769,1024,1,[155.512386617 153.174278465 155.66211]
 ```
 In order, we have the execution date of the benchmark, the commit hash, the resolution of the setup, the number of nodes used, and finally a list with the total execution times.
-Visualizing this data can be done using the `analyse_benchmark.py` script, which produces figures like the ones in the next section.
 
-TODO how to deal with commits to save benchmark results?
-Seperate bench to collect them?
-
-## Overview of the performance of RAMSES
-
-Strong scaling for the sedov test on the EuroHPC systems
-![strong scaling for the sedov test on the EuroHPC systems](eurohpc_dashboard_strong_sedov.png)
-
-Evolution of the execution time for the sedov test on the EuroHPC systems
-![strong scaling for the sedov test on the EuroHPC systems](eurohpc_dashboard_time_sedov.png)
+Visualizing this data can be done using the `analyse_benchmark.py` script, which produces figures like the ones in the previous section.
+TODO When new data is commited to the ramses-benchmarks repository, the CI/CD will automatically update the figures.
 
 
 ## List of benchmark setups
@@ -167,3 +177,10 @@ Then, we specify the needed job script parameters, in this example indicated by 
 which have been set by the main benchmark script, the cluster info file and the test info file.
 
 In addition, also add any export statements needed for the job to the Here Document. You may want to specify a binding strategy as done in this example. For more info in binding/pinning MPI and OpenMP threads, see XXX.
+
+## Performance checks in the CI/CD
+
+We also use the benchmark script to verify the performance of ramses does not degrade when modifications are made to the code base.
+
+TODO
+when a PR is submitted, a github action can be triggered by an admin which is going to run the performance benchmark script upon being pressed.
