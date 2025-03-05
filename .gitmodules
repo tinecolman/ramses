@@ -1,3 +1,4 @@
 [submodule "benchmarks/results"]
 	path = benchmarks/results
-	url = https://github.com/tinecolman/ramses-benchmarks-prototype
+	url = git@github.com:tinecolman/ramses-benchmarks-prototype.git
+	
