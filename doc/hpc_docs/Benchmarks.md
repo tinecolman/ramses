@@ -6,7 +6,7 @@ As of 2025, we continuously assess the performance of RAMSES on various supercom
 https://github.com/tinecolman/ramses-benchmarks-prototype
 
 
-This submodule will will be pulled when running the benchmarks.
+This submodule will be pulled when running the benchmarks.
 
 ## Overview of the performance of RAMSES
 

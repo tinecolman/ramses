@@ -7,40 +7,42 @@
 #   ./launch_benchmark_suite.sh
 #
 # Options:
-#   - Specify on which cluster you are
+#   - specify on which cluster you are
 #       ./launch_benchmark_suite.sh -c meluxina
-#   - Select setup
+#   - select setup
 #       ./launch_benchmark_suite.sh -t 2
-#   - Select weak or strong scaling
+#   - also do weak scaling
 #       ./launch_benchmark_suite.sh -s weak
-#   - Select maximum number of nodes
+#   - set maximum number of nodes (default is 32)
 #       ./launch_benchmark_suite.sh -n 40
+#   - select a specific commit to test
+#       ./launch_benchmark_suite.sh -m ab01cd23
 #
 #######################################################################
 
 #######################################################################
 # Determine the parameters for running the performance tests
 #######################################################################
-# TODO add allocation as an optiona parameter
-# don't auto set allocation when this is given
-
 # TODO make this script work without having to submit job scripts.
 
-
-COMMIT_TAG=latest
+COMMIT_HASH="current"
 NODESMAX=32
 CLUSTER=zapus;
+CLUSTER_ALLOCATION_ID="none"
 SELECTTEST=false;
 WEAKSCALING=false
-VERBOSE=false;
 DELDATA=true;
-while getopts "c:m:t:wn:dv" OPTION; do
+
+while getopts "c:a:m:t:wn:d" OPTION; do
    case $OPTION in
       c)
          CLUSTER=$OPTARG;
       ;;
+      a)
+         CLUSTER_ALLOCATION_ID=$OPTARG;
+      ;;
       m)
-         COMMIT_TAG=$OPTARG;
+         COMMIT_HASH=$OPTARG;
       ;;
       t)
          SELECTTEST=true;
@@ -55,9 +57,6 @@ while getopts "c:m:t:wn:dv" OPTION; do
       d)
          DELDATA=false;
       ;;
-      v)
-         VERBOSE=true;
-      ;;
    esac
 done
 
@@ -66,7 +65,6 @@ done
 #######################################################################
 
 RAMSES_BENCHMARK_DIR=$(pwd);                      # The benchmark suite directory
-RAMSES_BIN_DIR="${RAMSES_BENCHMARK_DIR}/../bin";   # The bin directory
 EXECNAME="benchmark_exe_";
 BEFORETEST="before-test.sh";
 AFTERTEST="after-test.sh";
@@ -86,30 +84,36 @@ echo > $LOGFILE;
 # Setup code repository
 #######################################################################
 
-# TODO
-# CI/CD should do the pulling
-# give optional input parameter to the script.
-# if a commit is set, it will clone a copy of the code,
-# checkout the correct commit and do the compilation in this coppied version
-# otherwise we use the local code
-# ramses_dir = ../bin
+if [[ "$COMMIT_HASH" == "current" ]]; then
+   # By default, we are running the benchmark with the current version of the code.
+   # This will be the case when using the script from the CI/CD.
+   RAMSES_BIN_DIR="${RAMSES_BENCHMARK_DIR}/../bin";
 
-# get the latest version of the code
-#if [[ "$COMMIT_TAG" == "latest" ]]; then
-#   if [ -f ${UPDATECODE} ]; then
-#      # special attention needed to pull the code
-#      ${SHELL} ${UPDATECODE} 2>&1 | tee -a $LOGFILE;
-#   else
-#      git pull >> $LOGFILE 2>&1;
-#   fi
-#fi
+else
+   # If a commit is given as input using the parameter -m, the script will:
+   #  - create a temporary copy of the code
+   #  - checkout the correct commit there
+   #  - set the path to the new bin, so that the compilation is done in this copied version
+   RAMSES_ORIG_DIR=$(dirname "${RAMSES_BENCHMARK_DIR}")
+   RAMSES_TEMP_DIR="${RAMSES_ORIG_DIR}_temp_${COMMIT_HASH}"
+   echo "Creating temporary ramses copy..." | tee -a $LOGFILE
+   cp -r "$RAMSES_ORIG_DIR" "$RAMSES_TEMP_DIR"
+
+   echo "Checking out commit ${COMMIT_HASH}..." | tee -a $LOGFILE
+   cd "$RAMSES_TEMP_DIR" || exit 1
+   git checkout "$COMMIT_HASH"
+
+   RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
+fi
 
 # get info of repo
+cd $RAMSES_BIN_DIR
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 COMMIT=$(git rev-parse --short HEAD)
 COMMIT_DATE=$(git show --no-patch --format=%ci ${COMMIT})
 GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g')
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))}
+cd $RAMSES_BENCHMARK_DIR
 
 # Welcome message
 echo "#################################################" | tee -a $LOGFILE
@@ -121,34 +125,43 @@ echo "Commit hash: ${COMMIT}" >> $LOGFILE
 echo $line >> $LOGFILE
 
 #######################################################################
-# Select project allocation to run on
+# Select project allocation to run on, if not given by user
 #######################################################################
 
-# Get the list of project IDs for the current user, ignoring headers (works only for slurm)
-# taking care of long account names (format)
-# removing duplicates (sort -u)
-MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3 | awk '{print $1}' | sort -u)
-# Count the number of projects
-NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
+if [[ "$CLUSTER_ALLOCATION_ID" == "none" ]]; then
 
-# Process the number of projects
-if [[ $NUM_PROJECTS -eq 1 ]]; then
-    CLUSTER_ALLOCATION_ID=$(echo "$MY_PROJECTS" | xargs)
-    echo "Automatically selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
-elif [[ $NUM_PROJECTS -gt 1 ]]; then
-    echo "Multiple projects found. Please select one:"
-    select CLUSTER_ALLOCATION_ID in $MY_PROJECTS; do
-        if [[ -n "$CLUSTER_ALLOCATION_ID" ]]; then
+   # Get the list of project IDs for the current user (works only for slurm)
+   #   - ignoring headers (tail -n +3)
+   #   - taking care of long account names (format=Account%-40)
+   #   - removing duplicates (sort -u)
+   MY_PROJECTS=$(sacctmgr show associations user=$USER format=Account%-40 | tail -n +3 | awk '{print $1}' | sort -u)
+
+   # Count the number of projects
+   NUM_PROJECTS=$(echo "$MY_PROJECTS" | wc -l)
+
+   # Process the number of projects
+   if [[ $NUM_PROJECTS -eq 1 ]]; then
+      CLUSTER_ALLOCATION_ID=$(echo "$MY_PROJECTS" | xargs)
+      echo "Automatically selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
+
+   elif [[ $NUM_PROJECTS -gt 1 ]]; then
+      # if multiple projects are found, present the user with a list to select from
+      echo "Multiple projects found. Please select one:"
+      select CLUSTER_ALLOCATION_ID in $MY_PROJECTS; do
+         if [[ -n "$CLUSTER_ALLOCATION_ID" ]]; then
             CLUSTER_ALLOCATION_ID=$(echo "$CLUSTER_ALLOCATION_ID" | xargs)
             echo "You selected allocation ID: $CLUSTER_ALLOCATION_ID" | tee -a $LOGFILE
             break
-        else
+         else
             echo "Invalid selection, please try again."
-        fi
-    done
-else
-    echo "No valid allocation ID found." | tee -a $LOGFILE
-    exit 1
+         fi
+      done
+
+   else
+      echo "No valid allocation ID found." | tee -a $LOGFILE
+      exit 1
+   fi
+
 fi
 
 #######################################################################
@@ -369,17 +382,15 @@ if ${DELDATA} ; then
    for ((i=0;i<$ntests;i++)); do
       n=${testnum[i]};
       cd ${RAMSES_BENCHMARK_DIR}/${testname[n]};
-      $DELETE_RESULTS;
       if [ -f ${AFTERTEST} ]; then
          ${SHELL} ${AFTERTEST};
       fi
    done
    cd ${RAMSES_BIN_DIR};
-   if $VERBOSE ; then
-      make clean 2>&1 | tee -a $LOGFILE;
-   else
-      make clean >> $LOGFILE 2>&1;
-   fi
+   make clean >> $LOGFILE 2>&1;
    rm -f ${EXECNAME}*d;
+   if [[ "$COMMIT_HASH" != "current" ]]; then
+      rm -rf "$RAMSES_TEMP_DIR"
+   fi
 fi
 
