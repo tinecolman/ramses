@@ -32,11 +32,14 @@ By default, this will execute all benchmarks defined in the `benchmarks/setups` 
 ```
 ./launch_benchmark_suite.sh -c meluxina -t 2
 ```
+It will try to automatically recover your project allocation ID and presents you with a choice if multiple options are found (which is usually the case). If you want to set it manually, you can use `-a my_allocation_id`.
+
+By default, the version of ramses that will be used is the one currently checked out by git. If you want to benchmark older versions of the code or different branches, you can specify a commit using `-m mycommithash`. The script will then make a copy of the ramses repository and checkout the requested commit there. This prevents the benchmarks directory from disappearing when checking out older commits.
 
 The script is going to create and submit job scripts to run all the benchmarks simulations on  different number of nodes. By default, 1, 2, 4, 8 and 16 nodes are used. The maximum number of nodes can be set using the command line agrument `-n`, for example `-n 4` will modify the behaviour to launch only on 1, 2 and 4 nodes. For each configuration, a number of identical jobs will be launched to get more statistics on the execution time and detect outliers. By default, each run is repeated 3 times.
 To also execute the benchmark setups with different resolutions to obtain weak scaling data, add the command line flag `-w`.
 
-After launching all jobs for a benchmark case, an additional dependency job is launched to gather the resulting timings from the log files. The results will then be transmitted automatically to the `ramses-benchmarks`. To gain write access to this repository, contact one of its admins. 
+After launching all jobs for a benchmark case, an additional dependency job is launched to gather the resulting timings from the log files. The results will then be transmitted automatically to the `ramses-benchmarks` repository. To gain write access to this repository, contact one of its admins. 
 
 Inside the `ramses-benchmarks` repository, there is a file for each combination of cluster and setup. Inside a file, one line contains one data entry, for example:
 ```

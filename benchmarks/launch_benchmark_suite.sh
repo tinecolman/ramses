@@ -101,6 +101,8 @@ else
 
    echo "Checking out commit ${COMMIT_HASH}..." | tee -a $LOGFILE
    cd "$RAMSES_TEMP_DIR" || exit 1
+   # make sure the copy is clean
+   git stash
    git checkout "$COMMIT_HASH"
 
    RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
@@ -344,7 +346,8 @@ for ((i=0;i<$ntests;i++)); do
 
       # create job script by combining job params, modules and run command
       OUTPUT_FILE="job.sh"
-      COMMANDSTRING="${RUN_COMMAND} ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log"
+      NUMPROCS=$(($NBNODES * $CLUSTER_CORES_PER_NODE))
+      COMMANDSTRING="$(eval echo ${RUN_COMMAND}) ./${TEST_EXECUTABLE} ${TEST_NAMELIST} > run_\${DATE}_\${SLURM_JOBID}.log"
       source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
       # add the date, which is used to add the execution timestamp to the name of the log-file of the simulation.
       echo "export DATE=\$(date +%F_%Hh%M)" >> "$OUTPUT_FILE"
