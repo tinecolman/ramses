@@ -15,14 +15,14 @@ foutput=0
 
 &INIT_PARAMS
 filetype='grafic'
-initfile(1)='../cosmo_1024/'
+initfile(1)='../../../ICs/cosmo_1024/'
 /
 
 &AMR_PARAMS
 levelmin=10
 levelmax=10
-ngridtot=536870912
-nparttot=3221225472
+ngridtot=200000000
+nparttot=1500000000
 nexpand=1
 /
 

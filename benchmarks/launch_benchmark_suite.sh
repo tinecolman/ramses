@@ -327,6 +327,12 @@ for ((i=0;i<$ntests;i++)); do
       done
    fi
 
+   # move ICs to scratch if needed
+   #TODO
+   # check if there are IC required
+   # check if ICs are already on scratch
+   # copy ICs to scratch if they are not present
+
    JOB_NAME=$TEST_NAME
    NTASKS_PER_NODE=${CLUSTER_CORES_PER_NODE}
 
