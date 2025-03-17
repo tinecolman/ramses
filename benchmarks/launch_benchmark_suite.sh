@@ -102,16 +102,18 @@ else
    #  - create a temporary copy of the code
    #  - checkout the correct branch/commit there
    #  - set the path to the new bin, so that the compilation is done in this copied version
+   git fetch origin >> $LOGFILE
    RAMSES_ORIG_DIR=$(dirname "${RAMSES_BENCHMARK_DIR}")
    RAMSES_TEMP_DIR="${RAMSES_ORIG_DIR}_temp_${HASH}"
    echo "Creating temporary ramses copy..." | tee -a $LOGFILE
-   cp -r "$RAMSES_ORIG_DIR" "$RAMSES_TEMP_DIR"
+   rsync -a $RAMSES_ORIG_DIR/ $RAMSES_TEMP_DIR --exclude benchmarks >> $LOGFILE
    cd "$RAMSES_TEMP_DIR" || exit 1
 
    # make sure the copy is clean
-   git stash
+   git stash --include-untracked
+   git stash drop
 
-   echo "Checking out ${BRANCH}..." | tee -a $LOGFILE
+   echo "Checking out $HASH..." | tee -a $LOGFILE
    git checkout "$HASH"
 
    RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
@@ -278,6 +280,9 @@ for ((i=0;i<$ntests;i++)); do
    source $MODULES >> $LOGFILE 2>&1
 
    # Recompile source code
+   NBNODES=1
+   NTASKS_PER_NODE=1
+   CPUS_PER_TASK=1
    set -e
    MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPIF90=${MPIF90} MPI=1 OPENMP=${OPENMP} ${FLAGS}";
    TEST_EXECUTABLE=${EXECNAME}3d
@@ -345,9 +350,9 @@ for ((i=0;i<$ntests;i++)); do
    JOB_NAME=$TEST_NAME
 
    # Loop over configurations
-   for ((i=0; i<${#NODES_LIST[@]}; i++)); do
-      NBNODES=${NODES_LIST[i]}
-      RESO=${RESO_LIST[i]}
+   for ((c=0; c<${#NODES_LIST[@]}; c++)); do
+      NBNODES=${NODES_LIST[c]}
+      RESO=${RESO_LIST[c]}
 
       for OMP_THREADS in "${OMP_THREAD_LIST[@]}"; do
 
@@ -429,7 +434,7 @@ if ${DELDATA} ; then
    cd ${RAMSES_BIN_DIR};
    make clean >> $LOGFILE 2>&1;
    rm -f ${EXECNAME}*d;
-   if [[ "$COMMIT_HASH" != "current" ]]; then
+   if [[ "$HASH" != "current" ]]; then
       rm -rf "$RAMSES_TEMP_DIR"
    fi
 fi
