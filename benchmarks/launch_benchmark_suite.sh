@@ -15,8 +15,9 @@
 #       ./launch_benchmark_suite.sh -w weak
 #   - set maximum number of nodes (default is 32)
 #       ./launch_benchmark_suite.sh -n 40
-#   - select a specific commit to test
+#   - select a specific branch or commit to test
 #       ./launch_benchmark_suite.sh -h ab01cd23
+#       ./launch_benchmark_suite.sh -h mybranch
 #   - run with openmp
 #       ./launch_benchmark_suite.sh -m "1 2 4 8 16"
 #
@@ -27,7 +28,7 @@
 #######################################################################
 # TODO make this script work without having to submit job scripts.
 
-COMMIT_HASH="current"
+HASH="current"
 NODESMAX=32
 CLUSTER=zapus;
 CLUSTER_ALLOCATION_ID="none"
@@ -45,7 +46,7 @@ while getopts "c:a:h:t:wn:dm:" OPTION; do
          CLUSTER_ALLOCATION_ID=$OPTARG;
       ;;
       h)
-         COMMIT_HASH=$OPTARG;
+         HASH=$OPTARG;
       ;;
       t)
          SELECTTEST=true;
@@ -91,26 +92,27 @@ echo > $LOGFILE;
 # Setup code repository
 #######################################################################
 
-if [[ "$COMMIT_HASH" == "current" ]]; then
+if [[ "$HASH" == "current" ]]; then
    # By default, we are running the benchmark with the current version of the code.
    # This will be the case when using the script from the CI/CD.
    RAMSES_BIN_DIR="${RAMSES_BENCHMARK_DIR}/../bin";
 
 else
-   # If a commit is given as input using the parameter -m, the script will:
+   # If a commit or branch is given as input, the script will:
    #  - create a temporary copy of the code
-   #  - checkout the correct commit there
+   #  - checkout the correct branch/commit there
    #  - set the path to the new bin, so that the compilation is done in this copied version
    RAMSES_ORIG_DIR=$(dirname "${RAMSES_BENCHMARK_DIR}")
-   RAMSES_TEMP_DIR="${RAMSES_ORIG_DIR}_temp_${COMMIT_HASH}"
+   RAMSES_TEMP_DIR="${RAMSES_ORIG_DIR}_temp_${HASH}"
    echo "Creating temporary ramses copy..." | tee -a $LOGFILE
    cp -r "$RAMSES_ORIG_DIR" "$RAMSES_TEMP_DIR"
-
-   echo "Checking out commit ${COMMIT_HASH}..." | tee -a $LOGFILE
    cd "$RAMSES_TEMP_DIR" || exit 1
+
    # make sure the copy is clean
    git stash
-   git checkout "$COMMIT_HASH"
+
+   echo "Checking out ${BRANCH}..." | tee -a $LOGFILE
+   git checkout "$HASH"
 
    RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
 fi
