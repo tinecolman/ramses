@@ -102,6 +102,7 @@ else
    #  - create a temporary copy of the code
    #  - checkout the correct branch/commit there
    #  - set the path to the new bin, so that the compilation is done in this copied version
+   # needs internet access
    git fetch origin >> $LOGFILE
    RAMSES_ORIG_DIR=$(dirname "${RAMSES_BENCHMARK_DIR}")
    RAMSES_TEMP_DIR="${RAMSES_ORIG_DIR}_temp_${HASH}"
@@ -113,8 +114,8 @@ else
    git stash --include-untracked
    git stash drop
 
-   echo "Checking out $HASH..." | tee -a $LOGFILE
-   git checkout "$HASH"
+   git checkout "$HASH" | tee -a $LOGFILE
+   git pull  >> $LOGFILE
 
    RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
 fi
