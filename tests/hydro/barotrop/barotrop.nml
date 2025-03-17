@@ -28,7 +28,7 @@ gamma=1.666667
 courant_factor=0.8
 slope_type=1
 riemann='hllc'
-pressure_fix=.true.
+pressure_fix=.false.
 beta_fix=0.5
 /
 
