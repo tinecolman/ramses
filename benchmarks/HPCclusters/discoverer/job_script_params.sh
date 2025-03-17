@@ -12,9 +12,8 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --partition=${CLUSTER_PARTITION}
 #SBATCH --qos=${CLUSTER_QOS}
 #SBATCH --nodes=${NBNODES}
-#SBATCH --ntasks-per-node=${CLUSTER_CORES_PER_NODE}
-#SBATCH --ntasks-per-core=1
-#SBATCH --cpus-per-task=1
+#SBATCH --ntasks-per-node=${NTASKS_PER_NODE}
+#SBATCH --cpus-per-task=${CPUS_PER_TASK}
 #SBATCH --threads-per-core=1
 #SBATCH --exclusive
 #SBATCH --mem 251G
@@ -23,3 +22,7 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --error=slurm_%j.err
 
 JOBSCRIPT
+
+# TODO
+# add openmp clause here?
+# check how to run openmp in different clusters

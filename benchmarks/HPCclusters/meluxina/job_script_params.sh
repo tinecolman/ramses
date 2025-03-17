@@ -11,7 +11,7 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 #SBATCH --qos=${CLUSTER_QOS}
 #SBATCH --nodes=${NBNODES}
 #SBATCH --ntasks-per-node=${NTASKS_PER_NODE}
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=${CPUS_PER_TASK}
 #SBATCH --threads-per-core=1
 #SBATCH --exclusive
 #SBATCH --time=${TEST_TIME}

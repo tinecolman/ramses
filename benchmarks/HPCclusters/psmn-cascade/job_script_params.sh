@@ -9,8 +9,8 @@ cat <<JOBSCRIPT > "$OUTPUT_FILE"
 ##SBATCH --account=${CLUSTER_ALLOCATION_ID}
 #SBATCH --partition=${CLUSTER_PARTITION}
 #SBATCH --nodes=${NBNODES}
-#SBATCH --ntasks-per-node=${CLUSTER_CORES_PER_NODE}
-#SBATCH --cpus-per-task=1
+#SBATCH --ntasks-per-node=${NTASKS_PER_NODE}
+#SBATCH --cpus-per-task=${CPUS_PER_TASK}
 #SBATCH --exclusive
 #SBATCH --time=${TEST_TIME}
 #SBATCH --output=slurm_%j.out
