@@ -115,7 +115,7 @@ else
    git stash drop
 
    git checkout "$HASH" | tee -a $LOGFILE
-   git pull  >> $LOGFILE
+   git merge  >> $LOGFILE
 
    RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
 fi
