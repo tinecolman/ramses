@@ -18,7 +18,7 @@
 #   - select a specific branch or commit to test
 #       ./launch_benchmark_suite.sh -h ab01cd23
 #       ./launch_benchmark_suite.sh -h mybranch
-#   - run with openmp
+#   - run with openmp (code will be compiled with OpenMP!)
 #       ./launch_benchmark_suite.sh -m "1 2 4 8 16"
 #
 #######################################################################
