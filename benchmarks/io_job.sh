@@ -16,7 +16,7 @@ git pull origin main
 mkdir -p data_${BRANCH}
 
 module load ${MODULE_PYTHON}
-python io_timings.py ${CLUSTER} ${LAUNCH_DIR} ${TEST_NAME} ${BRANCH} >> ${LOGFILE}
+python io_timings.py ${CLUSTER} "${LAUNCH_DIR}/${TEST_NAME}" ${BRANCH} >> ${LOGFILE}
 
 # clean up
 rm total_time.txt
