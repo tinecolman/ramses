@@ -230,8 +230,12 @@ subroutine gauss_seidel_mg_fine(ilevel,redstep)
    real(dp) :: dx2, nb_sum, weight
    integer  :: ngrid
    integer  :: ind, ind0, igrid_mg, idim, inbor
-   integer  :: igrid_amr, icell_amr, iskip_amr
+   integer  :: igrid_amr, icell_amr
    integer  :: igshift, igrid_nbor_amr, icell_nbor_amr
+
+   integer :: istart, nbatch
+   integer,  dimension(1:nvector), save :: vec_igrid_amr
+   integer,  dimension(1:twotondim/2) :: ind_red_black, iskip_amr
 
    real(dp) :: dtwondim = (twondim)
 
@@ -245,87 +249,96 @@ subroutine gauss_seidel_mg_fine(ilevel,redstep)
    ired  (3,1:4)=(/1,4,6,7/)
    iblack(3,1:4)=(/2,3,5,8/)
 
-   ngrid=active(ilevel)%ngrid
-
-   ! Loop over cells, with red/black ordering
+   ! calculate ind for red vs black in advance
    do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
-      if(redstep) then
-         ind = ired  (ndim,ind0)
-      else
-         ind = iblack(ndim,ind0)
-      end if
+      ind_red_black(ind0) = merge(ired(ndim,ind0),iblack(ndim,ind0),redstep)
+      iskip_amr(ind0) = ncoarse+(ind_red_black(ind0)-1)*ngridmax
+   end do
 
-      iskip_amr = ncoarse+(ind-1)*ngridmax
+   ! loop by vector sweep
+   ngrid=active(ilevel)%ngrid
+   do istart=1,ngrid,nvector
 
-      ! Loop over active grids
-      do igrid_mg=1,ngrid
-         igrid_amr = active(ilevel)%igrid(igrid_mg)
-         icell_amr = iskip_amr + igrid_amr
+      ! gather nvector grids (or take leftovers at the end of the list)
+      nbatch=MIN(nvector,ngrid-istart+1)
+      do igrid_mg=1,nbatch
+         vec_igrid_amr(igrid_mg)=active(ilevel)%igrid(istart+igrid_mg-1)
+      end do
 
-         nb_sum=0.0d0                       ! Sum of phi on neighbors
+      ! Loop over cells, with red/black ordering
+      do ind0=1,twotondim/2      ! Only half of the cells for a red or black sweep
+         ind = ind_red_black(ind0)
 
-         ! Read scan flag
-         if(flag2(icell_amr)/ngridmax==0) then
-            ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
-            ! Those cells are active, have all their neighbors active
-            ! and all neighbors are in the AMR+MG trees
-            do inbor=1,2
-               do idim=1,ndim
-                  ! Get neighbor grid shift
-                  igshift = iii(idim,inbor,ind)
-                  ! Get neighbor grid
-                  if(igshift==0) then
-                     igrid_nbor_amr = igrid_amr
-                  else
-                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
-                  end if
-                  icell_nbor_amr = igrid_nbor_amr + &
-                      (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
-                  nb_sum = nb_sum + phi(icell_nbor_amr)
-               end do
-            end do
-            ! Update the potential, solving for potential on icell_amr
-            phi(icell_amr) = (nb_sum - dx2*f(icell_amr,2)) / dtwondim
-         else
-            ! Use the finer "solve" Gauss-Seidel near boundaries,
-            ! with all necessary checks
-            if (f(icell_amr,3)<=0.0) cycle
-            if (safe_mode(ilevel) .and. f(icell_amr,3)<1.0) cycle
+         ! Loop over nvector active grids
+         do igrid_mg=1,nbatch
+            igrid_amr = vec_igrid_amr(igrid_mg)
+            icell_amr = iskip_amr(ind0) + igrid_amr
 
-            weight=0.0d0 ! Central weight for "Solve G-S"
-            do inbor=1,2
-               do idim=1,ndim
-                  ! Get neighbor grid shift
-                  igshift = iii(idim,inbor,ind)
+            nb_sum=0.0d0                       ! Sum of phi on neighbors
 
-                  ! Get neighbor grid
-                  if(igshift==0) then
-                     igrid_nbor_amr = igrid_amr
-                  else
-                     igrid_nbor_amr = son(nbor(igrid_amr,igshift))
-                  end if
-
-                  if(igrid_nbor_amr==0) then
-                     ! No neighbor cell,
-                     ! set mask=-1 on nonexistent neighbor cell
-                     weight = weight - 1.0d0/f(icell_amr,3)
-                  else
-                     ! Fetch neighbor cell
+            ! Read scan flag
+            if(flag2(icell_amr)/ngridmax==0) then
+               ! Use max-speed "dumb" Gauss-Seidel for "inner" cells
+               ! Those cells are active, have all their neighbors active
+               ! and all neighbors are in the AMR+MG trees
+               do inbor=1,2
+                  do idim=1,ndim
+                     ! Get neighbor grid shift
+                     igshift = iii(idim,inbor,ind)
+                     ! Get neighbor grid
+                     if(igshift==0) then
+                        igrid_nbor_amr = igrid_amr
+                     else
+                        igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                     end if
                      icell_nbor_amr = igrid_nbor_amr + &
                          (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
-                     if(f(icell_nbor_amr,3)<=0.0) then
-                        ! Neighbor cell is masked
-                        weight = weight + f(icell_nbor_amr,3)/f(icell_amr,3)
-                     else
-                        ! Neighbor cell is active, increment neighbor sum
-                        nb_sum = nb_sum + phi(icell_nbor_amr)
-                     end if
-                  end if
+                     nb_sum = nb_sum + phi(icell_nbor_amr)
+                  end do
                end do
-            end do
-            ! Update the potential, solving for potential on icell_amr
-            phi(icell_amr) = (nb_sum - dx2*f(icell_amr,2)) / (dtwondim - weight)
-         end if
+               ! Update the potential, solving for potential on icell_amr
+               phi(icell_amr) = (nb_sum - dx2*f(icell_amr,2)) / dtwondim
+            else
+               ! Use the finer "solve" Gauss-Seidel near boundaries,
+               ! with all necessary checks
+               if (f(icell_amr,3)<=0.0) cycle
+               if (safe_mode(ilevel) .and. f(icell_amr,3)<1.0) cycle
+
+               weight=0.0d0 ! Central weight for "Solve G-S"
+               do inbor=1,2
+                  do idim=1,ndim
+                     ! Get neighbor grid shift
+                     igshift = iii(idim,inbor,ind)
+
+                     ! Get neighbor grid
+                     if(igshift==0) then
+                        igrid_nbor_amr = igrid_amr
+                     else
+                        igrid_nbor_amr = son(nbor(igrid_amr,igshift))
+                     end if
+
+                     if(igrid_nbor_amr==0) then
+                        ! No neighbor cell,
+                        ! set mask=-1 on nonexistent neighbor cell
+                        weight = weight - 1.0d0/f(icell_amr,3)
+                     else
+                        ! Fetch neighbor cell
+                        icell_nbor_amr = igrid_nbor_amr + &
+                            (ncoarse + (jjj(idim,inbor,ind)-1)*ngridmax)
+                        if(f(icell_nbor_amr,3)<=0.0) then
+                           ! Neighbor cell is masked
+                           weight = weight + f(icell_nbor_amr,3)/f(icell_amr,3)
+                        else
+                           ! Neighbor cell is active, increment neighbor sum
+                           nb_sum = nb_sum + phi(icell_nbor_amr)
+                        end if
+                     end if
+                  end do
+               end do
+               ! Update the potential, solving for potential on icell_amr
+               phi(icell_amr) = (nb_sum - dx2*f(icell_amr,2)) / (dtwondim - weight)
+            end if
+         end do
       end do
    end do
 end subroutine gauss_seidel_mg_fine
