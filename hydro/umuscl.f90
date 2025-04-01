@@ -545,7 +545,7 @@ subroutine trace3d(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               qp(l,i,j,k,iv,1) = v - half*dvx + sv0*dtdx*half
               qp(l,i,j,k,iw,1) = w - half*dwx + sw0*dtdx*half
 !              qp(l,i,j,k,ir,1) = max(smallr, qp(l,i,j,k,ir,1))
-              if(qp(l,i,j,k,ir,1)<smallr)qp(l,i,j,k,ir,1)=r
+              qp(l,i,j,k,ir,1) = MERGE(r, qp(l,i,j,k,ir,1), qp(l,i,j,k,ir,1)<smallr)
 #if NENER>0
               do irad=1,nener
                  qp(l,i,j,k,ip+irad,1) = e(irad) - half*dex(irad) + se0(irad)*dtdx*half
@@ -559,7 +559,7 @@ subroutine trace3d(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               qm(l,i,j,k,iv,1) = v + half*dvx + sv0*dtdx*half
               qm(l,i,j,k,iw,1) = w + half*dwx + sw0*dtdx*half
 !              qm(l,i,j,k,ir,1) = max(smallr, qm(l,i,j,k,ir,1))
-              if(qm(l,i,j,k,ir,1)<smallr)qm(l,i,j,k,ir,1)=r
+              qm(l,i,j,k,ir,1) = MERGE(r, qm(l,i,j,k,ir,1), qm(l,i,j,k,ir,1)<smallr)
 #if NENER>0
               do irad=1,nener
                  qm(l,i,j,k,ip+irad,1) = e(irad) + half*dex(irad) + se0(irad)*dtdx*half
@@ -573,7 +573,7 @@ subroutine trace3d(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               qp(l,i,j,k,iv,2) = v - half*dvy + sv0*dtdy*half
               qp(l,i,j,k,iw,2) = w - half*dwy + sw0*dtdy*half
 !              qp(l,i,j,k,ir,2) = max(smallr, qp(l,i,j,k,ir,2))
-              if(qp(l,i,j,k,ir,2)<smallr)qp(l,i,j,k,ir,2)=r
+              qp(l,i,j,k,ir,2) = MERGE(r, qp(l,i,j,k,ir,2), qp(l,i,j,k,ir,2)<smallr)
 #if NENER>0
               do irad=1,nener
                  qp(l,i,j,k,ip+irad,2) = e(irad) - half*dey(irad) + se0(irad)*dtdy*half
@@ -587,7 +587,7 @@ subroutine trace3d(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               qm(l,i,j,k,iv,2) = v + half*dvy + sv0*dtdy*half
               qm(l,i,j,k,iw,2) = w + half*dwy + sw0*dtdy*half
 !              qm(l,i,j,k,ir,2) = max(smallr, qm(l,i,j,k,ir,2))
-              if(qm(l,i,j,k,ir,2)<smallr)qm(l,i,j,k,ir,2)=r
+              qm(l,i,j,k,ir,2) = MERGE(r, qm(l,i,j,k,ir,2), qm(l,i,j,k,ir,2)<smallr)
 #if NENER>0
               do irad=1,nener
                  qm(l,i,j,k,ip+irad,2) = e(irad) + half*dey(irad) + se0(irad)*dtdy*half
@@ -601,7 +601,7 @@ subroutine trace3d(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               qp(l,i,j,k,iv,3) = v - half*dvz + sv0*dtdz*half
               qp(l,i,j,k,iw,3) = w - half*dwz + sw0*dtdz*half
 !              qp(l,i,j,k,ir,3) = max(smallr, qp(l,i,j,k,ir,3))
-              if(qp(l,i,j,k,ir,3)<smallr)qp(l,i,j,k,ir,3)=r
+              qp(l,i,j,k,ir,3) = MERGE(r, qp(l,i,j,k,ir,3), qp(l,i,j,k,ir,3)<smallr)
 #if NENER>0
               do irad=1,nener
                  qp(l,i,j,k,ip+irad,3) = e(irad) - half*dez(irad) + se0(irad)*dtdz*half
@@ -615,7 +615,7 @@ subroutine trace3d(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
               qm(l,i,j,k,iv,3) = v + half*dvz + sv0*dtdz*half
               qm(l,i,j,k,iw,3) = w + half*dwz + sw0*dtdz*half
 !              qm(l,i,j,k,ir,3) = max(smallr, qm(l,i,j,k,ir,3))
-              if(qm(l,i,j,k,ir,3)<smallr)qm(l,i,j,k,ir,3)=r
+              qm(l,i,j,k,ir,3) = MERGE(r, qm(l,i,j,k,ir,3), qm(l,i,j,k,ir,3)<smallr)
 #if NENER>0
               do irad=1,nener
                  qm(l,i,j,k,ip+irad,3) = e(irad) + half*dez(irad) + se0(irad)*dtdz*half
