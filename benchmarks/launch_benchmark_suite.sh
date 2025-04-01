@@ -397,7 +397,7 @@ for ((i=0;i<$ntests;i++)); do
          echo "$COMMANDSTRING" >> "$OUTPUT_FILE"
 
          # launch job multiple times
-         for iter in $(seq 3); do
+         for iter in $(seq 5); do
             SUBMIT_MESSAGE=$(sbatch job.sh)
             STRINGARRAY=($SUBMIT_MESSAGE)
             JOB_ID=${STRINGARRAY[-1]}
