@@ -6,7 +6,7 @@ nrestart=0
 nremap=0
 nsubcycle=10*1
 verbose=.false.
-nstepmax=10
+nstepmax=50
 /
 
 &AMR_PARAMS
