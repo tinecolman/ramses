@@ -21,6 +21,8 @@ subroutine init_hydro
 #if NENER>0
   integer::irad
 #endif
+  integer::ngrid
+  integer,dimension(1:nvector)::ind_cell
 
   if(verbose)write(*,*)'Entering init_hydro'
 
@@ -30,7 +32,19 @@ subroutine init_hydro
   ncell=ncoarse+twotondim*ngridmax
   allocate(uold(1:ncell,1:nvar))
   allocate(unew(1:ncell,1:nvar))
-  uold=0.0d0; unew=0.0d0
+  ! set initial values to zero
+  ! explicit vectorization loop for performance
+  do igrid=1,ncell,nvector
+     ngrid=MIN(nvector,ncell-igrid+1)
+     do i=1,ngrid
+        ind_cell(i)=igrid+i-1
+     end do
+     do i=1,ngrid
+        uold(ind_cell(i),1:nvar)=0.0d0
+        unew(ind_cell(i),1:nvar)=0.0d0
+     end do
+  end do
+
   if(MC_tracer) then
      allocate(fluxes(1:ncell,1:twondim))
      fluxes(1:ncell,1:twondim)=0.0d0

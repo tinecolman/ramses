@@ -30,6 +30,8 @@ subroutine init_amr
 #ifdef QUADHILBERT
   real(kind=8),allocatable,dimension(:)::bound_key_restart
 #endif
+  integer::igrid,ngrid
+  integer,dimension(1:nvector)::ind_cell
 
   if(verbose.and.myid==1)write(*,*)'Entering init_amr'
 
@@ -48,17 +50,39 @@ subroutine init_amr
   dtold=0.0D0
   dtnew=0.0D0
 
-  ! Allocate AMR cell-based arrays
+  ! Allocate AMR cell-based arrays and set to 0
   allocate(flag1(1:ncell))
   allocate(flag2(1:ncell))
   allocate(son  (1:ncell)) ! Son index
-  flag1=0; flag2=0; son=0
+  ! explicit vectorization loop for performance
+  do igrid=1,ncell,nvector
+     ngrid=MIN(nvector,ncell-igrid+1)
+     do i=1,ngrid
+        ind_cell(i)=igrid+i-1
+     end do
+     do i=1,ngrid
+        flag1(ind_cell(i))=0
+        flag2(ind_cell(i))=0
+        son(ind_cell(i))=0
+      end do
+  end do
 
-  ! Allocate MPI cell-based arrays
+  ! Allocate MPI cell-based arrays and set to 0
   allocate(cpu_map    (1:ncell)) ! Cpu map
   allocate(cpu_map2   (1:ncell)) ! New cpu map for load balance
   allocate(hilbert_key(1:ncell)) ! Ordering key
-  cpu_map=0; cpu_map2=0; hilbert_key=0.0d0
+  ! explicit vectorization loop for performance
+  do igrid=1,ncell,nvector
+     ngrid=MIN(nvector,ncell-igrid+1)
+     do i=1,ngrid
+        ind_cell(i)=igrid+i-1
+     end do
+     do i=1,ngrid
+        cpu_map(ind_cell(i))=0
+        cpu_map2(ind_cell(i))=0
+        hilbert_key(ind_cell(i))=0.0d0
+     end do
+  end do
 
   ! Bisection ordering: compute array boundaries and
   ! allocate arrays if needed
@@ -221,16 +245,37 @@ subroutine init_amr
      end do
   end do
 
-  ! Allocate grid center coordinates
+  ! Allocate grid center coordinates and set to 0
   allocate(xg(1:ngridmax,1:ndim))
-  xg=0.0D0
+  ! explicit vectorization loop for performance
+  do igrid=1,ngridmax,nvector
+     ngrid=MIN(nvector,ngridmax-igrid+1)
+     do i=1,ngrid
+        ind_cell(i)=igrid+i-1
+     end do
+     do i=1,ngrid
+        xg(ind_cell(i),1:ndim)=0.0d0
+     end do
+  end do
 
-  ! Allocate tree arrays
+  ! Allocate tree arrays and set to 0
   allocate(father(1:ngridmax))
   allocate(nbor  (1:ngridmax,1:twondim))
   allocate(next  (1:ngridmax))
   allocate(prev  (1:ngridmax))
-  father=0; nbor=0; next=0; prev=0
+  ! explicit vectorization loop for performance
+  do igrid=1,ngridmax,nvector
+     ngrid=MIN(nvector,ngridmax-igrid+1)
+     do i=1,ngrid
+        ind_cell(i)=igrid+i-1
+     end do
+     do i=1,ngrid
+        father(ind_cell(i))=0
+        nbor(ind_cell(i),1:twondim)=0
+        next(ind_cell(i))=0
+        prev(ind_cell(i))=0
+     end do
+  end do
 
   ! Allocate pointer to particles linked lists
   if(pic)then
