@@ -38,7 +38,8 @@ WEAKSCALING=false
 DELDATA=true;
 OPENMP=0;
 OMP_THREAD_LIST="0"
-while getopts "c:a:h:t:wn:dm:l:" OPTION; do
+ITERS=3
+while getopts "c:a:h:t:wn:dm:l:i:" OPTION; do
    case $OPTION in
       c)
          CLUSTER=$OPTARG;
@@ -68,6 +69,9 @@ while getopts "c:a:h:t:wn:dm:l:" OPTION; do
       ;;
       l)
          NODELIST=($OPTARG);
+      ;;
+      i)
+         ITERS=$OPTARG;
       ;;
    esac
 done
@@ -409,7 +413,7 @@ for ((i=0;i<$ntests;i++)); do
          echo "$COMMANDSTRING" >> "$OUTPUT_FILE"
 
          # launch job multiple times
-         for iter in $(seq 5); do
+         for iter in $(seq $ITERS); do
             SUBMIT_MESSAGE=$(sbatch job.sh)
             STRINGARRAY=($SUBMIT_MESSAGE)
             JOB_ID=${STRINGARRAY[-1]}
