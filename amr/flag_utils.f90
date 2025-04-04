@@ -118,25 +118,31 @@ subroutine init_flag(ilevel)
   ! refinement rules.
   !-------------------------------------------
   integer::i,ind,iskip
+  integer::igrid,ngrid,ncache
+  integer,dimension(1:nvector),save::ind_grid
+
+  nflag=0
 
   ! Initialize flag1 to 0
-  nflag=0
-  do ind=1,twotondim
-     iskip=ncoarse+(ind-1)*ngridmax
-     do i=1,active(ilevel)%ngrid
-        flag1(active(ilevel)%igrid(i)+iskip)=0
-     end do
-  end do
+  call set_flag_to_value(ilevel,0)
 
   ! If load balancing operations, flag only refined cells
   if(balance)then
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,active(ilevel)%ngrid
-           if(son(active(ilevel)%igrid(i)+iskip)>0)then
-              flag1(active(ilevel)%igrid(i)+iskip)=1
-              nflag=nflag+1
-           end if
+   ncache=active(ilevel)%ngrid
+     do igrid=1,ncache,nvector
+        ! Gather nvector grids
+        ngrid=MIN(nvector,ncache-igrid+1)
+        do i=1,ngrid
+           ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+        end do
+        do ind=1,twotondim
+           iskip=ncoarse+(ind-1)*ngridmax
+           do i=1,ngrid
+              if(son(ind_grid(i)+iskip)>0)then
+                 flag1(ind_grid(i)+iskip)=1
+                 nflag=nflag+1
+              end if
+            end do
         end do
      end do
   else
@@ -146,13 +152,8 @@ subroutine init_flag(ilevel)
         call test_flag(ilevel)
      else
         ! If ilevel < levelmin, set flag to 1 for all cells
-        do ind=1,twotondim
-           iskip=ncoarse+(ind-1)*ngridmax
-           do i=1,active(ilevel)%ngrid
-              flag1(active(ilevel)%igrid(i)+iskip)=1
-           end do
-           nflag=nflag+active(ilevel)%ngrid
-        end do
+        call set_flag_to_value(ilevel,1)
+        nflag=(active(ilevel)%ngrid)*twotondim
      end if
   end if
 
@@ -161,6 +162,37 @@ subroutine init_flag(ilevel)
   if(simple_boundary)call make_boundary_flag(ilevel)
 
 end subroutine init_flag
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+subroutine set_flag_to_value(ilevel,value)
+  use amr_commons
+  implicit none
+  integer::ilevel,value
+  !-----------------------------------------------------------
+  ! This routine sets all of flag1 for ilevel to a given value
+  !-----------------------------------------------------------
+  integer::i,ind,iskip,igrid,ngrid,ncache
+  integer,dimension(1:nvector),save::ind_grid
+
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+     ! Gather nvector grids
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     ! loop over cells
+     do ind=1,twotondim
+        iskip=ncoarse+(ind-1)*ngridmax
+        do i=1,ngrid
+           flag1(ind_grid(i)+iskip)=value
+        end do
+     end do
+  end do
+
+end subroutine set_flag_to_value
 !################################################################
 !################################################################
 !################################################################
@@ -177,33 +209,41 @@ subroutine test_flag(ilevel)
   integer::i,ind_son,ind,iskip
   integer::iskip_son,ind_grid_son,ind_cell_son
   logical::ok
+  integer::igrid,ngrid,ncache
+  integer,dimension(1:nvector),save::ind_grid
 
-  ! Loop over cells
-  do ind=1,twotondim
-     iskip=ncoarse+(ind-1)*ngridmax
-     ! Test all refined cells
-     do i=1,active(ilevel)%ngrid
-        ! Gather child grid number
-        ind_grid_son=son(active(ilevel)%igrid(i)+iskip)
-        ! Test child if it exists
-        ok=.false.
-        if(ind_grid_son>0)then
-           ! Loop over children cells
-           do ind_son=1,twotondim
-              iskip_son=ncoarse+(ind_son-1)*ngridmax
-              ind_cell_son=iskip_son+ind_grid_son
-              ok=(ok.or.(son  (ind_cell_son)> 0))
-              ok=(ok.or.(flag1(ind_cell_son)==1))
-           end do
-        end if
-        ! If ok, then flag1 cells.
-        if(ok)then
-           flag1(active(ilevel)%igrid(i)+iskip)=1
-           nflag=nflag+1
-        end if
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector
+     ! Gather nvector grids
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     do ind=1,twotondim
+        iskip=ncoarse+(ind-1)*ngridmax
+        ! Test all refined cells
+        do i=1,ngrid
+           ! Gather child grid number
+           ind_grid_son=son(ind_grid(i)+iskip)
+           ! Test child if it exists
+           ok=.false.
+           if(ind_grid_son>0)then
+              ! Loop over children cells
+              do ind_son=1,twotondim
+                 iskip_son=ncoarse+(ind_son-1)*ngridmax
+                 ind_cell_son=iskip_son+ind_grid_son
+                 ok=(ok.or.(son  (ind_cell_son)> 0))
+                 ok=(ok.or.(flag1(ind_cell_son)==1))
+              end do
+           end if
+           ! If ok, then flag1 cells.
+           if(ok)then
+              flag1(ind_grid(i)+iskip)=1
+              nflag=nflag+1
+           end if
+        end do
      end do
   end do
-  ! End loop over cells
 
 end subroutine test_flag
 !################################################################
