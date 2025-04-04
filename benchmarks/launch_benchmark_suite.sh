@@ -256,7 +256,9 @@ if [[ "$NODELIST" == "0" ]] ; then
       n=$((n*2))
    done
 else
-   BENCHMARK_NBNODES_LIST=$NODELIST
+   for n in "${NODELIST[@]}"; do
+      BENCHMARK_NBNODES_LIST+=(${n})
+   done
 fi
 
 
