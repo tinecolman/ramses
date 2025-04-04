@@ -103,7 +103,7 @@ else
    #  - checkout the correct branch/commit there
    #  - set the path to the new bin, so that the compilation is done in this copied version
    # needs internet access
-   git fetch origin >> $LOGFILE
+   #git fetch origin >> $LOGFILE
    RAMSES_ORIG_DIR=$(dirname "${RAMSES_BENCHMARK_DIR}")
    RAMSES_TEMP_DIR="${RAMSES_ORIG_DIR}_temp_${HASH}"
    echo "Creating temporary ramses copy..." | tee -a $LOGFILE
