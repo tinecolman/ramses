@@ -30,6 +30,7 @@
 
 HASH="current"
 NODESMAX=32
+NODELIST="0"
 CLUSTER=zapus;
 CLUSTER_ALLOCATION_ID="none"
 SELECTTEST=false;
@@ -37,7 +38,7 @@ WEAKSCALING=false
 DELDATA=true;
 OPENMP=0;
 OMP_THREAD_LIST="0"
-while getopts "c:a:h:t:wn:dm:" OPTION; do
+while getopts "c:a:h:t:wn:dm:l:" OPTION; do
    case $OPTION in
       c)
          CLUSTER=$OPTARG;
@@ -64,6 +65,9 @@ while getopts "c:a:h:t:wn:dm:" OPTION; do
       m)
          OPENMP=1;
          OMP_THREAD_LIST=($OPTARG);  # Convert input string into an array
+      ;;
+      l)
+         NODELIST=($OPTARG);
       ;;
    esac
 done
@@ -98,6 +102,7 @@ if [[ "$HASH" == "current" ]]; then
    RAMSES_BIN_DIR="${RAMSES_BENCHMARK_DIR}/../bin";
 
 else
+   set -e
    # If a commit or branch is given as input, the script will:
    #  - create a temporary copy of the code
    #  - checkout the correct branch/commit there
@@ -116,6 +121,7 @@ else
 
    git checkout "$HASH" | tee -a $LOGFILE
    git merge  >> $LOGFILE
+   set +e
 
    RAMSES_BIN_DIR="${RAMSES_TEMP_DIR}/bin";
 fi
@@ -242,12 +248,16 @@ done
 echo $line | tee -a $LOGFILE;
 
 # setup number of nodes array
-BENCHMARK_NBNODES_LIST=(1)
-n=2
-while [ ${n} -le ${NODESMAX} ]; do
-   BENCHMARK_NBNODES_LIST+=(${n})
-   n=$((n*2))
-done
+if [[ "$NODELIST" == "0" ]] ; then
+   BENCHMARK_NBNODES_LIST=(1)
+   n=2
+   while [ ${n} -le ${NODESMAX} ]; do
+      BENCHMARK_NBNODES_LIST+=(${n})
+      n=$((n*2))
+   done
+else
+   BENCHMARK_NBNODES_LIST=$NODELIST
+fi
 
 
 #######################################################################
@@ -401,7 +411,7 @@ for ((i=0;i<$ntests;i++)); do
             SUBMIT_MESSAGE=$(sbatch job.sh)
             STRINGARRAY=($SUBMIT_MESSAGE)
             JOB_ID=${STRINGARRAY[-1]}
-            echo "Launched benchmark ${TEST_NAME} on ${NBNODES} nodes [JOB ID ${JOB_ID}]" | tee -a $LOGFILE;
+            echo "Launched benchmark ${TEST_NAME} on ${NBNODES} nodes with ${OMP_THREADS} threads [JOB ID ${JOB_ID}]" | tee -a $LOGFILE;
          done
          cd ..
       done
