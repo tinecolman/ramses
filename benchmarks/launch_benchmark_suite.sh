@@ -197,7 +197,7 @@ MPIF90=mpif90
 source ${CLUSTER_INFO}
 
 # create directory on scratch
-BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${DATE}_${COMMIT}
+BENCHMARK_DIR=$CLUSTER_SCRATCH/benchmark_${BRANCH}_${COMMIT}
 mkdir -p ${BENCHMARK_DIR} >> $LOGFILE 2>&1;
 
 #######################################################################
@@ -424,16 +424,16 @@ for ((i=0;i<$ntests;i++)); do
    done
 
    # launch dependency job to gather results
-   cd ${RAMSES_BENCHMARK_DIR}
-   OUTPUT_FILE="io_${TEST_NAME}.sh"
-   NBNODES=1
-   NTASKS_PER_NODE=1
-   CPUS_PER_TASK=1
-   JOB_NAME=io-${TEST_NAME}
-   source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
-   source io_job.sh
-   DEPS=$(squeue --noheader --format %i --name ${TEST_NAME} | paste -sd,)
-   sbatch --dependency=${DEPS} $OUTPUT_FILE
+   #cd ${RAMSES_BENCHMARK_DIR}
+   #OUTPUT_FILE="io_${TEST_NAME}.sh"
+   #NBNODES=1
+   #NTASKS_PER_NODE=1
+   #CPUS_PER_TASK=1
+   #JOB_NAME=io-${TEST_NAME}
+   #source ${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/job_script_params.sh
+   #source io_job.sh
+   #DEPS=$(squeue --noheader --format %i --name ${TEST_NAME} | paste -sd,)
+   #sbatch --dependency=${DEPS} $OUTPUT_FILE
 
 done
 
