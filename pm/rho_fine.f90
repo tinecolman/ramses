@@ -26,7 +26,7 @@ subroutine rho_fine(ilevel,icount)
   ! - cpu_map2 containing the refinement map due to particle
   !   number density criterion (quasi Lagrangian mesh).
   !------------------------------------------------------------------
-  integer::iskip,icpu,ind,i,nx_loc,ibound
+  integer::iskip,icpu,ind,i,nx_loc,ibound,ind_cell
   real(dp)::dx,d_scale,scale,dx_loc,scalar
 
   if(.not. poisson)return
@@ -73,9 +73,9 @@ subroutine rho_fine(ilevel,icount)
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,active(ilevel)%ngrid
-           rho_top(active(ilevel)%igrid(i)+iskip)=rho_top(father(active(ilevel)%igrid(i)))
-           rho(active(ilevel)%igrid(i)+iskip)=rho(active(ilevel)%igrid(i)+iskip)+ &
-                & rho_top(active(ilevel)%igrid(i)+iskip)
+           ind_cell=active(ilevel)%igrid(i)+iskip
+           rho_top(ind_cell)=rho_top(father(active(ilevel)%igrid(i)))
+           rho(ind_cell)=rho(ind_cell)+rho_top(ind_cell)
         end do
      end do
   endif
@@ -90,17 +90,16 @@ subroutine rho_fine(ilevel,icount)
         if(hydro)then
            if(ivar_refine>0)then
               do i=1,active(ilevel)%ngrid
-                 scalar=uold(active(ilevel)%igrid(i)+iskip,ivar_refine) &
-                      & /max(uold(active(ilevel)%igrid(i)+iskip,1),smallr)
+                 ind_cell=active(ilevel)%igrid(i)+iskip
+                 scalar=uold(ind_cell,ivar_refine)/max(uold(ind_cell,1),smallr)
                  if(scalar>var_cut_refine)then
-                    phi(active(ilevel)%igrid(i)+iskip)= &
-                         & rho(active(ilevel)%igrid(i)+iskip)/d_scale
+                    phi(ind_cell)=rho(ind_cell)/d_scale
                  endif
               end do
            else
               do i=1,active(ilevel)%ngrid
-                 phi(active(ilevel)%igrid(i)+iskip)= &
-                      & rho(active(ilevel)%igrid(i)+iskip)/d_scale
+                 ind_cell=active(ilevel)%igrid(i)+iskip
+                 phi(ind_cell)=rho(ind_cell)/d_scale
               end do
            endif
         endif
@@ -192,24 +191,17 @@ subroutine rho_fine(ilevel,icount)
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,active(ilevel)%ngrid
-           if(phi(active(ilevel)%igrid(i)+iskip)>=m_refine(ilevel))then
-              cpu_map2(active(ilevel)%igrid(i)+iskip)=1
+           ind_cell=active(ilevel)%igrid(i)+iskip
+           if(phi(ind_cell)>=m_refine(ilevel))then
+              cpu_map2(ind_cell)=1
            else
-              cpu_map2(active(ilevel)%igrid(i)+iskip)=0
+              cpu_map2(ind_cell)=0
            end if
         end do
      end do
      ! Update boundaries
      call make_virtual_fine_int(cpu_map2(1),ilevel)
   end if
-
-!!$  do ind=1,twotondim
-!!$     iskip=ncoarse+(ind-1)*ngridmax
-!!$     do i=1,active(ilevel)%ngrid
-!!$        print*,rho(active(ilevel)%igrid(i)+iskip),rho_tot
-!!$     end do
-!!$  end do
-
 
 111 format('   Entering rho_fine for level ',I2)
 
@@ -381,15 +373,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   do idim=1,ndim
      do j=1,np
         x(j,idim)=xp(ind_part(j),idim)/scale+skip_loc(idim)
-     end do
-  end do
-  do idim=1,ndim
-     do j=1,np
         x(j,idim)=x(j,idim)-x0(ind_grid_part(j),idim)
-     end do
-  end do
-  do idim=1,ndim
-     do j=1,np
         x(j,idim)=x(j,idim)/dx
      end do
   end do
@@ -562,9 +546,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
      do j=1,np
         ok(j)=(igrid(j,ind)>0).and.is_not_tracer(fam(j))
-     end do
-
-     do j=1,np
         vol2(j)=mmm(j)*vol(j,ind)/vol_loc
      end do
 
@@ -958,15 +939,7 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
      do idim=1,ndim
         do j=1,np
            x(j,idim)=x(j,idim)/scale+skip_loc(idim)
-        end do
-     end do
-     do idim=1,ndim
-        do j=1,np
            x(j,idim)=x(j,idim)-(xg(ind_grid(j),idim)-3d0*dx)
-        end do
-     end do
-     do idim=1,ndim
-        do j=1,np
            x(j,idim)=x(j,idim)/dx
         end do
      end do
@@ -1119,8 +1092,6 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
      do ind=1,twotondim
         do j=1,np
            ok(j)=igrid(j,ind)>0
-        end do
-        do j=1,np
            vol2(j)=mmm(j)*vol(j,ind)/vol_loc
         end do
         do j=1,np
@@ -1189,15 +1160,7 @@ subroutine tsc_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   do idim=1,ndim
      do j=1,np
         x(j,idim)=xp(ind_part(j),idim)/scale+skip_loc(idim)
-     end do
-  end do
-  do idim=1,ndim
-     do j=1,np
         x(j,idim)=x(j,idim)-x0(ind_grid_part(j),idim)
-     end do
-  end do
-  do idim=1,ndim
-     do j=1,np
         x(j,idim)=x(j,idim)/dx
      end do
   end do
@@ -1389,11 +1352,6 @@ subroutine tsc_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      do j=1,np
         if(.not.abandoned(j)) then
            ok(j)=igrid(j,ind)>0
-        end if
-     end do
-
-     do j=1,np
-        if(.not.abandoned(j)) then
            vol2(j)=mmm(j)*vol(j,ind)/vol_loc
         end if
      end do
@@ -1546,15 +1504,7 @@ subroutine tsc_cell(ind_grid,ngrid,ilevel)
      do idim=1,ndim
         do j=1,np
            x(j,idim)=x(j,idim)/scale+skip_loc(idim)
-        end do
-     end do
-     do idim=1,ndim
-        do j=1,np
            x(j,idim)=x(j,idim)-(xg(ind_grid(j),idim)-3d0*dx)
-        end do
-     end do
-     do idim=1,ndim
-        do j=1,np
            x(j,idim)=x(j,idim)/dx
         end do
      end do
@@ -1726,8 +1676,6 @@ subroutine tsc_cell(ind_grid,ngrid,ilevel)
      do ind=1,threetondim
         do j=1,np
            ok(j)=igrid(j,ind)>0
-        end do
-        do j=1,np
            vol2(j)=mmm(j)*vol(j,ind)/vol_loc
         end do
         do j=1,np
