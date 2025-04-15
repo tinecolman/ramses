@@ -410,7 +410,7 @@ subroutine interpolate_and_correct_fine(ifinelevel)
    integer, intent(in) :: ifinelevel
 
    integer  :: i, ind_father, ind_average, ind_f, iskip_f_amr
-   integer  :: ngrid_f, istart, nbatch
+   integer  :: ngrid_f, istart, nbatch, ncorr, icorr
    integer  :: icell_c_amr, igrid_c_amr, igrid_c_mg, icell_c_mg
    integer  :: icoarselevel, ind_c, cpu_amr
 
@@ -418,7 +418,7 @@ subroutine interpolate_and_correct_fine(ifinelevel)
    real(dp), dimension(1:8)     :: bbb
    integer,  dimension(1:8,1:8) :: ccc
 
-   integer,  dimension(1:nvector), save               :: igrid_f_amr, icell_amr
+   integer,  dimension(1:nvector), save               :: igrid_f_amr, icell_amr, selected_i
    integer,  dimension(1:nvector,1:threetondim), save :: nbors_father_cells
    integer,  dimension(1:nvector,1:twotondim), save   :: nbors_father_grids
    real(dp), dimension(1:nvector), save               :: corr
@@ -470,15 +470,23 @@ subroutine interpolate_and_correct_fine(ifinelevel)
          end do
          corr=0.0d0
 
+         ! gather cells that need correction
+         ncorr=0
+         do i=1,nbatch
+            if(f(icell_amr(i),3)>0.0) then
+               ncorr=ncorr+1
+               selected_i(ncorr)=i
+               ! otherwise fine cell is masked and correction=0
+            end if
+         end do
+
+         if(ncorr>0)then
          ! Loop over relevant parent cells
          do ind_average=1,twotondim
             ind_father = ccc(ind_average,ind_f)
             coeff      = bbb(ind_average)
-            do i=1,nbatch
-               if(f(icell_amr(i),3)<=0.0) then
-                  corr(i)=0.0d0        ! Fine cell is masked : no correction
-                  cycle
-               end if
+            do icorr=1,ncorr
+               i = selected_i(icorr)
                icell_c_amr = nbors_father_cells(i,ind_father)
                ind_c       = (icell_c_amr-ncoarse-1)/ngridmax + 1
                igrid_c_amr = icell_c_amr - ncoarse - (ind_c-1)*ngridmax
@@ -499,6 +507,7 @@ subroutine interpolate_and_correct_fine(ifinelevel)
          do i=1,nbatch
             phi(icell_amr(i))=phi(icell_amr(i))+corr(i)
          end do
+         end if
 
       end do
       ! End loop over cells
