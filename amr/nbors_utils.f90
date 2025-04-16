@@ -631,3 +631,52 @@ subroutine getnborgrids_check(igrid,igridn,ngrid)
   end do
 
 end subroutine getnborgrids_check
+!##############################################################
+!##############################################################
+!##############################################################
+!##############################################################
+! todo convert to pure function?
+subroutine get_ind_in_grid(ind_cell,pos,ncell)
+   use amr_parameters, only:ngridmax,nvector
+   use amr_commons, only:ncoarse
+   implicit none
+   integer,intent(in)::ncell
+   integer,dimension(1:nvector),intent(in)::ind_cell
+   integer,dimension(1:nvector),intent(out)::pos
+   !------------------------------------------------------------------
+   ! Get cell's position in its grid, that is the index ind.
+   ! Ind is between between 1 and twotondim.
+   !------------------------------------------------------------------
+   integer::i,iskip
+
+   do i=1,ncell
+      pos(i)=(ind_cell(i)-ncoarse-1)/ngridmax + 1
+      ! Remark that this is an integer division.
+   end do
+
+end subroutine get_ind_in_grid
+!##############################################################
+!##############################################################
+!##############################################################
+!##############################################################
+subroutine get_indgrid_from_indcell(ind_cell,ind_grid,ncell)
+   use amr_parameters, only:ngridmax,nvector
+   use amr_commons, only:ncoarse
+   implicit none
+   integer,intent(in)::ncell
+   integer,dimension(1:nvector),intent(in)::ind_cell
+   integer,dimension(1:nvector),intent(out)::ind_grid
+   !------------------------------------------------------------------
+   ! Convert the index of a cell to the index of the grid to which it belongs
+   !------------------------------------------------------------------
+   integer,dimension(1:nvector)::pos
+   integer::i,iskip
+
+   call get_ind_in_grid(ind_cell,pos,ncell)
+
+   do i=1,ncell
+      iskip=ncoarse+(pos(i)-1)*ngridmax
+      ind_grid(i)=ind_cell(i)-iskip
+   end do
+
+end subroutine get_indgrid_from_indcell
