@@ -13,7 +13,6 @@ subroutine load_balance
   use rt_hydro_commons, ONLY: nrtvar, rtuold
 #endif
 #endif
-  use bisection
   use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
@@ -203,12 +202,7 @@ subroutine load_balance
   !--------------------------------------
   ! Set old cpu map to new cpu map
   !--------------------------------------
-  if(ordering/='bisection') then
-     bound_key=bound_key2
-  else
-     bisec_cpubox_min=bisec_cpubox_min2
-     bisec_cpubox_max=bisec_cpubox_max2
-  end if
+  bound_key=bound_key2
 
   nxny=nx*ny
   do iz=kcoarse_min,kcoarse_max
@@ -277,7 +271,6 @@ end subroutine load_balance
 subroutine cmp_new_cpu_map
   use amr_commons
   use pm_commons
-  use bisection
   use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
@@ -332,8 +325,6 @@ subroutine cmp_new_cpu_map
   endif
 
   if(verbose) print *,"Entering cmp_new_cpu_map"
-
-  if(ordering/='bisection') then      ! begin if not bisection
 
   !----------------------------------------
   ! Compute cell ordering and cost
@@ -534,10 +525,6 @@ subroutine cmp_new_cpu_map
   bound_key2(0)      =order_all_min
   bound_key2(ndomain)=order_all_max
 
-  else     ! doing bisection
-     ! update the bisection
-     call build_bisection(update=.true.)
-  end if   ! end if not bisection
 
   !----------------------------------------
   ! Compute new cpu map
@@ -557,20 +544,14 @@ subroutine cmp_new_cpu_map
 #endif
      cpu_map2(ind)=ncpu ! default value
 
-     if(ordering/='bisection') then
-        call cmp_ordering(xx,order_max,ncell_loc)
-        cpu_map2(ind)=ncpu ! default value
-        do idom=1,ndomain
-           if( order_max(1).ge.bound_key2(idom-1).and. &
-                & order_max(1).lt.bound_key2(idom))then
-              cpu_map2(ind)=mod(idom-1,ncpu)+1
-           endif
-        end do
-     else
-        xx_tmp(1,:) = xx(1,:)
-        call cmp_bisection_cpumap(xx_tmp,c_tmp,1)
-        cpu_map2(ind) = c_tmp(1)
-     end if
+     call cmp_ordering(xx,order_max,ncell_loc)
+     cpu_map2(ind)=ncpu ! default value
+     do idom=1,ndomain
+        if( order_max(1).ge.bound_key2(idom-1).and. &
+             & order_max(1).lt.bound_key2(idom))then
+           cpu_map2(ind)=mod(idom-1,ncpu)+1
+        endif
+     end do
   end do
   end do
   end do
@@ -609,25 +590,16 @@ subroutine cmp_new_cpu_map
                  xx(i,idim)=(xg(ind_grid(i),idim)+xc(ind,idim))*scale
               end do
            end do
-           if(ordering/='bisection') then
-              if(ngrid>0)call cmp_ordering(xx,order_max,ngrid)
-              do i=1,ngrid
-                 cpu_map2(ind_cell(i))=ncpu ! default value
-                 do idom=1,ndomain
-                    if( order_max(i).ge.bound_key2(idom-1).and. &
-                         & order_max(i).lt.bound_key2(idom))then
-                       cpu_map2(ind_cell(i))=mod(idom-1,ncpu)+1
-                    endif
-                 end do
+           if(ngrid>0)call cmp_ordering(xx,order_max,ngrid)
+           do i=1,ngrid
+              cpu_map2(ind_cell(i))=ncpu ! default value
+              do idom=1,ndomain
+                 if( order_max(i).ge.bound_key2(idom-1).and. &
+                      & order_max(i).lt.bound_key2(idom))then
+                    cpu_map2(ind_cell(i))=mod(idom-1,ncpu)+1
+                 endif
               end do
-           else
-              do i=1,ngrid
-                 ! compute cpu_map2 using bisection
-                 xx_tmp(1,:) = xx(i,:)
-                 call cmp_bisection_cpumap(xx_tmp,c_tmp,1)
-                 cpu_map2(ind_cell(i)) = c_tmp(1)
-              end do
-           endif
+           end do
         end do
         ! End loop over cells
      end do
@@ -649,7 +621,6 @@ end subroutine cmp_new_cpu_map
 subroutine cmp_cpumap(x,c,nn)
   use amr_parameters
   use amr_commons
-  use bisection
   implicit none
   integer, intent(in) ::nn
   real(dp),dimension(1:nvector,1:ndim), intent(in)::x
@@ -658,24 +629,20 @@ subroutine cmp_cpumap(x,c,nn)
   integer::i,idom
   real(qdp),dimension(1:nvector),save::order
 
-  if(ordering /= 'bisection') then
-     call cmp_ordering(x,order,nn)
-     do i=1,nn
-        c(i)=ndomain ! default value
-        do idom=1,ndomain
-           if(    order(i).ge.bound_key(idom-1).and. &
-                & order(i).lt.bound_key(idom  ))then
-              c(i)=idom
-           endif
-        end do
+  call cmp_ordering(x,order,nn)
+  do i=1,nn
+     c(i)=ndomain ! default value
+     do idom=1,ndomain
+        if(    order(i).ge.bound_key(idom-1).and. &
+             & order(i).lt.bound_key(idom  ))then
+           c(i)=idom
+        endif
      end do
-     do i=1,nn
-        c(i)=MOD(c(i)-1,ncpu)+1
-!        c(i)=c(i)-((c(i)-1)/ncpu)*ncpu
-     end do
-  else
-     call cmp_bisection_cpumap(x,c,nn)
-  end if
+  end do
+  do i=1,nn
+     c(i)=MOD(c(i)-1,ncpu)+1
+!     c(i)=c(i)-((c(i)-1)/ncpu)*ncpu
+  end do
 
 end subroutine cmp_cpumap
 !#########################################################################
@@ -685,7 +652,6 @@ end subroutine cmp_cpumap
 subroutine cmp_dommap(x,c,nn)
   use amr_parameters
   use amr_commons
-  use bisection
   implicit none
   integer ::nn
   integer ,dimension(1:nvector)::c

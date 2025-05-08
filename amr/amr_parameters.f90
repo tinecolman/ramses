@@ -87,12 +87,6 @@ module amr_parameters
   real(dp)::boxlen=1.0D0                   ! Box length along x direction
   character(len=128)::ordering='hilbert'
   logical::cost_weighting=.true.           ! Activate load balancing according to cpu time
-  ! Recursive bisection tree parameters
-  integer::nbilevelmax=1                   ! Max steps of bisection partitioning
-  integer::nbinodes=3                      ! Max number of internal nodes
-  integer::nbileafnodes=2                  ! Max number of leaf (terminal) nodes
-  real(dp)::bisec_tol=0.05d0               ! Tolerance for bisection load balancing
-
                                  ! Step parameters
   integer::nrestart=0            ! New run or backup file number
   integer::nrestart_quad=0       ! Restart with double precision Hilbert keys

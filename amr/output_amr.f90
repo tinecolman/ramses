@@ -301,15 +301,7 @@ subroutine backup_amr(filename)
   write(ilun)headf,tailf,numbf,used_mem,used_mem_tot
   ! Write cpu boundaries
   write(ilun)ordering
-  if(ordering=='bisection') then
-     write(ilun)bisec_wall(1:nbinodes)
-     write(ilun)bisec_next(1:nbinodes,1:2)
-     write(ilun)bisec_indx(1:nbinodes)
-     write(ilun)bisec_cpubox_min(1:ncpu,1:ndim)
-     write(ilun)bisec_cpubox_max(1:ncpu,1:ndim)
-  else
-     write(ilun)bound_key(0:ndomain)
-  endif
+  write(ilun)bound_key(0:ndomain)
 
   ! Write coarse level
   write(ilun)son(1:ncoarse)
@@ -473,19 +465,11 @@ subroutine output_info(filename)
 
   ! Write ordering information
   write(ilun,'("ordering type=",A80)')ordering
-  if(ordering=='bisection') then
-     do icpu=1,ncpu
-        ! write 2*ndim floats for cpu bound box
-        write(ilun,'(E23.15)')bisec_cpubox_min(icpu,:),bisec_cpubox_max(icpu,:)
-        ! write 1 float for cpu load
-        write(ilun,'(E23.15)')dble(bisec_cpu_load(icpu))
-     end do
-  else
-     write(ilun,'("   DOMAIN   ind_min                 ind_max")')
-     do idom=1,ndomain
-        write(ilun,'(I8,1X,E23.15,1X,E23.15)')idom,bound_key(idom-1),bound_key(idom)
-     end do
-  endif
+
+  write(ilun,'("   DOMAIN   ind_min                 ind_max")')
+  do idom=1,ndomain
+     write(ilun,'(I8,1X,E23.15,1X,E23.15)')idom,bound_key(idom-1),bound_key(idom)
+  end do
 
   close(ilun)
 

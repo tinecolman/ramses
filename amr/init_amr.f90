@@ -3,7 +3,6 @@ subroutine init_amr
   use hydro_commons
   use pm_commons
   use poisson_commons
-  use bisection
   use mpi_mod
   implicit none
   integer::i,idim,ncell,iskip,ind,ncache,ilevel,ibound,nboundary2
@@ -60,92 +59,51 @@ subroutine init_amr
   allocate(hilbert_key(1:ncell)) ! Ordering key
   cpu_map=0; cpu_map2=0; hilbert_key=0.0d0
 
-  ! Bisection ordering: compute array boundaries and
-  ! allocate arrays if needed
-  nbilevelmax=ceiling(log(dble(ncpu))/log(2.0d0))
-  nbinodes=2**(nbilevelmax+1)-1
-  nbileafnodes=2**nbilevelmax
-  bisec_nres=2**(nlevelmax+1)
-  bisec_res=scale/dble(bisec_nres)
+  ! Cpu boundaries in chosen ordering
+  ndomain=ncpu*overload
+  allocate(bound_key (0:ndomain))
+  allocate(bound_key2(0:ndomain))
 
-  if(ordering=='bisection') then
-    ! allocate bisection tree structure
-    allocate(bisec_wall(1:nbinodes))
-    allocate(bisec_next(1:nbinodes,1:2))
-    allocate(bisec_indx(1:nbinodes))
-    bisec_wall=0.0d0; bisec_next=0; bisec_indx=0; bisec_root=0
-    ! allocate some other bisection stuff
-    allocate(bisec_cpubox_min (1:ncpu,1:ndim))
-    allocate(bisec_cpubox_max (1:ncpu,1:ndim))
-    allocate(bisec_cpubox_min2(1:ncpu,1:ndim))
-    allocate(bisec_cpubox_max2(1:ncpu,1:ndim))
-    allocate(bisec_cpu_load(1:ncpu))
-    bisec_cpubox_min=0;  bisec_cpubox_max=0;
-    bisec_cpubox_min2=0; bisec_cpubox_max2=0;
-    bisec_cpu_load=0;
-    ! allocate histograms
-    allocate(bisec_hist(1:nbileafnodes,1:bisec_nres))
-    allocate(bisec_hist_bounds(1:(nbileafnodes+1)))
-    allocate(new_hist_bounds  (1:(nbileafnodes+1)))
-    allocate(bisec_ind_cell(1:ncell))    ! big array
-    allocate(cell_level    (1:ncell))    ! big array
-    bisec_hist=0
-    bisec_hist_bounds=0; new_hist_bounds=0
-    bisec_ind_cell=0; cell_level=0
-  end if
-
- bisection_or_ordering:if(ordering /= 'bisection') then ! use usual ordering machinery
-
-    ! Cpu boundaries in chosen ordering
-    ndomain=ncpu*overload
-    allocate(bound_key (0:ndomain))
-    allocate(bound_key2(0:ndomain))
-
-    ! Compute minimum and maximum ordering key
-    dx_loc=scale
-    x(1,1)=0.5d0*scale
+  ! Compute minimum and maximum ordering key
+  dx_loc=scale
+  x(1,1)=0.5d0*scale
 #if NDIM>1
-    x(1,2)=0.5d0*scale
+  x(1,2)=0.5d0*scale
 #endif
 #if NDIM>2
-    x(1,3)=0.5d0*scale
+  x(1,3)=0.5d0*scale
 #endif
-    call cmp_minmaxorder(x,order_min,order_max,dx_loc,1)
-    order_all_min=order_min(1)
-    order_all_max=order_max(1)
-    do iz=kcoarse_min,kcoarse_max
-       do iy=jcoarse_min,jcoarse_max
-          do ix=icoarse_min,icoarse_max
-             ind=1+ix+iy*nx+iz*nxny
-             x(1,1)=(dble(ix)+0.5d0-dble(icoarse_min))*scale
+  call cmp_minmaxorder(x,order_min,order_max,dx_loc,1)
+  order_all_min=order_min(1)
+  order_all_max=order_max(1)
+  do iz=kcoarse_min,kcoarse_max
+     do iy=jcoarse_min,jcoarse_max
+        do ix=icoarse_min,icoarse_max
+           ind=1+ix+iy*nx+iz*nxny
+           x(1,1)=(dble(ix)+0.5d0-dble(icoarse_min))*scale
 #if NDIM>1
-             x(1,2)=(dble(iy)+0.5d0-dble(jcoarse_min))*scale
+           x(1,2)=(dble(iy)+0.5d0-dble(jcoarse_min))*scale
 #endif
 #if NDIM>2
-             x(1,3)=(dble(iz)+0.5d0-dble(kcoarse_min))*scale
+           x(1,3)=(dble(iz)+0.5d0-dble(kcoarse_min))*scale
 #endif
-             call cmp_minmaxorder(x,order_min,order_max,dx_loc,1)
-             order_all_min=min(order_all_min,order_min(1))
-             order_all_max=max(order_all_max,order_max(1))
-          end do
-       end do
-    end do
+           call cmp_minmaxorder(x,order_min,order_max,dx_loc,1)
+           order_all_min=min(order_all_min,order_min(1))
+           order_all_max=max(order_all_max,order_max(1))
+        end do
+     end do
+  end do
 
-    ! Set initial cpu boundaries
-    do i=0,ndomain-1
+  ! Set initial cpu boundaries
+  do i=0,ndomain-1
 #ifdef QUADHILBERT
-       bound_key(i)=order_all_min+real(i,16)/real(ndomain,16)*(order_all_max-order_all_min)
+     bound_key(i)=order_all_min+real(i,16)/real(ndomain,16)*(order_all_max-order_all_min)
 #else
-       bound_key(i)=order_all_min+real(i,8)/real(ndomain,8)*(order_all_max-order_all_min)
+     bound_key(i)=order_all_min+real(i,8)/real(ndomain,8)*(order_all_max-order_all_min)
 #endif
-    end do
-    bound_key(ndomain)=order_all_max
+  end do
+  bound_key(ndomain)=order_all_max
 
-      else ! Init bisection balancing
-
-       call build_bisection(update=.false.)
-
-  end if bisection_or_ordering
 
   ! Compute coarse cpu map
   do iz=kcoarse_min,kcoarse_max
@@ -400,24 +358,17 @@ subroutine init_amr
         if(myid==1)write(*,*)'Ordering is uncompatible'
         call clean_stop
      endif
-     if(ordering=='bisection') then
-        read(ilun)bisec_wall(1:nbinodes)
-        read(ilun)bisec_next(1:nbinodes,1:2)
-        read(ilun)bisec_indx(1:nbinodes)
-        read(ilun)bisec_cpubox_min(1:ncpu,1:ndim)
-        read(ilun)bisec_cpubox_max(1:ncpu,1:ndim)
-     else
+
 #ifdef QUADHILBERT
-        if(nrestart_quad.eq.nrestart) then
-           read(ilun)bound_key_restart(0:ndomain)
-           bound_key(0:ndomain)=bound_key_restart(0:ndomain)
-        else
-           read(ilun)bound_key(0:ndomain)
-        endif
-#else
+     if(nrestart_quad.eq.nrestart) then
+        read(ilun)bound_key_restart(0:ndomain)
+        bound_key(0:ndomain)=bound_key_restart(0:ndomain)
+     else
         read(ilun)bound_key(0:ndomain)
-#endif
      endif
+#else
+     read(ilun)bound_key(0:ndomain)
+#endif
      ! Read coarse level
      read(ilun)son(1:ncoarse)
      read(ilun)flag1(1:ncoarse)
