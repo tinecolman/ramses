@@ -1,5 +1,6 @@
 subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
   use amr_commons
+  use amr_constants, only:bbb,ccc
   use poisson_commons, only:phi,phi_old
   implicit none
   integer::ncell,ilevel,icount
@@ -18,26 +19,7 @@ subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer::i,ind,indice,ind_average,ind_father
   real(dp)::dx,tfrac
-  real(dp)::aa,bb,cc,dd,coeff,add
-  integer,dimension(1:8,1:8)::ccc
-  real(dp),dimension(1:8)::bbbb
-
-  ! CIC method constants
-  aa = 1d0/4d0**ndim
-  bb = 3*aa
-  cc = 9*aa
-  dd = 27*aa
-  bbbb(:)  =(/aa ,bb ,bb ,cc ,bb ,cc ,cc ,dd/)
-
-  ! Sampling positions in the 3x3x3 father cell cube
-  ccc(:,1)=(/1 ,2 ,4 ,5 ,10,11,13,14/)
-  ccc(:,2)=(/3 ,2 ,6 ,5 ,12,11,15,14/)
-  ccc(:,3)=(/7 ,8 ,4 ,5 ,16,17,13,14/)
-  ccc(:,4)=(/9 ,8 ,6 ,5 ,18,17,15,14/)
-  ccc(:,5)=(/19,20,22,23,10,11,13,14/)
-  ccc(:,6)=(/21,20,24,23,12,11,15,14/)
-  ccc(:,7)=(/25,26,22,23,16,17,13,14/)
-  ccc(:,8)=(/27,26,24,23,18,17,15,14/)
+  real(dp)::coeff,add
 
   if (icount .ne. 1 .and. icount .ne. 2)then
      write(*,*)'icount has bad value'
@@ -62,7 +44,7 @@ subroutine interpol_phi(ind_cell,phi_int,ncell,ilevel,icount)
      end do
      do ind_average=1,twotondim
         ind_father=ccc(ind_average,ind)
-        coeff=bbbb(ind_average)
+        coeff=bbb(ind_average)
         do i=1,ncell
            indice=nbors_father_cells(i,ind_father)
            if (indice==0) then

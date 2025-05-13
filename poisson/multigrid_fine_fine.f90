@@ -405,6 +405,7 @@ end subroutine restrict_residual_fine_reverse
 
 subroutine interpolate_and_correct_fine(ifinelevel)
    use amr_commons
+   use amr_constants, only:bbb,ccc
    use poisson_commons
    implicit none
    integer, intent(in) :: ifinelevel
@@ -414,31 +415,14 @@ subroutine interpolate_and_correct_fine(ifinelevel)
    integer  :: icell_c_amr, igrid_c_amr, igrid_c_mg, icell_c_mg
    integer  :: icoarselevel, ind_c, cpu_amr
 
-   real(dp) :: a, b, c, d, coeff
-   real(dp), dimension(1:8)     :: bbb
-   integer,  dimension(1:8,1:8) :: ccc
+   real(dp) :: coeff
 
    integer,  dimension(1:nvector), save               :: igrid_f_amr, icell_amr
    integer,  dimension(1:nvector,1:threetondim), save :: nbors_father_cells
    real(dp), dimension(1:nvector), save               :: corr
 
    ! Local constants
-   a = 1d0/4d0**ndim
-   b = 3*a
-   c = 9*a
-   d = 27*a
    icoarselevel=ifinelevel-1
-
-   bbb(:)  =(/a ,b ,b ,c ,b ,c ,c ,d/)
-
-   ccc(:,1)=(/1 ,2 ,4 ,5 ,10,11,13,14/)
-   ccc(:,2)=(/3 ,2 ,6 ,5 ,12,11,15,14/)
-   ccc(:,3)=(/7 ,8 ,4 ,5 ,16,17,13,14/)
-   ccc(:,4)=(/9 ,8 ,6 ,5 ,18,17,15,14/)
-   ccc(:,5)=(/19,20,22,23,10,11,13,14/)
-   ccc(:,6)=(/21,20,24,23,12,11,15,14/)
-   ccc(:,7)=(/25,26,22,23,16,17,13,14/)
-   ccc(:,8)=(/27,26,24,23,18,17,15,14/)
 
    ! Loop over fine grids by vector sweeps
    ngrid_f=active(ifinelevel)%ngrid
