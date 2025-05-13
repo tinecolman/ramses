@@ -636,6 +636,7 @@ end subroutine restriction_fine
 !###########################################################
 subroutine restrict(ind_grid,ngrid,ilevel,multigrid)
   use amr_commons
+  use amr_constants, only:bbb,ccc
   use poisson_commons
   implicit none
   integer::ngrid,ilevel
@@ -648,28 +649,9 @@ subroutine restrict(ind_grid,ngrid,ilevel,multigrid)
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   real(dp),dimension(1:nvector),save::new_rho
 
-  real(dp)::a,b,c,d,coeff
-  real(dp),dimension(1:8)::bbb
-  integer ,dimension(1:8,1:8)::ccc
+  real(dp)::coeff
 
   integer::i,ind_father,ind_average,ind,iskip
-
-  a = 1.0d0/4.0d0**ndim
-  b = 3*a
-  c = 9*a
-  d = 27*a
-
-  bbb(:)  =(/a ,b ,b ,c ,b ,c ,c ,d/)
-  bbb=bbb/dble(twotondim)
-
-  ccc(:,1)=(/1 ,2 ,4 ,5 ,10,11,13,14/)
-  ccc(:,2)=(/3 ,2 ,6 ,5 ,12,11,15,14/)
-  ccc(:,3)=(/7 ,8 ,4 ,5 ,16,17,13,14/)
-  ccc(:,4)=(/9 ,8 ,6 ,5 ,18,17,15,14/)
-  ccc(:,5)=(/19,20,22,23,10,11,13,14/)
-  ccc(:,6)=(/21,20,24,23,12,11,15,14/)
-  ccc(:,7)=(/25,26,22,23,16,17,13,14/)
-  ccc(:,8)=(/27,26,24,23,18,17,15,14/)
 
   ! Compute father cell index
   do i=1,ngrid
@@ -721,6 +703,7 @@ end subroutine restrict
 !###########################################################
 subroutine prolong(ilevel)
   use amr_commons
+  use amr_constants, only:bbb,ccc
   use poisson_commons
   implicit none
   integer::ilevel
@@ -728,31 +711,12 @@ subroutine prolong(ilevel)
   ! given by the prolongated solution at the finer level.
   integer::i,ind_father,ind_average,ind,iskip,ncache,igrid,ngrid
 
-  real(dp)::a,b,c,d,coeff
-  real(dp),dimension(1:8)::bbb
-  integer,dimension(1:8,1:8)::ccc
+  real(dp)::coeff
 
   integer ,dimension(1:nvector),save::ind_grid,ind_cell
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   real(dp),dimension(1:nvector),save::new_rho
-
-  ! Local constants
-  a = 1.0d0/4.0d0**ndim
-  b = 3*a
-  c = 9*a
-  d = 27*a
-
-  bbb(:)  =(/a ,b ,b ,c ,b ,c ,c ,d/)
-
-  ccc(:,1)=(/1 ,2 ,4 ,5 ,10,11,13,14/)
-  ccc(:,2)=(/3 ,2 ,6 ,5 ,12,11,15,14/)
-  ccc(:,3)=(/7 ,8 ,4 ,5 ,16,17,13,14/)
-  ccc(:,4)=(/9 ,8 ,6 ,5 ,18,17,15,14/)
-  ccc(:,5)=(/19,20,22,23,10,11,13,14/)
-  ccc(:,6)=(/21,20,24,23,12,11,15,14/)
-  ccc(:,7)=(/25,26,22,23,16,17,13,14/)
-  ccc(:,8)=(/27,26,24,23,18,17,15,14/)
 
   ! Loop over myid grids by vector sweeps
   ncache=active(ilevel)%ngrid
