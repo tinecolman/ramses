@@ -328,9 +328,9 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use poisson_commons
   use hydro_commons, ONLY: mass_sph
   implicit none
-  integer::ng,np,ilevel
-  integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
-  real(dp),dimension(1:nvector,1:ndim)::x0
+  integer,intent(in)::ng,np,ilevel
+  integer ,dimension(1:nvector),intent(in)::ind_cell,ind_part,ind_grid_part
+  real(dp),dimension(1:nvector,1:ndim),intent(in)::x0
   !------------------------------------------------------------------
   ! This routine computes the density field at level ilevel using
   ! the CIC scheme. Only cells that are in level ilevel
