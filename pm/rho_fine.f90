@@ -338,7 +338,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   !------------------------------------------------------------------
   logical::error
   integer::j,ind,idim,nx_loc
-  real(dp)::dx,dx_loc,scale,vol_loc
+  real(dp)::dx,over_dx,dx_loc,scale,over_scale,over_vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
@@ -356,14 +356,16 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
+  over_dx=1.0d0/dx
   nx_loc=(icoarse_max-icoarse_min+1)
   skip_loc=(/0.0d0,0.0d0,0.0d0/)
   if(ndim>0)skip_loc(1)=dble(icoarse_min)
   if(ndim>1)skip_loc(2)=dble(jcoarse_min)
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
+  over_scale=1.0d0/scale
   dx_loc=dx*scale
-  vol_loc=dx_loc**ndim
+  over_vol_loc=1.0d0/(dx_loc**ndim)
 
 
   ! Gather neighboring father cells (should be present anytime !)
@@ -372,9 +374,9 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! Rescale particle position at level ilevel
   do idim=1,ndim
      do j=1,np
-        x(j,idim)=xp(ind_part(j),idim)/scale+skip_loc(idim)
+        x(j,idim)=xp(ind_part(j),idim)*over_scale+skip_loc(idim)
         x(j,idim)=x(j,idim)-x0(ind_grid_part(j),idim)
-        x(j,idim)=x(j,idim)/dx
+        x(j,idim)=x(j,idim)*over_dx
      end do
   end do
 
@@ -538,12 +540,12 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      end do
   end do
 
-  ! Update mass density and number density fields
+  ! Update mass density (rho) and number density (stored in phi) fields
   do ind=1,twotondim
 
      do j=1,np
         ok(j)=(igrid(j,ind)>0).and.is_not_tracer(fam(j))
-        vol2(j)=mmm(j)*vol(j,ind)/vol_loc
+        vol2(j)=mmm(j)*vol(j,ind)*over_vol_loc
      end do
 
      if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
