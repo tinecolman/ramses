@@ -379,13 +379,10 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   end do
 
   ! Gather particle mass and family
+  ! If the particle is a tracer, set the mass to zero
   do j=1,np
      fam(j) = typep(ind_part(j))
-     if (is_tracer(fam(j))) then
-        mmm(j)=0.0d0
-     else
-        mmm(j)=mp(ind_part(j))
-     end if
+     mmm(j) = merge(0.0d0, mp(ind_part(j)), is_tracer(fam(j)))
   end do
 
   ! FIXME: should use mmm instead of mp, but gives different binary output
