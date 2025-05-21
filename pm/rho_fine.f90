@@ -603,9 +603,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
      if(cic_levelmax==0.or.ilevel<cic_levelmax)then
         do j=1,np
-           if(ok(j))then
-              phi(indp(j,ind))=phi(indp(j,ind))+vol2(j)
-           end if
+           phi(indp(j,ind)) = merge(phi(indp(j,ind))+vol2(j),phi(indp(j,ind)),ok(j))
         end do
      else if(ilevel>=cic_levelmax)then
         do j=1,np
