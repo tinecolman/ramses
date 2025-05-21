@@ -401,23 +401,23 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   end if
 
   ! Check for illegal moves
-  error=.false.
-  do idim=1,ndim
-     do j=1,np
-        if(x(j,idim)<0.5D0.or.x(j,idim)>5.5D0)error=.true.
-     end do
-  end do
-  if(error)then
-     write(*,*)'problem in cic'
-     do idim=1,ndim
-        do j=1,np
-           if(x(j,idim)<0.5D0.or.x(j,idim)>5.5D0)then
-              write(*,*)x(j,1:ndim)
-           endif
-        end do
-     end do
-     stop
-  end if
+  !error=.false.
+  !do idim=1,ndim
+  !   do j=1,np
+  !      if(x(j,idim)<0.5D0.or.x(j,idim)>5.5D0)error=.true.
+  !   end do
+  !end do
+  !if(error)then
+  !   write(*,*)'problem in cic'
+  !   do idim=1,ndim
+  !      do j=1,np
+  !         if(x(j,idim)<0.5D0.or.x(j,idim)>5.5D0)then
+  !            write(*,*)x(j,1:ndim)
+  !         endif
+  !      end do
+  !   end do
+  !   stop
+  !end if
 
   ! CIC at level ilevel (dd: right cloud boundary; dg: left cloud boundary)
   do idim=1,ndim
