@@ -30,7 +30,7 @@ subroutine unsplit(uin,gravin,pin,flux,tmp,dx,dy,dz,dt,ngrid)
 
   ! Input states
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::pin
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::uin
+  real(dp),dimension(1:nvector,1:nvar,iu1:iu2,ju1:ju2,ku1:ku2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim)::gravin
 
   ! Output fluxes
@@ -866,7 +866,7 @@ subroutine ctoprim(uin,q,c,gravin,dt,ngrid)
 
   integer ::ngrid
   real(dp)::dt
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::uin
+  real(dp),dimension(1:nvector,1:nvar,iu1:iu2,ju1:ju2,ku1:ku2)::uin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim)::gravin
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2)::c
@@ -891,16 +891,16 @@ subroutine ctoprim(uin,q,c,gravin,dt,ngrid)
            do l = 1, ngrid
 
               ! Compute density
-              q(l,i,j,k,1) = max(uin(l,i,j,k,1),smallr)
+              q(l,i,j,k,1) = max(uin(l,1,i,j,k),smallr)
 
               ! Compute velocities
               oneoverrho = one/q(l,i,j,k,1)
-              q(l,i,j,k,2) = uin(l,i,j,k,2)*oneoverrho
+              q(l,i,j,k,2) = uin(l,2,i,j,k)*oneoverrho
 #if NDIM>1
-              q(l,i,j,k,3) = uin(l,i,j,k,3)*oneoverrho
+              q(l,i,j,k,3) = uin(l,3,i,j,k)*oneoverrho
 #endif
 #if NDIM>2
-              q(l,i,j,k,4) = uin(l,i,j,k,4)*oneoverrho
+              q(l,i,j,k,4) = uin(l,4,i,j,k)*oneoverrho
 #endif
 
               ! Compute specific kinetic energy
@@ -915,12 +915,12 @@ subroutine ctoprim(uin,q,c,gravin,dt,ngrid)
               erad = zero
 #if NENER>0
               do irad = 1,nener
-                 q(l,i,j,k,nhydro+irad) = (gamma_rad(irad)-one)*uin(l,i,j,k,nhydro+irad)
-                 erad = erad+uin(l,i,j,k,nhydro+irad)*oneoverrho
+                 q(l,i,j,k,nhydro+irad) = (gamma_rad(irad)-one)*uin(l,nhydro+irad,i,j,k)
+                 erad = erad+uin(l,nhydro+irad,i,j,k)*oneoverrho
               enddo
 #endif
               ! Compute thermal pressure
-              eint = MAX(uin(l,i,j,k,neul)*oneoverrho-eken-erad,smalle)
+              eint = MAX(uin(l,neul,i,j,k)*oneoverrho-eken-erad,smalle)
               q(l,i,j,k,neul) = (gamma-one)*q(l,i,j,k,1)*eint
 
               ! Compute sound speed
@@ -954,7 +954,7 @@ subroutine ctoprim(uin,q,c,gravin,dt,ngrid)
            do i = iu1, iu2
               do l = 1, ngrid
                  oneoverrho = one/q(l,i,j,k,1)
-                 q(l,i,j,k,n) = uin(l,i,j,k,n)*oneoverrho
+                 q(l,i,j,k,n) = uin(l,n,i,j,k)*oneoverrho
               end do
            end do
         end do

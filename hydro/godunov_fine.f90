@@ -490,7 +490,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,1:twotondim       ),save::req2=0.0d0
   real(dp),dimension(1:nvector,1:twotondim       ),save::peq2=0.0d0
 
-  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),save::uloc
+  real(dp),dimension(1:nvector,1:nvar,iu1:iu2,ju1:ju2,ku1:ku2),save::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc=0.0d0
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ploc=0.0d0
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::req_loc=0.0d0
@@ -593,10 +593,10 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         ! Gather hydro variables
         do ivar=1,nvar
            do i=1,nexist
-              uloc(ind_exist(i),i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
+              uloc(ind_exist(i),ivar,i3,j3,k3)=uold(ind_cell(i),ivar)
            end do
            do i=1,nbuffer
-              uloc(ind_nexist(i),i3,j3,k3,ivar)=u2(i,ind_son,ivar)
+              uloc(ind_nexist(i),ivar,i3,j3,k3)=u2(i,ind_son,ivar)
            end do
         end do
 
