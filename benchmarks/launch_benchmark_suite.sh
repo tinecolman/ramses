@@ -193,7 +193,7 @@ fi
 #######################################################################
 
 # TODO make MPIF90 more elegant
-MPIF90=mpif90
+MPIF90="mpif90 -march=native -flto -fwhole-program"
 source ${CLUSTER_INFO}
 
 # create directory on scratch
@@ -301,7 +301,7 @@ for ((i=0;i<$ntests;i++)); do
    NTASKS_PER_NODE=1
    CPUS_PER_TASK=1
    set -e
-   MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPIF90=${MPIF90} MPI=1 OPENMP=${OPENMP} ${FLAGS}";
+   MAKESTRING="make EXEC=${EXECNAME} COMPILER=${COMPILER_FLAVOR} MPIF90=\"${MPIF90}\" MPI=1 OPENMP=${OPENMP} ${FLAGS}";
    TEST_EXECUTABLE=${EXECNAME}3d
    cd ${RAMSES_BIN_DIR};
    make clean >> $LOGFILE 2>&1;
