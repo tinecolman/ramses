@@ -21,8 +21,8 @@ initfile(1)='../../../ICs/cosmo_1024/'
 &AMR_PARAMS
 levelmin=10
 levelmax=10
-ngridtot=170000000
-nparttot=1200000000
+ngridtot=220000000 !170000000 marenstrum 1 node
+nparttot=1500000000
 nexpand=1
 /
 
