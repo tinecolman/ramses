@@ -86,7 +86,7 @@ BEFORETEST="before-test.sh";
 AFTERTEST="after-test.sh";
 CLUSTER_INFO="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/cluster_info.sh"
 UPDATECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/update-code.sh"
-COMPILECODE="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/compile_code.sh"
+COMPILECODE="${RAMSES_BENCHMARK_DIR}/compile_code.sh"
 MODULES="${RAMSES_BENCHMARK_DIR}/HPCclusters/${CLUSTER}/modules.sh"
 
 DATE=`date +%F`
@@ -304,29 +304,24 @@ for ((i=0;i<$ntests;i++)); do
    TEST_EXECUTABLE=${EXECNAME}3d
    cd ${RAMSES_BIN_DIR};
    make clean >> $LOGFILE 2>&1;
-   if [ -f ${COMPILECODE} ]; then
-      # submit a job script to compile the code
-      source ${COMPILECODE}
-      compile_job_id=$(sbatch compile_job.sh | awk '{print $4}')
-      echo "Compile job submitted with Job ID: $compile_job_id"
-      echo "Waiting for compile job to finish..."
-      # Poll the job status and wait until it's completed
-      while true; do
-         job_status=$(sacct --jobs=$compile_job_id --noheader --format=JobID,State | awk -v job_id="$compile_job_id" '$1 == job_id {print $2}')
-         if [[ "$job_status" == "COMPLETED" ]]; then
-            echo "Compile job completed successfully."
-            break
-         elif [[ "$job_status" == "FAILED" || "$job_status" == "CANCELLED" ]]; then
-            echo "Compile job failed or was cancelled. Exiting..."
-            exit 1
-         fi
-         # Sleep for a while before checking the status again
-         sleep 15
-      done
-   else
-      echo "Compiling source" | tee -a $LOGFILE;
-      $MAKESTRING >> $LOGFILE 2>&1;
-   fi
+   # submit a job script to compile the code
+   source ${COMPILECODE}
+   compile_job_id=$(sbatch compile_job.sh | awk '{print $4}')
+   echo "Compile job submitted with Job ID: $compile_job_id"
+   echo "Waiting for compile job to finish..."
+   # Poll the job status and wait until it's completed
+   while true; do
+      job_status=$(sacct --jobs=$compile_job_id --noheader --format=JobID,State | awk -v job_id="$compile_job_id" '$1 == job_id {print $2}')
+      if [[ "$job_status" == "COMPLETED" ]]; then
+         echo "Compile job completed successfully."
+         break
+      elif [[ "$job_status" == "FAILED" || "$job_status" == "CANCELLED" ]]; then
+         echo "Compile job failed or was cancelled. Exiting..."
+         exit 1
+      fi
+      # Sleep for a while before checking the status again
+      sleep 15
+   done
    set +e
 
    # check if stuff needs to be downloaded
