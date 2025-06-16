@@ -4,4 +4,5 @@ CLUSTER_CORES_PER_NODE=128
 
 COMPILER_FLAVOR=GNU
 RUN_COMMAND=srun
+MPIF90="mpif90 -march=native -flto -fwhole-program"
 MODULE_PYTHON=Python

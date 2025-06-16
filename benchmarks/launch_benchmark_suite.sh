@@ -193,7 +193,6 @@ fi
 #######################################################################
 
 # TODO make MPIF90 more elegant
-MPIF90="mpif90 -march=native -flto -fwhole-program"
 source ${CLUSTER_INFO}
 
 # create directory on scratch
