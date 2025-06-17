@@ -1113,6 +1113,9 @@ subroutine uslope2d(q,dq,dx,dt,ngrid)
   real(dp)::vmin,vmax,dfx,dfy,dff
   integer::ilo,ihi,jlo,jhi,klo,khi
 
+  ! pointer towards selected slope function
+  procedure(slope_func), pointer :: slope_f
+
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
   jlo=MIN(1,ju1+1); jhi=MAX(1,ju2-1)
   klo=MIN(1,ku1+1); khi=MAX(1,ku2-1)
@@ -1152,27 +1155,7 @@ subroutine uslope2d(q,dq,dx,dt,ngrid)
            end do
         end do
      end do
-  else if(slope_type==2)then  ! average
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
-                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
-                    dq(l,i,j,k,n,1) = slope_moncen(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
-                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
-                    dq(l,i,j,k,n,2) = slope_moncen(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
+
   else if(slope_type==3)then ! positivity preserving 2d unsplit slope
      do n = 1, nvar
         do k = klo, khi
@@ -1212,53 +1195,43 @@ subroutine uslope2d(q,dq,dx,dt,ngrid)
            end do
         end do
      end do
-  else if(slope_type==7)then ! van Leer
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = (q(l,i  ,j,k,n) - q(l,i-1,j,k,n))
-                    drgt = (q(l,i+1,j,k,n) - q(l,i  ,j,k,n))
-                    dq(l,i,j,k,n,1)=slope_vanLeer(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = (q(l,i,j  ,k,n) - q(l,i,j-1,k,n))
-                    drgt = (q(l,i,j+1,k,n) - q(l,i,j  ,k,n))
-                    dq(l,i,j,k,n,2)=slope_vanLeer(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
-  else if(slope_type==8)then ! generalized moncen/minmod parameterisation (van Leer 1979)
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = (q(l,i  ,j,k,n) - q(l,i-1,j,k,n))
-                    drgt = (q(l,i+1,j,k,n) - q(l,i  ,j,k,n))
-                    dq(l,i,j,k,n,1) = slope_vanLeer_bis(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = (q(l,i,j  ,k,n) - q(l,i,j-1,k,n))
-                    drgt = (q(l,i,j+1,k,n) - q(l,i,j  ,k,n))
-                    dq(l,i,j,k,n,2) = slope_vanLeer_bis(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
-  else
-     write(*,*)'Unknown slope type',dx,dt
-     stop
-  endif
 
+  else
+
+     select case (slope_type)
+     case (2)
+        slope_f => slope_moncen
+     case (7)
+        slope_f => slope_vanLeer
+     case (8)
+        slope_f => slope_vanLeer_bis
+     case default
+        write(*,*)'Unknown slope type',dx,dt
+        call clean_stop
+     end select
+
+     do n = 1, nvar
+        do k = klo, khi
+           do j = jlo, jhi
+              do i = ilo, ihi
+                 ! slopes in first coordinate direction
+                 do l = 1, ngrid
+                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
+                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
+                    dq(l,i,j,k,n,1) = slope_f(dlft,drgt)
+                 end do
+                 ! slopes in second coordinate direction
+                 do l = 1, ngrid
+                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
+                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
+                    dq(l,i,j,k,n,2) = slope_f(dlft,drgt)
+                 end do
+              end do
+           end do
+        end do
+     end do
+
+  endif
 
 end subroutine uslope2d
 #endif
@@ -1289,6 +1262,9 @@ subroutine uslope3d(q,dq,dx,dt,ngrid)
   real(dp)::vmin,vmax,dfx,dfy,dff
   integer::ilo,ihi,jlo,jhi,klo,khi
 
+  ! pointer towards selected slope function
+  procedure(slope_func), pointer :: slope_f
+
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
   jlo=MIN(1,ju1+1); jhi=MAX(1,ju2-1)
   klo=MIN(1,ku1+1); khi=MAX(1,ku2-1)
@@ -1298,61 +1274,7 @@ subroutine uslope3d(q,dq,dx,dt,ngrid)
      return
   end if
 
-  if(slope_type==1)then  ! minmod
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
-                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
-                    dq(l,i,j,k,n,1) = slope_f(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
-                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
-                    dq(l,i,j,k,n,2) = slope_minmod(dlft,drgt)
-                 end do
-                 ! slopes in third coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j,k  ,n) - q(l,i,j,k-1,n)
-                    drgt = q(l,i,j,k+1,n) - q(l,i,j,k  ,n)
-                    dq(l,i,j,k,n,3) = slope_minmod(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
-  else if(slope_type==2)then ! moncen
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
-                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
-                    dq(l,i,j,k,n,1) = slope_moncen(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
-                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
-                    dq(l,i,j,k,n,2) = slope_moncen(dlft,drgt)
-                 end do
-                 ! slopes in third coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j,k  ,n) - q(l,i,j,k-1,n)
-                    drgt = q(l,i,j,k+1,n) - q(l,i,j,k  ,n)
-                    dq(l,i,j,k,n,3) = slope_moncen(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
-  else if(slope_type==3)then ! positivity preserving 3d unsplit slope
+  if(slope_type==3)then ! positivity preserving 3d unsplit slope
      do n = 1, nvar
         do k = klo, khi
            do j = jlo, jhi
@@ -1415,63 +1337,49 @@ subroutine uslope3d(q,dq,dx,dt,ngrid)
            end do
         end do
      end do
-  else if(slope_type==7)then ! van Leer
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
-                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
-                    dq(l,i,j,k,n,1) = slope_vanLeer(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
-                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
-                    dq(l,i,j,k,n,2) = slope_vanLeer(dlft,drgt)
-                 end do
-                 ! slopes in third coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j,k  ,n) - q(l,i,j,k-1,n)
-                    drgt = q(l,i,j,k+1,n) - q(l,i,j,k  ,n)
-                    dq(l,i,j,k,n,3) = slope_vanLeer(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
-  else if(slope_type==8)then ! generalized moncen/minmod parameterisation (van Leer 1979)
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
-                 ! slopes in first coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
-                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
-                    dq(l,i,j,k,n,1) = slope_vanLeer_bis(dlft,drgt)
-                 end do
-                 ! slopes in second coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
-                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
-                    dq(l,i,j,k,n,2) = slope_vanLeer_bis(dlft,drgt)
-                 end do
-                 ! slopes in third coordinate direction
-                 do l = 1, ngrid
-                    dlft = q(l,i,j,k  ,n) - q(l,i,j,k-1,n)
-                    drgt = q(l,i,j,k+1,n) - q(l,i,j,k  ,n)
-                    dq(l,i,j,k,n,3) = slope_vanLeer_bis(dlft,drgt)
-                 end do
-              end do
-           end do
-        end do
-     end do
   else
-     write(*,*)'Unknown slope type',dx,dt
-     stop
+
+     select case (slope_type)
+     case (1)
+        slope_f => slope_minmod
+     case (2)
+        slope_f => slope_moncen
+     case (7)
+        slope_f => slope_vanLeer
+     case (8)
+        slope_f => slope_vanLeer_bis
+     case default
+        write(*,*)'Unknown slope type',dx,dt
+        call clean_stop
+     end select
+
+     do n = 1, nvar
+        do k = klo, khi
+           do j = jlo, jhi
+              do i = ilo, ihi
+                 ! slopes in first coordinate direction
+                 do l = 1, ngrid
+                    dlft = q(l,i  ,j,k,n) - q(l,i-1,j,k,n)
+                    drgt = q(l,i+1,j,k,n) - q(l,i  ,j,k,n)
+                    dq(l,i,j,k,n,1) = slope_f(dlft,drgt)
+                 end do
+                 ! slopes in second coordinate direction
+                 do l = 1, ngrid
+                    dlft = q(l,i,j  ,k,n) - q(l,i,j-1,k,n)
+                    drgt = q(l,i,j+1,k,n) - q(l,i,j  ,k,n)
+                    dq(l,i,j,k,n,2) = slope_f(dlft,drgt)
+                 end do
+                 ! slopes in third coordinate direction
+                 do l = 1, ngrid
+                    dlft = q(l,i,j,k  ,n) - q(l,i,j,k-1,n)
+                    drgt = q(l,i,j,k+1,n) - q(l,i,j,k  ,n)
+                    dq(l,i,j,k,n,3) = slope_f(dlft,drgt)
+                 end do
+              end do
+           end do
+        end do
+     end do
+
   endif
 
 end subroutine uslope3d

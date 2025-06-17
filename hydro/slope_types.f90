@@ -3,6 +3,15 @@ module slope_types
    use const
    implicit none
 
+   interface
+      pure function slope_func(dlft, drgt) result(slope)
+         use amr_parameters, only:dp
+         implicit none
+         real(dp),intent(in)::dlft,drgt
+         real(dp)::slope
+      end function slope_func
+   end interface
+
 contains
 
    !#######################################################
@@ -26,16 +35,10 @@ contains
       real(dp)::slope
       ! slope_type==2
       real(dp)::dcen,dsgn,dlim
-      integer,parameter::slope_type=2
  
-      dlft = 2*dlft
-      drgt = 2*drgt
-      dcen = half*(dlft+drgt)/slope_type
-      ! TC: what's the point of this? 
-      !     half and slopetype=2 are just going to cancel each other
-      !     even if slopetype is an int
+      dcen = 2*(dlft+drgt)
       dsgn = sign(one, dcen)
-      dlim = min(abs(dlft),abs(drgt))
+      dlim = 2*min(abs(dlft),abs(drgt))
       if((dlft*drgt)<=zero)dlim=zero
       slope = dsgn*min(dlim,abs(dcen))
  
