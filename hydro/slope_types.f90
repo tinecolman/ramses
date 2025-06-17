@@ -28,6 +28,8 @@ contains
       real(dp)::dcen,dsgn,dlim
       integer,parameter::slope_type=2
  
+      dlft = 2*dlft
+      drgt = 2*drgt
       dcen = half*(dlft+drgt)/slope_type
       ! TC: what's the point of this? 
       !     half and slopetype=2 are just going to cancel each other
