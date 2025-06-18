@@ -35,8 +35,8 @@ contains
       real(dp)::slope
       ! slope_type==2
       real(dp)::dcen,dsgn,dlim
- 
-      dcen = 2*(dlft+drgt)
+
+      dcen = half*(dlft+drgt)
       dsgn = sign(one, dcen)
       dlim = 2*min(abs(dlft),abs(drgt))
       if((dlft*drgt)<=zero)dlim=zero
