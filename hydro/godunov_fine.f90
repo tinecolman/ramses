@@ -469,9 +469,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
-  use amr_constants, only:i1min,i1max,j1min,j1max,k1min,k1max, &
-                       &  i2min,i2max,j2min,j2max,k2min,k2max, &
-                       &  i3min,i3max,j3min,j3max,k3min,k3max
   implicit none
   integer::ilevel,ncache
   integer,dimension(1:nvector)::ind_grid
@@ -501,6 +498,22 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   integer::i,j,ivar,idim,ind_son,iskip
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh
   real(dp)::dx,scale,oneontwotondim,d
+
+  integer,parameter::i1min=0,i2min=0,i3min=1
+  integer,parameter::j1min=0,j2min=0,j3min=1
+  integer,parameter::k1min=0,k2min=0,k3min=1
+
+  integer,parameter::i1max=2,i2max=1,i3max=2
+#if NDIM==1
+  integer,parameter::j1max=0,j2max=0,j3max=1
+#else
+  integer,parameter::j1max=2,j2max=1,j3max=2
+#endif
+#if NDIM==1 || NDIM==2
+  integer,parameter::k1max=0,k2max=0,k3max=1
+#else
+  integer,parameter::k1max=2,k2max=1,k3max=2
+#endif
 
   oneontwotondim = 1d0/dble(twotondim)
 
@@ -775,9 +788,6 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
   use amr_commons
   use hydro_commons
   use poisson_commons
-  use amr_constants, only:i1min,i1max,j1min,j1max,k1min,k1max, &
-                       &  i2min,i2max,j2min,j2max,k2min,k2max, &
-                       &  i3min,i3max,j3min,j3max,k3min,k3max
   implicit none
   integer ,dimension(1:nvector,1:threetondim     ),intent(in)::nbors_father_cells
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(inout)::uloc
@@ -793,6 +803,22 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell
   integer::i,ivar,idim,iskip
   integer::i1,j1,k1,i2,j2,k2,i3,j3,k3,ind_son,ind_father
+
+  integer,parameter::i1min=0,i2min=0,i3min=1
+  integer,parameter::j1min=0,j2min=0,j3min=1
+  integer,parameter::k1min=0,k2min=0,k3min=1
+
+  integer,parameter::i1max=2,i2max=1,i3max=2
+#if NDIM==1
+  integer,parameter::j1max=0,j2max=0,j3max=1
+#else
+  integer,parameter::j1max=2,j2max=1,j3max=2
+#endif
+#if NDIM==1 || NDIM==2
+  integer,parameter::k1max=0,k2max=0,k3max=1
+#else
+  integer,parameter::k1max=2,k2max=1,k3max=2
+#endif 
 
   ! Loop over 3x3x3 neighboring father cells
   do k1=k1min,k1max
@@ -872,9 +898,6 @@ subroutine gather_stencil_amr(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,nc
   use amr_commons
   use hydro_commons
   use poisson_commons
-  use amr_constants, only:i1min,i1max,j1min,j1max,k1min,k1max, &
-                       &  i2min,i2max,j2min,j2max,k2min,k2max, &
-                       &  i3min,i3max,j3min,j3max,k3min,k3max
   implicit none
   integer ,dimension(1:nvector,1:threetondim     ),intent(in)::nbors_father_cells
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(inout)::uloc
@@ -898,6 +921,22 @@ subroutine gather_stencil_amr(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,nc
   integer::nexist,nbuffer
   integer::i,j,ivar,idim,iskip
   integer::i1,j1,k1,i2,j2,k2,i3,j3,k3,ind_son,ind_father
+
+  integer,parameter::i1min=0,i2min=0,i3min=1
+  integer,parameter::j1min=0,j2min=0,j3min=1
+  integer,parameter::k1min=0,k2min=0,k3min=1
+
+  integer,parameter::i1max=2,i2max=1,i3max=2
+#if NDIM==1
+  integer,parameter::j1max=0,j2max=0,j3max=1
+#else
+  integer,parameter::j1max=2,j2max=1,j3max=2
+#endif
+#if NDIM==1 || NDIM==2
+  integer,parameter::k1max=0,k2max=0,k3max=1
+#else
+  integer,parameter::k1max=2,k2max=1,k3max=2
+#endif
 
   ! Loop over 3x3x3 neighboring father cells
   do k1=k1min,k1max
