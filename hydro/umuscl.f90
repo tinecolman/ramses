@@ -556,20 +556,23 @@ subroutine uslope(q,dq,dx,dt,ngrid)
   jlo=MIN(1,ju1+1); jhi=MAX(1,ju2-1)
   klo=MIN(1,ku1+1); khi=MAX(1,ku2-1)
 
-  if(slope_type==0)then
-     dq=zero
+  slope_type_real = REAL(slope_type, kind=dp)
+
+  do n = 1, nvar
+     do k = klo, khi
+        do j = jlo, jhi
+           do i = ilo, ihi
+              if(slope_type==0)then
+                 dq=zero
 #if NDIM==1
-  else if(slope_type==1.or.slope_type==2.or.slope_type==3)then  ! minmod or average
+              else if(slope_type==1.or.slope_type==2.or.slope_type==3)then  ! minmod or average
 #elif NDIM==2
-  else if(slope_type==1.or.slope_type==2)then  ! minmod or average
+              else if(slope_type==1.or.slope_type==2)then  ! minmod or average
 #else
-  else if(slope_type==1)then  ! minmod
+              else if(slope_type==1)then  ! minmod
 #endif
-     slope_type_real = REAL(slope_type, kind=dp)
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     qcen = q(l,i,j,k,n)
 
@@ -598,16 +601,10 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     dq(l,i,j,k,n,3) = slope_minmod(dlft,drgt)
 #endif
                  end do
-              end do
-           end do
-        end do
-     end do
 #if NDIM==3
-  else if(slope_type==2)then ! moncen
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+              else if(slope_type==2)then ! moncen
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -627,17 +624,11 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     drgt = q(l,i,j,k+1,n) - qcen
                     dq(l,i,j,k,n,3) = slope_moncen(dlft,drgt)
                  end do
-              end do
-           end do
-        end do
-     end do
 #endif
 #if NDIM==2
-  else if(slope_type==3)then ! positivity preserving 2d unsplit slope
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+              else if(slope_type==3)then ! positivity preserving 2d unsplit slope
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -668,17 +659,11 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     dq(l,i,j,k,n,1) = dlim*dfx
                     dq(l,i,j,k,n,2) = dlim*dfy
                  end do
-              end do
-           end do
-        end do
-     end do
 #endif
 #if NDIM==3
-  else if(slope_type==3)then ! positivity preserving 3d unsplit slope
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+              else if(slope_type==3)then ! positivity preserving 3d unsplit slope
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     qcen = q(l,i,j,k,n)
 
@@ -734,17 +719,11 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     dq(l,i,j,k,n,2) = dlim*dfy
                     dq(l,i,j,k,n,3) = dlim*dfz
                  end do
-              end do
-           end do
-        end do
-     end do
 #endif
 #if NDIM==1
-  else if(slope_type==4)then ! superbee
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+              else if(slope_type==4)then ! superbee
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -758,16 +737,11 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     if((dlft*drgt)<=zero)dlim=zero
                     dq(l,i,j,k,n,1) = dsgn*dlim !min(dlim,abs(dcen))
                  end do
-              end do
-           end do
-        end do
-     end do
-  else if(slope_type==5)then ! ultrabee
-        dq = 0
-        n=1
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+
+              else if(slope_type==5)then ! ultrabee
+                 if(n==1)then
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -785,15 +759,14 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     if((dlft*drgt)<=zero)dlim=zero
                     dq(l,i,j,k,n,1) = dsgn*dlim !min(dlim,abs(dcen))
                  end do
-              end do
-           end do
-        end do
-  else if(slope_type==6)then ! unstable
-        dq = 0
-        n=1
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+                 else
+                 dq(:,i,j,k,n,:) = 0
+                 endif
+
+              else if(slope_type==6)then ! unstable
+                 if(n==1)then
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -803,15 +776,13 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     dlim = 0.5d0*(dlft+drgt)
                     dq(l,i,j,k,n,1) = dlim
                  end do
-              end do
-           end do
-        end do
+                 else
+                 dq(:,i,j,k,n,:) = 0
+                 endif
 #endif
-  else if(slope_type==7)then ! van Leer
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+              else if(slope_type==7)then ! van Leer
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -833,15 +804,10 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     dq(l,i,j,k,n,3) = slope_vanLeer(dlft,drgt)
 #endif
                  end do
-              end do
-           end do
-        end do
-     end do
-  else if(slope_type==8)then ! generalized moncen/minmod parameterisation (van Leer 1979)
-     do n = 1, nvar
-        do k = klo, khi
-           do j = jlo, jhi
-              do i = ilo, ihi
+
+              else if(slope_type==8)then ! generalized moncen/minmod parameterisation (van Leer 1979)
+                 !DIR$ IVDEP
+                 !DIR$ SIMD
                  do l = 1, ngrid
                     ! Gather values at center cell and its neighbors
                     qcen = q(l,i,j,k,n)
@@ -863,13 +829,16 @@ subroutine uslope(q,dq,dx,dt,ngrid)
                     dq(l,i,j,k,n,3) = slope_vanLeer_bis(dlft,drgt)
 #endif
                  end do
-              end do
+
+              else
+                 write(*,*)'Unknown slope type',dx,dt
+                 call clean_stop
+              endif
+
            end do
         end do
      end do
-  else
-     write(*,*)'Unknown slope type',dx,dt
-     call clean_stop
-  endif
+  end do
+
 
 end subroutine uslope
