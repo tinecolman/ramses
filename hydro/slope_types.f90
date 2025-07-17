@@ -58,7 +58,7 @@ contains
 
    end subroutine calc_uslope_minmod_average
    !#######################################################
-#if NDIM==3 || defined(SOLVERhydro)
+#if NDIM==3 && defined(SOLVERhydro)
    pure subroutine calc_uslope_moncen(q,dq,i,j,k,n,ngrid)
       implicit none
       real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(in)::q
