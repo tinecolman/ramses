@@ -498,7 +498,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
   logical ,dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ok
 
-  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
+  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_cell0,ind_exist,ind_nexist
 
   integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh,nexist
@@ -573,6 +573,12 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         call interpol_hydro(u1,u2,nbuffer)
      endif
 
+     ! Compute an intermediate ind_cell0 here array to reduce the indirect
+     ! memory accesses penalties when computing ind_cell(i)
+     do i=1,nexist
+      ind_cell0(i) = igrid_nbor(ind_exist(i))
+     end do
+
      ! Loop over 2x2x2 cells
      do k2=k2min,k2max
      do j2=j2min,j2max
@@ -581,7 +587,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         ind_son=1+i2+2*j2+4*k2
         iskip=ncoarse+(ind_son-1)*ngridmax
         do i=1,nexist
-           ind_cell(i)=iskip+igrid_nbor(ind_exist(i))
+           ind_cell(i)=iskip+ind_cell0(i)
         end do
 
         i3=1; j3=1; k3=1
