@@ -10,7 +10,7 @@ GCOV = 0
 # Compiler flavor: GNU or INTEL
 COMPILER = GNU
 # Size of vector cache
-NVECTOR = 32
+NVECTOR = 16
 # Number of dimensions
 NDIM = 1
 # Float precision size
@@ -108,7 +108,7 @@ ifeq ($(COMPILER),GNU)
          F90 += -g -O0 -fbacktrace -fbounds-check -Wuninitialized -Wall
          FFLAGS += -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan
       else
-         F90 += -O3 -flto -fwhole-program
+         F90 += -O3 -flto -fwhole-program -funroll-loops
       endif
    endif
 endif
