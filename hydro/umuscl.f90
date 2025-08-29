@@ -70,17 +70,17 @@ subroutine unsplit(uin,gravin,pin,flux,tmp,dx,dy,dz,dt,ngrid)
   if(scheme=='muscl')then
      call trace(qin,qm,qp,dx      ,dt,ngrid)
   endif
-!  if(scheme=='plmde')then
-!#if NDIM==1
-!     call tracex  (qin,dq,cin,qm,qp,dx      ,dt,ngrid)
-!#endif
-!#if NDIM==2
-!     call tracexy (qin,dq,cin,qm,qp,dx,dy   ,dt,ngrid)
-!#endif
-!#if NDIM==3
-!     call tracexyz(qin,dq,cin,qm,qp,dx,dy,dz,dt,ngrid)
-!#endif
-!  endif
+  if(scheme=='plmde')then
+#if NDIM==1
+     call tracex  (qin,qm,qp,dx      ,dt,ngrid)
+#endif
+#if NDIM==2
+     call tracexy (qin,qm,qp,dx,dy   ,dt,ngrid)
+#endif
+#if NDIM==3
+     call tracexyz(qin,qm,qp,dx,dy,dz,dt,ngrid)
+#endif
+  endif
 
   ! Solve for 1D flux in X direction
   call cmpflxm(qm,iu1+1,iu2+1,ju1  ,ju2  ,ku1  ,ku2  , &

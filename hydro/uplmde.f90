@@ -37,7 +37,43 @@ end subroutine cmp_sound_speed
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine tracex(q,dq,qm,qp,dx,dt,ngrid)
+subroutine cmp_uslope(q,dq,dx,dt,ngrid)
+  use amr_parameters, only:dp,nvector,ndim
+  use hydro_parameters, only:nvar,iu1,iu2,ju1,ju2,ku1,ku2
+  implicit none
+
+  integer,intent(in)::ngrid
+  real(dp),intent(in)::dx,dt
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(in)::q
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar,1:ndim),intent(out)::dq
+
+  ! local arrays
+  real(dp),dimension(1:nvector,1:nvar,1:ndim)::dq_slice
+  integer::i, j, k
+  real(dp)::dtdx
+  integer::ilo,ihi,jlo,jhi,klo,khi
+
+  ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
+  jlo=MIN(1,ju1+1); jhi=MAX(1,ju2-1)
+  klo=MIN(1,ku1+1); khi=MAX(1,ku2-1)
+
+  dtdx=dt/dx
+
+  do k = klo, khi
+     do j = jlo, jhi
+        do i = ilo, ihi
+           call uslope(q,dq_slice,dtdx,i,j,k,ngrid)
+           dq(:,i,j,k,:,:) = dq_slice
+        end do
+     end do
+  end do
+
+end subroutine cmp_uslope
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+subroutine tracex(q,qm,qp,dx,dt,ngrid)
   use amr_parameters
   use hydro_parameters
   use const
@@ -72,6 +108,9 @@ subroutine tracex(q,dq,qm,qp,dx,dt,ngrid)
 
   ! compute sound speed
   call cmp_sound_speed(q,c,ngrid)
+
+  ! compute TDV slopes
+  call cmp_uslope(q,dq,dx,dt,ngrid)
 
   dtdx = dt/dx
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
@@ -179,7 +218,7 @@ end subroutine tracex
 !###########################################################
 !###########################################################
 #if NDIM>1
-subroutine tracexy(q,dq,qm,qp,dx,dy,dt,ngrid)
+subroutine tracexy(q,qm,qp,dx,dy,dt,ngrid)
   use amr_parameters
   use hydro_parameters
   use const
@@ -216,6 +255,9 @@ subroutine tracexy(q,dq,qm,qp,dx,dy,dt,ngrid)
 
   ! compute sound speed
   call cmp_sound_speed(q,c,ngrid)
+
+  ! compute TDV slopes
+  call cmp_uslope(q,dq,dx,dt,ngrid)
 
   dtdx = dt/dx; dtdy = dt/dy
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
@@ -413,7 +455,7 @@ end subroutine tracexy
 !###########################################################
 !###########################################################
 #if NDIM>2
-subroutine tracexyz(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
+subroutine tracexyz(q,qm,qp,dx,dy,dz,dt,ngrid)
   use amr_parameters
   use hydro_parameters
   use const
@@ -452,6 +494,9 @@ subroutine tracexyz(q,dq,qm,qp,dx,dy,dz,dt,ngrid)
 
   ! compute sound speed
   call cmp_sound_speed(q,c,ngrid)
+
+  ! compute TDV slopes
+  call cmp_uslope(q,dq,dx,dt,ngrid)
 
   dtdx = dt/dx; dtdy = dt/dy; dtdz = dt/dz
   ilo=MIN(1,iu1+1); ihi=MAX(1,iu2-1)
