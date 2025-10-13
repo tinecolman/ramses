@@ -829,6 +829,11 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
      do j2=j2min,j2max
      do i2=i2min,i2max
 
+        i3=1; j3=1; k3=1
+        if(ndim>0)i3=1+2*(i1-1)+i2
+        if(ndim>1)j3=1+2*(j1-1)+j2
+        if(ndim>2)k3=1+2*(k1-1)+k2
+
         ! Get cell index
         ind_son=1+i2+2*j2+4*k2
         iskip=ncoarse+(ind_son-1)*ngridmax
@@ -836,34 +841,23 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
            ind_cell(i)=iskip+igrid_nbor(i)
         end do
 
-        i3=1; j3=1; k3=1
-        if(ndim>0)i3=1+2*(i1-1)+i2
-        if(ndim>1)j3=1+2*(j1-1)+j2
-        if(ndim>2)k3=1+2*(k1-1)+k2
-
         ! Gather hydro variables
-        do ivar=1,nvar
-           do i=1,ncache
-              uloc(i,i3,j3,k3,ivar)=uold(ind_cell(i),ivar)
-           end do
+        do i=1,ncache
+           uloc(i,i3,j3,k3,1:nvar)=uold(ind_cell(i),1:nvar)
         end do
 
         ! Gather equilibrium model
         if(strict_equilibrium>0)then
-           do idim=1,ndim
-              do i=1,ncache
-                 req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
-                 peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
-              end do
+           do i=1,ncache
+              req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
+              peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
            end do
         end if
 
         ! Gather gravitational acceleration
         if(poisson)then
-           do idim=1,ndim
-              do i=1,ncache
-                 gloc(i,i3,j3,k3,idim)=f(ind_cell(i),idim)
-              end do
+           do i=1,ncache
+              gloc(i,i3,j3,k3,1:ndim)=f(ind_cell(i),1:ndim)
            end do
         end if
 
