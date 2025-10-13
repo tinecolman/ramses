@@ -807,11 +807,11 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
   ! Gather 6x6x6 cells stencil, in the case of a uniform grid, meaning the
   ! neighboring grids on this level are guaranteed to exist.
   !-------------------------------------------------------------------------
-  integer,dimension(1:nvector),save::igrid_nbor,ind_cell
+  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_son_grid
   integer::i,ivar,idim,iskip
   integer::i1,j1,k1,i2,j2,k2,i3,j3,k3,ind_son,ind_father
 
-!$omp threadprivate(igrid_nbor,ind_cell)
+!$omp threadprivate(igrid_nbor,ind_cell,ind_son_grid)
 
   ! Loop over 3x3x3 neighboring father cells
   do k1=k1min,k1max
@@ -820,6 +820,7 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
 
      ! Get neighbor grid index
      ind_father=1+i1+3*j1+9*k1
+     !$omp simd
      do i=1,ncache
         igrid_nbor(i)=son(nbors_father_cells(i,ind_father))
      end do
@@ -837,17 +838,20 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
         ! Get cell index
         ind_son=1+i2+2*j2+4*k2
         iskip=ncoarse+(ind_son-1)*ngridmax
+        !$omp simd
         do i=1,ncache
            ind_cell(i)=iskip+igrid_nbor(i)
         end do
 
         ! Gather hydro variables
+        !$omp simd
         do i=1,ncache
            uloc(i,i3,j3,k3,1:nvar)=uold(ind_cell(i),1:nvar)
         end do
 
         ! Gather equilibrium model
         if(strict_equilibrium>0)then
+           !$omp simd
            do i=1,ncache
               req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
               peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
@@ -856,14 +860,20 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
 
         ! Gather gravitational acceleration
         if(poisson)then
+           !$omp simd
            do i=1,ncache
               gloc(i,i3,j3,k3,1:ndim)=f(ind_cell(i),1:ndim)
            end do
         end if
 
         ! Gather refinement flag
+        !$omp simd
         do i=1,ncache
-           ok(i,i3,j3,k3)=son(ind_cell(i))>0
+           ind_son_grid(i)=son(ind_cell(i))
+        end do
+        !$omp simd
+        do i=1,ncache
+           ok(i,i3,j3,k3)=ind_son_grid(i)>0
         end do
 
      end do
