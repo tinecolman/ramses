@@ -493,8 +493,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   ! and stored in array unew(:), both at the current level and at the
   ! coarser level if necessary.
   !-------------------------------------------------------------------
-  integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
-
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),save::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),save::ploc=0.0d0
@@ -510,7 +508,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh
   real(dp)::dx,scale,oneontwotondim,d
 
-!$omp threadprivate(nbors_father_cells)
 !$omp threadprivate(uloc,gloc,ploc,req_loc,peq_loc,flux,tmp,ok)
 !$omp threadprivate(ind_cell,ind_buffer)
 
@@ -523,21 +520,13 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
   gloc=0
 
-  !------------------------------------------
-  ! Gather 3^ndim neighboring father cells
-  !------------------------------------------
-  do i=1,ncache
-     ind_cell(i)=father(ind_grid(i))
-  end do
-  call get3cubefather(ind_cell,nbors_father_cells,ncache,ilevel)
-
   !---------------------------
   ! Gather 6x6x6 cells stencil
   !---------------------------
   if(levelmin==nlevelmax)then
-     call gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
+     call gather_stencil_unigrid(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
   else
-     call gather_stencil_amr(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
+     call gather_stencil_amr(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
   end if
 
   !-----------------------------------------------
@@ -788,7 +777,7 @@ end subroutine godfine1
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
+subroutine gather_stencil_unigrid(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
@@ -796,7 +785,7 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
                        &  i2min,i2max,j2min,j2max,k2min,k2max, &
                        &  i3min,i3max,j3min,j3max,k3min,k3max
   implicit none
-  integer ,dimension(1:nvector,1:threetondim     ),intent(in)::nbors_father_cells
+  integer,dimension(1:nvector),intent(in)::ind_grid
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(inout)::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),intent(inout)::gloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),intent(inout)::req_loc
@@ -808,10 +797,18 @@ subroutine gather_stencil_unigrid(nbors_father_cells,uloc,gloc,req_loc,peq_loc,o
   ! neighboring grids on this level are guaranteed to exist.
   !-------------------------------------------------------------------------
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_son_grid
+  integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer::i,ivar,idim,iskip
   integer::i1,j1,k1,i2,j2,k2,i3,j3,k3,ind_son,ind_father
 
+!$omp threadprivate(nbors_father_cells)
 !$omp threadprivate(igrid_nbor,ind_cell,ind_son_grid)
+
+  ! Gather 3^ndim neighboring father cells
+  do i=1,ncache
+     ind_cell(i)=father(ind_grid(i))
+  end do
+  call get3cubefather(ind_cell,nbors_father_cells,ncache,ilevel)
 
   ! Loop over 3x3x3 neighboring father cells
   do k1=k1min,k1max
@@ -891,7 +888,7 @@ end subroutine gather_stencil_unigrid
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine gather_stencil_amr(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
+subroutine gather_stencil_amr(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
@@ -899,7 +896,7 @@ subroutine gather_stencil_amr(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,nc
                        &  i2min,i2max,j2min,j2max,k2min,k2max, &
                        &  i3min,i3max,j3min,j3max,k3min,k3max
   implicit none
-  integer ,dimension(1:nvector,1:threetondim     ),intent(in)::nbors_father_cells
+  integer,dimension(1:nvector),intent(in)::ind_grid
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(inout)::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),intent(inout)::gloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2),intent(inout)::req_loc
@@ -916,14 +913,22 @@ subroutine gather_stencil_amr(nbors_father_cells,uloc,gloc,req_loc,peq_loc,ok,nc
   real(dp),dimension(1:nvector,1:twotondim       ),save::req2=0.0d0
   real(dp),dimension(1:nvector,1:twotondim       ),save::peq2=0.0d0
 
+  integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer
   integer,dimension(1:nvector),save::ind_exist,ind_nexist
   integer::nexist,nbuffer
   integer::i,j,ivar,idim,iskip
   integer::i1,j1,k1,i2,j2,k2,i3,j3,k3,ind_son,ind_father
 
+!$omp threadprivate(nbors_father_cells)
 !$omp threadprivate(ibuffer_father,u1,u2,req2,peq2)
 !$omp threadprivate(igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist)
+
+  ! Gather 3^ndim neighboring father cells
+  do i=1,ncache
+     ind_cell(i)=father(ind_grid(i))
+  end do
+  call get3cubefather(ind_cell,nbors_father_cells,ncache,ilevel)
 
   ! Loop over 3x3x3 neighboring father cells
   do k1=k1min,k1max
