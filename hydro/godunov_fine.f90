@@ -796,7 +796,7 @@ subroutine gather_stencil_unigrid(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,i
   ! Gather 6x6x6 cells stencil, in the case of a uniform grid, meaning the
   ! neighboring grids on this level are guaranteed to exist.
   !-------------------------------------------------------------------------
-  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_son_grid
+  integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_son_grid,sort_order
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer::i,ivar,idim,iskip
   integer::i1,j1,k1,i2,j2,k2,i3,j3,k3,ind_son,ind_father
@@ -818,9 +818,21 @@ subroutine gather_stencil_unigrid(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,i
      ! Get neighbor grid index
      ind_father=1+i1+3*j1+9*k1
      !$omp simd
+     !write(*,*)'DEBUG START'
      do i=1,ncache
         igrid_nbor(i)=son(nbors_father_cells(i,ind_father))
+        !write(*,*)k1,j1,i1,ind_father,igrid_nbor(i)
      end do
+     !write(*,*)'before',igrid_nbor
+     call quick_sort_int_int(igrid_nbor,sort_order,ncache)
+     !write(*,*)'after',igrid_nbor
+     !write(*,*)'sort_order',sort_order
+     !write(*,*)'DEBUG END'
+     ! TC: the issue is that igrid_nbor is not contiguous.
+     ! sort it to have contiguous access to uold
+     ! sort ind_cell and track original position
+
+
 
      ! Loop over 2x2x2 cells
      do k2=k2min,k2max
@@ -843,15 +855,15 @@ subroutine gather_stencil_unigrid(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,i
         ! Gather hydro variables
         !$omp simd
         do i=1,ncache
-           uloc(i,i3,j3,k3,1:nvar)=uold(ind_cell(i),1:nvar)
+           uloc(sort_order(i),i3,j3,k3,1:nvar)=uold(ind_cell(i),1:nvar)
         end do
 
         ! Gather equilibrium model
         if(strict_equilibrium>0)then
            !$omp simd
            do i=1,ncache
-              req_loc(i,i3,j3,k3)=rho_eq(ind_cell(i))
-              peq_loc(i,i3,j3,k3)=p_eq(ind_cell(i))
+              req_loc(sort_order(i),i3,j3,k3)=rho_eq(ind_cell(i))
+              peq_loc(sort_order(i),i3,j3,k3)=p_eq(ind_cell(i))
            end do
         end if
 
@@ -859,18 +871,18 @@ subroutine gather_stencil_unigrid(ind_grid,uloc,gloc,req_loc,peq_loc,ok,ncache,i
         if(poisson)then
            !$omp simd
            do i=1,ncache
-              gloc(i,i3,j3,k3,1:ndim)=f(ind_cell(i),1:ndim)
+              gloc(sort_order(i),i3,j3,k3,1:ndim)=f(ind_cell(i),1:ndim)
            end do
         end if
 
         ! Gather refinement flag
         !$omp simd
         do i=1,ncache
-           ind_son_grid(i)=son(ind_cell(i))
+           ind_son_grid(sort_order(i))=son(ind_cell(i))
         end do
         !$omp simd
         do i=1,ncache
-           ok(i,i3,j3,k3)=ind_son_grid(i)>0
+           ok(sort_order(i),i3,j3,k3)=ind_son_grid(i)>0
         end do
 
      end do
