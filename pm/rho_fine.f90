@@ -670,20 +670,26 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
 
      ! Update common arrays
      do j=1,np
+        if(rho_add(j)>0)then
 !$omp atomic update
-        rho(indp(j,ind))=rho(indp(j,ind))+rho_add(j)
+           rho(indp(j,ind))=rho(indp(j,ind))+rho_add(j)
+        endif
      end do
 
      if(ilevel==cic_levelmax)then !rho_top not allocated otherwise
         do j=1,np
+           if(rho_top_add(j)>0)then
 !$omp atomic update
            rho_top(indp(j,ind))=rho_top(indp(j,ind))+rho_top_add(j)
+           endif
         end do
      endif
 
      do j=1,np
+        if(phi_add(j)>0)then
 !$omp atomic update
         phi(indp(j,ind))=phi(indp(j,ind))+phi_add(j)
+        endif
      end do
 
   end do
