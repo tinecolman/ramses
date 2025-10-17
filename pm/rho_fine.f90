@@ -390,9 +390,11 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+  real(dp),dimension(1:nvector),save::rho_add,rho_top_add,phi_add
 
 !$omp threadprivate(nbors_father_cells,ok,mmm)
 !$omp threadprivate(fam,vol2,x,dd,dg,ig,id,igg,igd,icg,icd,vol,igrid,icell,indp,kg)
+!$omp threadprivate(rho_add,rho_top_add,phi_add)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -533,11 +535,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      kg(j,8)=1+igd(j,1)+3*igd(j,2)+9*igd(j,3)
   end do
 #endif
-  do ind=1,twotondim
-     do j=1,np
-        igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
-     end do
-  end do
 
   ! Compute parent cell position
   do idim=1,ndim
@@ -576,12 +573,16 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   ! Compute parent cell adress
   do ind=1,twotondim
      do j=1,np
+        igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
         indp(j,ind)=ncoarse+(icell(j,ind)-1)*ngridmax+igrid(j,ind)
      end do
   end do
 
   ! Update mass density and number density fields
   do ind=1,twotondim
+     rho_add=0
+     rho_top_add=0
+     phi_add=0
 
      do j=1,np
         ok(j)=(igrid(j,ind)>0).and.is_not_tracer(fam(j))
@@ -591,16 +592,14 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
         do j=1,np
            if(ok(j))then
-!$omp atomic update
-              rho(indp(j,ind))=rho(indp(j,ind))+vol2(j)
+              rho_add(j)=rho_add(j)+vol2(j)
            end if
         end do
      else if(ilevel>cic_levelmax)then
         do j=1,np
            ! check for non-DM (and non-tracer)
            if ( ok(j) .and. is_not_DM(fam(j)) ) then
-!$omp atomic update
-              rho(indp(j,ind))=rho(indp(j,ind))+vol2(j)
+              rho_add(j)=rho_add(j)+vol2(j)
            end if
         end do
      endif
@@ -609,8 +608,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         do j=1,np
            ! check for DM
            if ( ok(j) .and. is_DM(fam(j)) ) then
-!$omp atomic update
-              rho_top(indp(j,ind))=rho_top(indp(j,ind))+vol2(j)
+              rho_top_add(j)=rho_top_add(j)+vol2(j)
            end if
         end do
      endif
@@ -647,15 +645,13 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      if(cic_levelmax==0.or.ilevel<cic_levelmax)then
         do j=1,np
            if(ok(j))then
-!$omp atomic update
-              phi(indp(j,ind))=phi(indp(j,ind))+vol2(j)
+              phi_add(j)=phi_add(j)+vol2(j)
            end if
         end do
      else if(ilevel>=cic_levelmax)then
         do j=1,np
            if ( ok(j) .and. is_not_DM(fam(j)) ) then
-!$omp atomic update
-              phi(indp(j,ind))=phi(indp(j,ind))+vol2(j)
+              phi_add(j)=phi_add(j)+vol2(j)
            end if
         end do
      endif
@@ -666,12 +662,30 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         do j=1,np
            if ( is_cloud(fam(j)) ) then
               ! if (direct_force_sink(-1*idp(ind_part(j))))then
-!$omp atomic update
-              phi(indp(j,ind))=phi(indp(j,ind))+m_refine(ilevel)
+              phi_add(j)=phi_add(j)+m_refine(ilevel)
               ! endif
            end if
         end do
      end if
+
+     ! Update common arrays
+     do j=1,np
+!$omp atomic update
+        rho(indp(j,ind))=rho(indp(j,ind))+rho_add(j)
+     end do
+
+     if(ilevel==cic_levelmax)then !rho_top not allocated otherwise
+        do j=1,np
+!$omp atomic update
+           rho_top(indp(j,ind))=rho_top(indp(j,ind))+rho_top_add(j)
+        end do
+     endif
+
+     do j=1,np
+!$omp atomic update
+        phi(indp(j,ind))=phi(indp(j,ind))+phi_add(j)
+     end do
+
   end do
 
 end subroutine cic_amr
