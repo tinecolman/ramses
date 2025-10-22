@@ -390,15 +390,16 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
   integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
   real(dp),dimension(1:nvector,1:twotondim),save::vol
-  integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
+  integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,kg
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:threetondim,1:twotondim),save::rho_add,rho_top_add,phi_add
-  integer ,dimension(1:threetondim,1:twotondim),save::indp_nb
+  integer ,dimension(1:threetondim,1:twotondim),save::indp
+  integer ,dimension(1:threetondim),save::igrid_now
 
 !$omp threadprivate(nbors_father_cells,ok,mmm)
 !$omp threadprivate(fam,vol2,x,dd,dg,ig,id,igg,igd,icg,icd,vol,igrid,icell,indp,kg)
 !$omp threadprivate(rho_add,rho_top_add,phi_add)
-!$omp threadprivate(ok2,vol3,indp_nb)
+!$omp threadprivate(ok2,vol3,igrid_now)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -627,7 +628,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
            ! Compute neighboring grid indices
            do ind2=1,threetondim
               do ind=1,twotondim
-                 indp_nb(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(nbors_father_cells(ind_grid_now,ind2))
+                 indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(nbors_father_cells(ind_grid_now,ind2))
               end do
            end do
            ! Add temporal arrays to common arrays
@@ -635,7 +636,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
               do ind=1,twotondim
                  if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
-                    rho(indp_nb(ind2,ind))=rho(indp_nb(ind2,ind))+rho_add(ind2,ind)
+                    rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
                  end if
               end do
            end do
@@ -643,7 +644,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
               do ind=1,twotondim
                  if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
-                    rho_top(indp_nb(ind2,ind))=rho_top(indp_nb(ind2,ind))+rho_top_add(ind2,ind)
+                    rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
                  end if
               end do
            end do
@@ -651,7 +652,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
               do ind=1,twotondim
                  if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
-                    phi(indp_nb(ind2,ind))=phi(indp_nb(ind2,ind))+phi_add(ind2,ind)
+                    phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
                  end if
               end do
            end do
@@ -709,7 +710,8 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      ! Compute neighboring grid indices
      do ind2=1,threetondim
         do ind=1,twotondim
-           indp_nb(ind2,ind)=ncoarse+(ind-1)*ngridmax+son( nbors_father_cells(ind_grid_now,ind2))
+           igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
+           indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
         end do
      end do
      ! Add temporal arrays to common arrays
@@ -717,7 +719,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         do ind=1,twotondim
            if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
-              rho(indp_nb(ind2,ind))=rho(indp_nb(ind2,ind))+rho_add(ind2,ind)
+              rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
            endif
         end do
      end do
@@ -725,7 +727,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         do ind=1,twotondim
            if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
-              rho_top(indp_nb(ind2,ind))=rho_top(indp_nb(ind2,ind))+rho_top_add(ind2,ind)
+              rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
            endif
         end do
      end do
@@ -733,7 +735,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         do ind=1,twotondim
            if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
-              phi(indp_nb(ind2,ind))=phi(indp_nb(ind2,ind))+phi_add(ind2,ind)
+              phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
            endif
         end do
      end do
