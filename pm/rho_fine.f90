@@ -380,22 +380,25 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   integer::j,ind,idim,nx_loc,ind2,ind_nbor
   real(dp)::dx,dx_loc,scale,vol_loc
   ! Grid-based arrays
-  integer ,dimension(1:nvector,1:threetondim)::nbors_father_cells
+  integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   ! Particle-based arrays
-  logical ,dimension(1:nvector,1:twotondim)::ok,ok2
-  real(dp),dimension(1:nvector)::mmm
+  logical ,dimension(1:nvector,1:twotondim),save::ok,ok2
+  real(dp),dimension(1:nvector),save::mmm
   ! Save type
-  type(part_t),dimension(1:nvector)::fam
-  real(dp),dimension(1:nvector,1:twotondim)::vol2,vol3
-  real(dp),dimension(1:nvector,1:ndim)::x,dd,dg
-  integer ,dimension(1:nvector,1:ndim)::ig,id,igg,igd,icg,icd
-  real(dp),dimension(1:nvector,1:twotondim)::vol
-  integer ,dimension(1:nvector,1:twotondim)::igrid,icell,indp,kg
+  type(part_t),dimension(1:nvector),save::fam
+  real(dp),dimension(1:nvector,1:twotondim),save::vol2,vol3
+  real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
+  integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
+  real(dp),dimension(1:nvector,1:twotondim),save::vol
+  integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
-  real(dp),dimension(1:threetondim,1:twotondim)::rho_add,rho_top_add,phi_add
-  integer ,dimension(1:threetondim,1:twotondim)::indp_nb
+  real(dp),dimension(1:threetondim,1:twotondim),save::rho_add,rho_top_add,phi_add
+  integer ,dimension(1:threetondim,1:twotondim),save::indp_nb
 
-  real(dp)::factor
+!$omp threadprivate(nbors_father_cells,ok,mmm)
+!$omp threadprivate(fam,vol2,x,dd,dg,ig,id,igg,igd,icg,icd,vol,igrid,icell,indp,kg)
+!$omp threadprivate(rho_add,rho_top_add,phi_add)
+!$omp threadprivate(ok2,vol3,indp_nb)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -750,6 +753,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         end do
      end do
   end if
+
 end subroutine cic_amr
 !###########################################################
 !###########################################################
