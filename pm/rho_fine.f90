@@ -380,11 +380,11 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   ! Particle-based arrays
-  logical ,dimension(1:nvector),save::ok
+  logical ,dimension(1:nvector),save::ok,ok2
   real(dp),dimension(1:nvector),save::mmm
   ! Save type
   type(part_t),dimension(1:nvector),save::fam
-  real(dp),dimension(1:nvector),save::vol2
+  real(dp),dimension(1:nvector),save::vol2,vol3
   real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
   integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
   real(dp),dimension(1:nvector,1:twotondim),save::vol
@@ -395,6 +395,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
 !$omp threadprivate(nbors_father_cells,ok,mmm)
 !$omp threadprivate(fam,vol2,x,dd,dg,ig,id,igg,igd,icg,icd,vol,igrid,icell,indp,kg)
 !$omp threadprivate(rho_add,rho_top_add,phi_add)
+!$omp threadprivate(ok2,vol3)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -589,6 +590,36 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         vol2(j)=mmm(j)*vol(j,ind)/vol_loc
      end do
 
+     do j=1,np
+        vol3(j)=vol(j,ind)
+        ok2(j)=ok(j)
+     end do
+
+     ! Remove test particles for static runs
+     if(static)then
+        do j=1,np
+           ok2(j)=ok2(j).and.mmm(j)>0.0
+        end do
+     endif
+
+     ! Keep only DM particle with a mass below the mass cut
+     if(mass_cut_refine>0.0)then
+        do j=1,np
+           if ( is_DM(fam(j)) ) then
+              ok2(j)=ok2(j) .and. mmm(j) < mass_cut_refine
+           endif
+        end do
+     endif
+
+     ! Rescale the mass by mass_sph for baryon particles
+     if(star)then
+        do j=1,np
+           if ( is_not_DM(fam(j)) ) then
+              vol3(j) = vol3(j)*mmm(j)/mass_sph
+           endif
+        end do
+     endif
+
      if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
         do j=1,np
            if(ok(j))then
@@ -613,45 +644,16 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
         end do
      endif
 
-     do j=1,np
-        vol2(j)=vol(j,ind)
-     end do
-
-     ! Remove test particles for static runs
-     if(static)then
-        do j=1,np
-           ok(j)=ok(j).and.mmm(j)>0.0
-        end do
-     endif
-
-     ! Keep only DM particle with a mass below the mass cut
-     if(mass_cut_refine>0.0)then
-        do j=1,np
-           if ( is_DM(fam(j)) ) then
-              ok(j)=ok(j) .and. mmm(j) < mass_cut_refine
-           endif
-        end do
-     endif
-
-     ! Rescale the mass by mass_sph for baryon particles
-     if(star)then
-        do j=1,np
-           if ( is_not_DM(fam(j)) ) then
-              vol2(j) = vol2(j)*mmm(j)/mass_sph
-           endif
-        end do
-     endif
-
      if(cic_levelmax==0.or.ilevel<cic_levelmax)then
         do j=1,np
-           if(ok(j))then
-              phi_add(j)=phi_add(j)+vol2(j)
+           if(ok2(j))then
+              phi_add(j)=phi_add(j)+vol3(j)
            end if
         end do
      else if(ilevel>=cic_levelmax)then
         do j=1,np
-           if ( ok(j) .and. is_not_DM(fam(j)) ) then
-              phi_add(j)=phi_add(j)+vol2(j)
+           if ( ok2(j) .and. is_not_DM(fam(j)) ) then
+              phi_add(j)=phi_add(j)+vol3(j)
            end if
         end do
      endif
