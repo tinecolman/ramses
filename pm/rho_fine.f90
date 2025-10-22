@@ -577,12 +577,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   ! Compute parent cell adress
   do ind=1,twotondim
      do j=1,np
-        ind_nbor=nbors_father_cells(ind_grid_part(j),kg(j,ind))
-        if(ind_nbor > 0)then
-           igrid(j,ind)=son(ind_nbor)
-        else
-           igrid(j,ind)=0
-        endif
+        igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
      end do
   end do
 
@@ -632,18 +627,13 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
            ! Compute neighboring grid indices
            do ind2=1,threetondim
               do ind=1,twotondim
-                 ind_nbor = nbors_father_cells(ind_grid_now,ind2)
-                 if(ind_nbor>0)then
-                    indp_nb(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(ind_nbor)
-                 else
-                    indp_nb(ind2,ind)=0
-                 end if
+                 indp_nb(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(nbors_father_cells(ind_grid_now,ind2))
               end do
            end do
            ! Add temporal arrays to common arrays
            do ind2=1,threetondim
               do ind=1,twotondim
-                 if(indp_nb(ind2,ind)>0 .and. rho_add(ind2,ind)>0d0) then
+                 if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
                     rho(indp_nb(ind2,ind))=rho(indp_nb(ind2,ind))+rho_add(ind2,ind)
                  end if
@@ -651,7 +641,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
            end do
            do ind2=1,threetondim
               do ind=1,twotondim
-                 if(indp_nb(ind2,ind)>0 .and. rho_top_add(ind2,ind)>0d0) then
+                 if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
                     rho_top(indp_nb(ind2,ind))=rho_top(indp_nb(ind2,ind))+rho_top_add(ind2,ind)
                  end if
@@ -659,7 +649,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
            end do
            do ind2=1,threetondim
               do ind=1,twotondim
-                 if(indp_nb(ind2,ind)>0 .and. phi_add(ind2,ind)>0d0) then
+                 if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
                     phi(indp_nb(ind2,ind))=phi(indp_nb(ind2,ind))+phi_add(ind2,ind)
                  end if
@@ -719,18 +709,13 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      ! Compute neighboring grid indices
      do ind2=1,threetondim
         do ind=1,twotondim
-           ind_nbor = nbors_father_cells(ind_grid_now,ind2)
-           if(ind_nbor>0)then
-              indp_nb(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(ind_nbor)
-           else
-              indp_nb(ind2,ind)=0
-           end if
+           indp_nb(ind2,ind)=ncoarse+(ind-1)*ngridmax+son( nbors_father_cells(ind_grid_now,ind2))
         end do
      end do
      ! Add temporal arrays to common arrays
      do ind2=1,threetondim
         do ind=1,twotondim
-           if(indp_nb(ind2,ind)>0 .and. rho_add(ind2,ind)>0d0) then
+           if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
               rho(indp_nb(ind2,ind))=rho(indp_nb(ind2,ind))+rho_add(ind2,ind)
            endif
@@ -738,7 +723,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      end do
      do ind2=1,threetondim
         do ind=1,twotondim
-           if(indp_nb(ind2,ind)>0 .and. rho_top_add(ind2,ind)>0d0) then
+           if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
               rho_top(indp_nb(ind2,ind))=rho_top(indp_nb(ind2,ind))+rho_top_add(ind2,ind)
            endif
@@ -746,7 +731,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      end do
      do ind2=1,threetondim
         do ind=1,twotondim
-           if(indp_nb(ind2,ind)>0 .and. phi_add(ind2,ind)>0d0) then
+           if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
               phi(indp_nb(ind2,ind))=phi(indp_nb(ind2,ind))+phi_add(ind2,ind)
            endif
