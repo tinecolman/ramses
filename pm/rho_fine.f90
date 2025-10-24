@@ -392,7 +392,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,kg
   real(dp),dimension(1:3)::skip_loc
-  real(dp),dimension(1:threetondim,1:twotondim),save::rho_add,rho_top_add,phi_add
+  real(dp),dimension(1:twotondim,1:threetondim),save::rho_add,rho_top_add,phi_add
   integer ,dimension(1:twotondim,1:threetondim),save::indp
   integer ,dimension(1:threetondim),save::igrid_now
 
@@ -627,14 +627,14 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
             if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
                do ind=1,twotondim
                   if(ok(j,ind)) then
-                     rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
+                     rho_add(icell(j,ind),kg(j,ind))=rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind)
                   end if
                end do
             else if(ilevel>cic_levelmax)then
                do ind=1,twotondim
                   ! check for non-DM (and non-tracer)
                   if ( ok(j,ind) .and. is_not_DM(fam(j)) ) then
-                     rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
+                     rho_add(icell(j,ind),kg(j,ind))=rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind)
                   end if
                end do
             end if
@@ -643,7 +643,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
                do ind=1,twotondim
                   ! check for DM
                   if ( ok(j,ind) .and. is_DM(fam(j)) ) then
-                     rho_top_add(kg(j,ind),icell(j,ind))=rho_top_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
+                     rho_top_add(icell(j,ind),kg(j,ind))=rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind)
                   end if
                end do
             endif
@@ -651,13 +651,13 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
             if(cic_levelmax==0.or.ilevel<cic_levelmax)then
                do ind=1,twotondim
                   if(ok2(j,ind))then
-                     phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
+                     phi_add(icell(j,ind),kg(j,ind))=phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind)
                   end if
                end do
             else if(ilevel>=cic_levelmax)then
                do ind=1,twotondim
                   if ( ok2(j,ind) .and. is_not_DM(fam(j)) ) then
-                     phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
+                     phi_add(icell(j,ind),kg(j,ind))=phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind)
                   end if
                end do
             endif
@@ -667,7 +667,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
             if(sink_refine.and.is_cloud(fam(j)) )then
                do ind=1,twotondim
                   ! if (direct_force_sink(-1*idp(ind_part(j))))then
-                  phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+m_refine(ilevel)
+                  phi_add(icell(j,ind),kg(j,ind))=phi_add(icell(j,ind),kg(j,ind))+m_refine(ilevel)
                   ! endif
                end do
             end if
@@ -686,20 +686,20 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
       ! Add temporal arrays to common arrays
       do ind2=1,threetondim
          do ind=1,twotondim ! we hope the compiler vectorizes this cst stride access
-            if(rho_add(ind2,ind)>0d0) then
+            if(rho_add(ind,ind2)>0d0) then
 !$omp atomic update
-               rho(indp(ind,ind2))=rho(indp(ind,ind2))+rho_add(ind2,ind)
+               rho(indp(ind,ind2))=rho(indp(ind,ind2))+rho_add(ind,ind2)
             endif
-            if(phi_add(ind2,ind)>0d0) then
+            if(phi_add(ind,ind2)>0d0) then
 !$omp atomic update
-               phi(indp(ind,ind2))=phi(indp(ind,ind2))+phi_add(ind2,ind)
+               phi(indp(ind,ind2))=phi(indp(ind,ind2))+phi_add(ind,ind2)
             endif
          end do
          if(ilevel==cic_levelmax)then
             do ind=1,twotondim
-               if(rho_top_add(ind2,ind)>0d0) then
+               if(rho_top_add(ind,ind2)>0d0) then
 !$omp atomic update
-                  rho_top(indp(ind,ind2))=rho_top(indp(ind,ind2))+rho_top_add(ind2,ind)
+                  rho_top(indp(ind,ind2))=rho_top(indp(ind,ind2))+rho_top_add(ind,ind2)
                endif
             end do
          end if
