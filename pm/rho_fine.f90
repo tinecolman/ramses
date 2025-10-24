@@ -395,11 +395,13 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   real(dp),dimension(1:twotondim,1:threetondim),save::rho_add,rho_top_add,phi_add
   integer ,dimension(1:twotondim,1:threetondim),save::indp
   integer ,dimension(1:threetondim),save::igrid_now
+  logical ,dimension(1:nvector),save::part_now
+
 
 !$omp threadprivate(nbors_father_cells,ok,mmm)
 !$omp threadprivate(fam,vol2,x,dd,dg,ig,id,igg,igd,icg,icd,vol,igrid,icell,indp,kg)
 !$omp threadprivate(rho_add,rho_top_add,phi_add)
-!$omp threadprivate(ok2,vol3,igrid_now)
+!$omp threadprivate(ok2,vol3,igrid_now,part_now)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -624,17 +626,23 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
    ! Calculate contribution from all particles to each grid
    do ind_grid_now=1,ng
       rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
+      ! Obtain mask of which particles need to be processed
+      part_now=.false.
+      do j=1,np
+         part_now(j)=(ind_grid_part(j)==ind_grid_now)
+      end do
+
       if(cic_levelmax==0.or.ilevel<cic_levelmax) then
          do ind=1,twotondim
             do j=1,np
                rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
-                                                      &  (ind_grid_part(j)==ind_grid_now).and.ok(j,ind))
+                                                      &  part_now(j).and.ok(j,ind))
             end do
             do j=1,np
                phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
-                                                      &  (ind_grid_part(j)==ind_grid_now).and.ok2(j,ind))
+                                                      &  part_now(j).and.ok2(j,ind))
             end do
          end do
       else if(ilevel==cic_levelmax) then
@@ -642,18 +650,18 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
             do j=1,np
                rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
-                                                      &  (ind_grid_part(j)==ind_grid_now).and.ok(j,ind))
+                                                      &  part_now(j).and.ok(j,ind))
             end do
             ! check for DM
             do j=1,np
                   rho_top_add(icell(j,ind),kg(j,ind)) = merge(rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                       &       rho_top_add(icell(j,ind),kg(j,ind)),&
-                                                      &       (ind_grid_part(j)==ind_grid_now).and.is_DM(fam(j)).and.ok(j,ind))
+                                                      &       part_now(j).and.is_DM(fam(j)).and.ok(j,ind))
             end do
             do j=1,np
                   phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
                                                       &   phi_add(icell(j,ind),kg(j,ind)),&
-                                                      &   (ind_grid_part(j)==ind_grid_now).and.is_not_DM(fam(j)).and.ok2(j,ind))
+                                                      &   part_now(j).and.is_not_DM(fam(j)).and.ok2(j,ind))
             end do
          end do
       else if(ilevel>cic_levelmax) then
@@ -662,12 +670,12 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
             do j=1,np
                rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
-                                                      &  (ind_grid_part(j)==ind_grid_now).and.is_not_DM(fam(j)).and.ok(j,ind))
+                                                      &  part_now(j).and.is_not_DM(fam(j)).and.ok(j,ind))
             end do
             do j=1,np
                phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
-                                                      &  (ind_grid_part(j)==ind_grid_now).and.is_not_DM(fam(j)).and.ok2(j,ind))
+                                                      &  part_now(j).and.is_not_DM(fam(j)).and.ok2(j,ind))
             end do
          end do
       end if
@@ -697,7 +705,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
       end do
       ! Add temporal arrays to common arrays
       do ind2=1,threetondim
-         do ind=1,twotondim ! we hope the compiler vectorizes this cst stride access
+         do ind=1,twotondim
             if(rho_add(ind,ind2)>0d0) then
 !$omp atomic update
                rho(indp(ind,ind2))=rho(indp(ind,ind2))+rho_add(ind,ind2)
