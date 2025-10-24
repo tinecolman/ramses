@@ -393,7 +393,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,kg
   real(dp),dimension(1:3)::skip_loc
   real(dp),dimension(1:threetondim,1:twotondim),save::rho_add,rho_top_add,phi_add
-  integer ,dimension(1:threetondim,1:twotondim),save::indp
+  integer ,dimension(1:twotondim,1:threetondim),save::indp
   integer ,dimension(1:threetondim),save::igrid_now
 
 !$omp threadprivate(nbors_father_cells,ok,mmm)
@@ -679,25 +679,25 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
       do ind2=1,threetondim
          igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
       end do
-      do ind=1,twotondim
-         do ind2=1,threetondim
-            indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
+      do ind2=1,threetondim
+         do ind=1,twotondim
+            indp(ind,ind2)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
          end do
       end do
       ! Add temporal arrays to common arrays
-      do ind=1,twotondim
-         do ind2=1,threetondim
+      do ind2=1,threetondim
+         do ind=1,twotondim ! we hope the compiler vectorizes this cst stride access
             if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
-               rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
+               rho(indp(ind,ind2))=rho(indp(ind,ind2))+rho_add(ind2,ind)
             endif
             if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
-               rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
+               rho_top(indp(ind,ind2))=rho_top(indp(ind,ind2))+rho_top_add(ind2,ind)
             endif
             if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
-               phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
+               phi(indp(ind,ind2))=phi(indp(ind,ind2))+phi_add(ind2,ind)
             endif
          end do
       end do
