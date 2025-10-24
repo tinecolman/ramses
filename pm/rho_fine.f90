@@ -644,32 +644,35 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
                                                        &  rho_add(icell(j,ind),kg(j,ind)),&
                                                        &  ok(j,ind))
                end do
-               do ind=1,twotondim
-                  ! check for DM
-                  rho_top_add(icell(j,ind),kg(j,ind)) = merge(rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
-                                                       &      rho_top_add(icell(j,ind),kg(j,ind)),&
-                                                       &      ok(j,ind) .and. is_DM(fam(j)))
-               end do
-               do ind=1,twotondim
-                  phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
-                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
-                                                       &  ok2(j,ind) .and. is_not_DM(fam(j)))
-               end do
+               ! check for DM
+               if(is_DM(fam(j)))then
+                  do ind=1,twotondim
+                     rho_top_add(icell(j,ind),kg(j,ind)) = merge(rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
+                                                         &       rho_top_add(icell(j,ind),kg(j,ind)),&
+                                                         &       ok(j,ind))
+                  end do
+               else if(is_not_DM(fam(j)))then
+                  do ind=1,twotondim
+                     phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
+                                                         &   phi_add(icell(j,ind),kg(j,ind)),&
+                                                         &   ok2(j,ind))
+                  end do
+               endif
             end if
          end do
       else if(ilevel>cic_levelmax) then
          do j=1,np
-            if(ind_grid_part(j)==ind_grid_now) then
+            ! check for non-DM (and non-tracer)
+            if(ind_grid_part(j)==ind_grid_now.and.is_not_DM(fam(j))) then
                do ind=1,twotondim
-                  ! check for non-DM (and non-tracer)
                   rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                        &  rho_add(icell(j,ind),kg(j,ind)),&
-                                                       &  ok(j,ind) .and. is_not_DM(fam(j)))
+                                                       &  ok(j,ind))
                end do
                do ind=1,twotondim
                   phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
                                                        &  phi_add(icell(j,ind),kg(j,ind)),&
-                                                       &  ok2(j,ind) .and. is_not_DM(fam(j)))
+                                                       &  ok2(j,ind))
                end do
             end if
          end do
