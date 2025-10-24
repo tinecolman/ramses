@@ -378,7 +378,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   !------------------------------------------------------------------
   logical::error
   integer::j,ind,idim,nx_loc,ind2,ind_nbor
-  real(dp)::dx,dx_loc,scale,vol_loc
+  real(dp)::dx,dx_loc,scale,vol_loc,over_dx,over_scale,over_vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   ! Particle-based arrays
@@ -403,14 +403,17 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
+  over_dx=1d0/dx
   nx_loc=(icoarse_max-icoarse_min+1)
   skip_loc=(/0.0d0,0.0d0,0.0d0/)
   if(ndim>0)skip_loc(1)=dble(icoarse_min)
   if(ndim>1)skip_loc(2)=dble(jcoarse_min)
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
+  over_scale=1d0/scale
   dx_loc=dx*scale
   vol_loc=dx_loc**ndim
+  over_vol_loc=1d0/vol_loc
 
   ! Gather neighboring father cells (should be present anytime !)
   call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
@@ -418,9 +421,9 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   ! Rescale particle position at level ilevel
   do idim=1,ndim
      do j=1,np
-        x(j,idim)=xp(ind_part(j),idim)/scale+skip_loc(idim)
+        x(j,idim)=xp(ind_part(j),idim)*over_scale+skip_loc(idim)
         x(j,idim)=x(j,idim)-x0(ind_grid_part(j),idim)
-        x(j,idim)=x(j,idim)/dx
+        x(j,idim)=x(j,idim)*over_dx
      end do
   end do
 
@@ -584,7 +587,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      ! Update mass density and number density fields
      do j=1,np
         ok(j,ind)=(igrid(j,ind)>0).and.is_not_tracer(fam(j))
-        vol2(j,ind)=mmm(j)*vol(j,ind)/vol_loc
+        vol2(j,ind)=mmm(j)*vol(j,ind)*over_vol_loc
      end do
 
      do j=1,np
