@@ -707,21 +707,21 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
       ! Add temporal arrays to common arrays
       do ind2=1,threetondim
          do ind=1,twotondim ! we hope the compiler vectorizes this cst stride access
-            !if(rho_add(ind,ind2)>0d0) then
+            if(rho_add(ind,ind2)>0d0) then
 !$omp atomic update
                rho(indp(ind,ind2))=rho(indp(ind,ind2))+rho_add(ind,ind2)
-            !endif
-            !if(phi_add(ind,ind2)>0d0) then
+            endif
+            if(phi_add(ind,ind2)>0d0) then
 !$omp atomic update
                phi(indp(ind,ind2))=phi(indp(ind,ind2))+phi_add(ind,ind2)
-            !endif
+            endif
          end do
          if(ilevel==cic_levelmax)then
             do ind=1,twotondim
-               !if(rho_top_add(ind,ind2)>0d0) then
+               if(rho_top_add(ind,ind2)>0d0) then
 !$omp atomic update
                   rho_top(indp(ind,ind2))=rho_top(indp(ind,ind2))+rho_top_add(ind,ind2)
-               !endif
+               endif
             end do
          end if
       end do
