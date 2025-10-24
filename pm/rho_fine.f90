@@ -618,61 +618,69 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      endif
   end do
 
+   ! Calculate contribution for each grid
    do ind_grid_now=1,ng
       rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
       do j=1,np
          if(ind_grid_part(j)==ind_grid_now) then
 
-            do ind=1,twotondim
-               if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
+            if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
+               do ind=1,twotondim
                   if(ok(j,ind)) then
                      rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
                   end if
-               else if(ilevel>cic_levelmax)then
+               end do
+            else if(ilevel>cic_levelmax)then
+               do ind=1,twotondim
                   ! check for non-DM (and non-tracer)
                   if ( ok(j,ind) .and. is_not_DM(fam(j)) ) then
                      rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
                   end if
-               end if
-            end do
+               end do
+            end if
 
-            do ind=1,twotondim
-               if(ilevel==cic_levelmax)then
+            if(ilevel==cic_levelmax)then
+               do ind=1,twotondim
                   ! check for DM
                   if ( ok(j,ind) .and. is_DM(fam(j)) ) then
                      rho_top_add(kg(j,ind),icell(j,ind))=rho_top_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
                   end if
-               endif
-            end do
+               end do
+            endif
 
-            do ind=1,twotondim
-               if(cic_levelmax==0.or.ilevel<cic_levelmax)then
+
+            if(cic_levelmax==0.or.ilevel<cic_levelmax)then
+               do ind=1,twotondim
                   if(ok2(j,ind))then
                      phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
                   end if
-               else if(ilevel>=cic_levelmax)then
+               end do
+            else if(ilevel>=cic_levelmax)then
+               do ind=1,twotondim
                   if ( ok2(j,ind) .and. is_not_DM(fam(j)) ) then
                      phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
                   end if
-               endif
-               ! Always refine sinks to the maximum level
-               ! by setting particle number density above m_refine(ilevel)
-               if(sink_refine)then
-                  if ( is_cloud(fam(j)) ) then
-                     ! if (direct_force_sink(-1*idp(ind_part(j))))then
-                     phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+m_refine(ilevel)
-                     ! endif
-                  end if
-               end if
-            end do
+               end do
+            endif
+
+            ! Always refine sinks to the maximum level
+            ! by setting particle number density above m_refine(ilevel)
+            if(sink_refine.and.is_cloud(fam(j)) )then
+               do ind=1,twotondim
+                  ! if (direct_force_sink(-1*idp(ind_part(j))))then
+                  phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+m_refine(ilevel)
+                  ! endif
+               end do
+            end if
          end if
       end do
-      !
 
       ! Compute neighboring grid indices
+      do ind2=1,threetondim
+         igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
+      end do
       do ind=1,twotondim
          do ind2=1,threetondim
-            igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
             indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
          end do
       end do
