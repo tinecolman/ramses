@@ -626,39 +626,39 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
 
             if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
                do ind=1,twotondim
-                  if(ok(j,ind)) then
-                     rho_add(icell(j,ind),kg(j,ind))=rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind)
-                  end if
+                  rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
+                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok(j,ind))
                end do
             else if(ilevel>cic_levelmax)then
                do ind=1,twotondim
                   ! check for non-DM (and non-tracer)
-                  if ( ok(j,ind) .and. is_not_DM(fam(j)) ) then
-                     rho_add(icell(j,ind),kg(j,ind))=rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind)
-                  end if
+                  rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
+                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok(j,ind) .and. is_not_DM(fam(j)))
                end do
             end if
 
             if(ilevel==cic_levelmax)then
                do ind=1,twotondim
                   ! check for DM
-                  if ( ok(j,ind) .and. is_DM(fam(j)) ) then
-                     rho_top_add(icell(j,ind),kg(j,ind))=rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind)
-                  end if
+                  rho_top_add(icell(j,ind),kg(j,ind)) = merge(rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
+                                                       &      rho_top_add(icell(j,ind),kg(j,ind)),&
+                                                       &      ok(j,ind) .and. is_DM(fam(j)))
                end do
             endif
 
             if(cic_levelmax==0.or.ilevel<cic_levelmax)then
                do ind=1,twotondim
-                  if(ok2(j,ind))then
-                     phi_add(icell(j,ind),kg(j,ind))=phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind)
-                  end if
+                  phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
+                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok2(j,ind))
                end do
             else if(ilevel>=cic_levelmax)then
                do ind=1,twotondim
-                  if ( ok2(j,ind) .and. is_not_DM(fam(j)) ) then
-                     phi_add(icell(j,ind),kg(j,ind))=phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind)
-                  end if
+                  phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
+                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok2(j,ind) .and. is_not_DM(fam(j)))
                end do
             endif
 
