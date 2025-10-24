@@ -621,58 +621,73 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
    ! Calculate contribution from all particles to each grid
    do ind_grid_now=1,ng
       rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
-      do j=1,np
-         if(ind_grid_part(j)==ind_grid_now) then
-
-            if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
+      if(cic_levelmax==0.or.ilevel<cic_levelmax) then
+         do j=1,np
+            if(ind_grid_part(j)==ind_grid_now) then
                do ind=1,twotondim
                   rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                        &  rho_add(icell(j,ind),kg(j,ind)),&
                                                        &  ok(j,ind))
                end do
-            else if(ilevel>cic_levelmax)then
                do ind=1,twotondim
-                  ! check for non-DM (and non-tracer)
-                  rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
-                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
-                                                       &  ok(j,ind) .and. is_not_DM(fam(j)))
+                  phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
+                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok2(j,ind))
                end do
             end if
-
-            if(ilevel==cic_levelmax)then
+         end do
+      else if(ilevel==cic_levelmax) then
+         do j=1,np
+            if(ind_grid_part(j)==ind_grid_now) then
+               do ind=1,twotondim
+                  rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
+                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok(j,ind))
+               end do
                do ind=1,twotondim
                   ! check for DM
                   rho_top_add(icell(j,ind),kg(j,ind)) = merge(rho_top_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
                                                        &      rho_top_add(icell(j,ind),kg(j,ind)),&
                                                        &      ok(j,ind) .and. is_DM(fam(j)))
                end do
-            endif
-
-            if(cic_levelmax==0.or.ilevel<cic_levelmax)then
-               do ind=1,twotondim
-                  phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
-                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
-                                                       &  ok2(j,ind))
-               end do
-            else if(ilevel>=cic_levelmax)then
                do ind=1,twotondim
                   phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
                                                        &  phi_add(icell(j,ind),kg(j,ind)),&
                                                        &  ok2(j,ind) .and. is_not_DM(fam(j)))
                end do
-            endif
+            end if
+         end do
+      else if(ilevel>cic_levelmax) then
+         do j=1,np
+            if(ind_grid_part(j)==ind_grid_now) then
+               do ind=1,twotondim
+                  ! check for non-DM (and non-tracer)
+                  rho_add(icell(j,ind),kg(j,ind)) = merge(rho_add(icell(j,ind),kg(j,ind))+vol2(j,ind),&
+                                                       &  rho_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok(j,ind) .and. is_not_DM(fam(j)))
+               end do
+               do ind=1,twotondim
+                  phi_add(icell(j,ind),kg(j,ind)) = merge(phi_add(icell(j,ind),kg(j,ind))+vol3(j,ind),&
+                                                       &  phi_add(icell(j,ind),kg(j,ind)),&
+                                                       &  ok2(j,ind) .and. is_not_DM(fam(j)))
+               end do
+            end if
+         end do
+      end if
 
-            ! Always refine sinks to the maximum level
-            ! by setting particle number density above m_refine(ilevel)
-            if(sink_refine.and.is_cloud(fam(j)) )then
+      ! Always refine sinks to the maximum level
+      ! by setting particle number density above m_refine(ilevel)
+      if(sink_refine)then
+         do j=1,np
+            if(is_cloud(fam(j)) )then
                do ind=1,twotondim
                   ! if (direct_force_sink(-1*idp(ind_part(j))))then
                   phi_add(icell(j,ind),kg(j,ind))=phi_add(icell(j,ind),kg(j,ind))+m_refine(ilevel)
                   ! endif
                end do
             end if
-         end if
-      end do
+         end do
+      endif
 
       ! Compute neighboring grid indices
       do ind2=1,threetondim
