@@ -580,10 +580,8 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      do j=1,np
         igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
      end do
-  end do
 
-  ! Update mass density and number density fields
-  do ind=1,twotondim
+     ! Update mass density and number density fields
      do j=1,np
         ok(j,ind)=(igrid(j,ind)>0).and.is_not_tracer(fam(j))
         vol2(j,ind)=mmm(j)*vol(j,ind)/vol_loc
@@ -620,126 +618,83 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      endif
   end do
 
-  rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
-  ind_grid_now = 0 !index of the grid that is being updated now
-  do j=1,np
-     if(ind_grid_part(j) /= ind_grid_now) then
-        if(ind_grid_now > 0) then
-           ! Compute neighboring grid indices
-           do ind=1,twotondim
-              do ind2=1,threetondim
-                 indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(nbors_father_cells(ind_grid_now,ind2))
-              end do
-           end do
-           ! Add temporal arrays to common arrays
-           do ind=1,twotondim
-              do ind2=1,threetondim
-                 if(rho_add(ind2,ind)>0d0) then
-!$omp atomic update
-                    rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
-                 end if
-              end do
-           end do
-           do ind=1,twotondim
-              do ind2=1,threetondim
-                 if(rho_top_add(ind2,ind)>0d0) then
-!$omp atomic update
-                    rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
-                 end if
-              end do
-           end do
-           do ind=1,twotondim
-              do ind2=1,threetondim
-                 if(phi_add(ind2,ind)>0d0) then
-!$omp atomic update
-                    phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
-                 end if
-              end do
-           end do
-        end if
-        rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
-        ind_grid_now = ind_grid_part(j)
-     end if
+   do ind_grid_now=1,ng
+      rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
+      do j=1,np
+         if(ind_grid_part(j)==ind_grid_now) then
 
-     do ind=1,twotondim
-        if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
-           if(ok(j,ind)) then
-              rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
-           end if
-        else if(ilevel>cic_levelmax)then
-           ! check for non-DM (and non-tracer)
-           if ( ok(j,ind) .and. is_not_DM(fam(j)) ) then
-              rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
-           end if
-        end if
-     end do
+            do ind=1,twotondim
+               if(cic_levelmax==0.or.ilevel<=cic_levelmax)then
+                  if(ok(j,ind)) then
+                     rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
+                  end if
+               else if(ilevel>cic_levelmax)then
+                  ! check for non-DM (and non-tracer)
+                  if ( ok(j,ind) .and. is_not_DM(fam(j)) ) then
+                     rho_add(kg(j,ind),icell(j,ind))=rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
+                  end if
+               end if
+            end do
 
-     do ind=1,twotondim
-        if(ilevel==cic_levelmax)then
-           ! check for DM
-           if ( ok(j,ind) .and. is_DM(fam(j)) ) then
-              rho_top_add(kg(j,ind),icell(j,ind))=rho_top_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
-           end if
-        endif
-     end do
+            do ind=1,twotondim
+               if(ilevel==cic_levelmax)then
+                  ! check for DM
+                  if ( ok(j,ind) .and. is_DM(fam(j)) ) then
+                     rho_top_add(kg(j,ind),icell(j,ind))=rho_top_add(kg(j,ind),icell(j,ind))+vol2(j,ind)
+                  end if
+               endif
+            end do
 
-     do ind=1,twotondim
-        if(cic_levelmax==0.or.ilevel<cic_levelmax)then
-           if(ok2(j,ind))then
-              phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
-           end if
-        else if(ilevel>=cic_levelmax)then
-           if ( ok2(j,ind) .and. is_not_DM(fam(j)) ) then
-              phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
-           end if
-        endif
-        ! Always refine sinks to the maximum level
-        ! by setting particle number density above m_refine(ilevel)
-        if(sink_refine)then
-           if ( is_cloud(fam(j)) ) then
-              ! if (direct_force_sink(-1*idp(ind_part(j))))then
-              phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+m_refine(ilevel)
-              ! endif
-           end if
-        end if
-     end do
-  end do
+            do ind=1,twotondim
+               if(cic_levelmax==0.or.ilevel<cic_levelmax)then
+                  if(ok2(j,ind))then
+                     phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
+                  end if
+               else if(ilevel>=cic_levelmax)then
+                  if ( ok2(j,ind) .and. is_not_DM(fam(j)) ) then
+                     phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind)
+                  end if
+               endif
+               ! Always refine sinks to the maximum level
+               ! by setting particle number density above m_refine(ilevel)
+               if(sink_refine)then
+                  if ( is_cloud(fam(j)) ) then
+                     ! if (direct_force_sink(-1*idp(ind_part(j))))then
+                     phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+m_refine(ilevel)
+                     ! endif
+                  end if
+               end if
+            end do
+         end if
+      end do
+      !
 
-  ! Empty remaining cache
-  if(ind_grid_now > 0) then
-     ! Compute neighboring grid indices
-     do ind=1,twotondim
-        do ind2=1,threetondim
-           igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
-           indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
-        end do
-     end do
-     ! Add temporal arrays to common arrays
-     do ind=1,twotondim
-        do ind2=1,threetondim
-           if(rho_add(ind2,ind)>0d0) then
+      ! Compute neighboring grid indices
+      do ind=1,twotondim
+         do ind2=1,threetondim
+            igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
+            indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
+         end do
+      end do
+      ! Add temporal arrays to common arrays
+      do ind=1,twotondim
+         do ind2=1,threetondim
+            if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
-              rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
-           endif
-        end do
-     end do
-     do ind=1,twotondim
-        do ind2=1,threetondim
-           if(rho_top_add(ind2,ind)>0d0) then
+               rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
+            endif
+            if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
-              rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
-           endif
-        end do
-     end do
-     do ind=1,twotondim
-        do ind2=1,threetondim
-           if(phi_add(ind2,ind)>0d0) then
+               rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
+            endif
+            if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
-              phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
-           endif
-        end do
-     end do
-  end if
+               phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
+            endif
+         end do
+      end do
+
+   end do
 
 end subroutine cic_amr
 !###########################################################
