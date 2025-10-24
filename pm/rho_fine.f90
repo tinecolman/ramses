@@ -575,8 +575,8 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   end do
 #endif
 
-  ! Compute parent cell adress
   do ind=1,twotondim
+     ! Compute parent cell adress
      do j=1,np
         igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
      end do
@@ -618,7 +618,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      endif
   end do
 
-   ! Calculate contribution for each grid
+   ! Calculate contribution from all particles to each grid
    do ind_grid_now=1,ng
       rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
       do j=1,np
@@ -647,7 +647,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
                   end if
                end do
             endif
-
 
             if(cic_levelmax==0.or.ilevel<cic_levelmax)then
                do ind=1,twotondim
@@ -691,15 +690,19 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
 !$omp atomic update
                rho(indp(ind,ind2))=rho(indp(ind,ind2))+rho_add(ind2,ind)
             endif
-            if(rho_top_add(ind2,ind)>0d0) then
-!$omp atomic update
-               rho_top(indp(ind,ind2))=rho_top(indp(ind,ind2))+rho_top_add(ind2,ind)
-            endif
             if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
                phi(indp(ind,ind2))=phi(indp(ind,ind2))+phi_add(ind2,ind)
             endif
          end do
+         if(ilevel==cic_levelmax)then
+            do ind=1,twotondim
+               if(rho_top_add(ind2,ind)>0d0) then
+!$omp atomic update
+                  rho_top(indp(ind,ind2))=rho_top(indp(ind,ind2))+rho_top_add(ind2,ind)
+               endif
+            end do
+         end if
       end do
 
    end do
