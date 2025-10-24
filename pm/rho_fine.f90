@@ -362,9 +362,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   use amr_commons
   use pm_commons
   use poisson_commons
-#ifdef DICE
-  use dice_commons
-#endif
   use hydro_commons, ONLY: mass_sph
   implicit none
   integer::ng,np,ilevel,ind_grid_now
