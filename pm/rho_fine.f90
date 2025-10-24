@@ -626,30 +626,30 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      if(ind_grid_part(j) /= ind_grid_now) then
         if(ind_grid_now > 0) then
            ! Compute neighboring grid indices
-           do ind2=1,threetondim
-              do ind=1,twotondim
+           do ind=1,twotondim
+              do ind2=1,threetondim
                  indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+son(nbors_father_cells(ind_grid_now,ind2))
               end do
            end do
            ! Add temporal arrays to common arrays
-           do ind2=1,threetondim
-              do ind=1,twotondim
+           do ind=1,twotondim
+              do ind2=1,threetondim
                  if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
                     rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
                  end if
               end do
            end do
-           do ind2=1,threetondim
-              do ind=1,twotondim
+           do ind=1,twotondim
+              do ind2=1,threetondim
                  if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
                     rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
                  end if
               end do
            end do
-           do ind2=1,threetondim
-              do ind=1,twotondim
+           do ind=1,twotondim
+              do ind2=1,threetondim
                  if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
                     phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
@@ -708,31 +708,31 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   ! Empty remaining cache
   if(ind_grid_now > 0) then
      ! Compute neighboring grid indices
-     do ind2=1,threetondim
-        do ind=1,twotondim
+     do ind=1,twotondim
+        do ind2=1,threetondim
            igrid_now(ind2)=son(nbors_father_cells(ind_grid_now,ind2))
            indp(ind2,ind)=ncoarse+(ind-1)*ngridmax+igrid_now(ind2)
         end do
      end do
      ! Add temporal arrays to common arrays
-     do ind2=1,threetondim
-        do ind=1,twotondim
+     do ind=1,twotondim
+        do ind2=1,threetondim
            if(rho_add(ind2,ind)>0d0) then
 !$omp atomic update
               rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
            endif
         end do
      end do
-     do ind2=1,threetondim
-        do ind=1,twotondim
+     do ind=1,twotondim
+        do ind2=1,threetondim
            if(rho_top_add(ind2,ind)>0d0) then
 !$omp atomic update
               rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
            endif
         end do
      end do
-     do ind2=1,threetondim
-        do ind=1,twotondim
+     do ind=1,twotondim
+        do ind2=1,threetondim
            if(phi_add(ind2,ind)>0d0) then
 !$omp atomic update
               phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
