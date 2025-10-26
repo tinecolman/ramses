@@ -329,9 +329,9 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use poisson_commons
   use hydro_commons, ONLY: mass_sph
   implicit none
-  integer::ng,np,ilevel
-  integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
-  real(dp),dimension(1:nvector,1:ndim)::x0
+  integer,intent(in)::ng,np,ilevel
+  integer ,dimension(1:nvector),intent(in)::ind_cell,ind_grid_part,ind_part
+  real(dp),dimension(1:nvector,1:ndim),intent(in)::x0
   !------------------------------------------------------------------
   ! This routine computes the density field at level ilevel using
   ! the CIC scheme. Only cells that are in level ilevel
@@ -344,19 +344,20 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   logical::error
   integer::j,ind,idim,nx_loc
   real(dp)::dx,dx_loc,scale,vol_loc
+  real(dp),dimension(1:3)::skip_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
-  ! Particle-based arrays
-  logical ,dimension(1:nvector),save::ok
-  real(dp),dimension(1:nvector),save::mmm
-  ! Save type
-  type(part_t),dimension(1:nvector),save::fam
-  real(dp),dimension(1:nvector),save::vol2
-  real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
+  ! Particle-based arrays for indices
   integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
+  integer ,dimension(1:nvector,1:twotondim),save::kg
+  integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp
+  ! Particle-based arrays for quantities
+  real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
   real(dp),dimension(1:nvector,1:twotondim),save::vol
-  integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,indp,kg
-  real(dp),dimension(1:3)::skip_loc
+  type(part_t),dimension(1:nvector),save::fam
+  real(dp),dimension(1:nvector),save::mmm
+  logical ,dimension(1:nvector),save::ok
+  real(dp),dimension(1:nvector),save::vol2
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -368,10 +369,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
   vol_loc=dx_loc**ndim
-
-
-  ! Gather neighboring father cells (should be present anytime !)
-  call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
   ! Gather particle mass and family
   do j=1,np
@@ -454,6 +451,9 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
         icd(j,idim)=id(j,idim)-2*igd(j,idim)
      end do
   end do
+
+  ! Gather global indices of neighboring father cells (should be present anytime !)
+  call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
   ! Get the global index of the grids of which there is overlap (igrid) from
   ! the nbors_father_cells array. For this, we first need to determine the
