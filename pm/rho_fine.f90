@@ -336,6 +336,10 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! This routine computes the density field at level ilevel using
   ! the CIC scheme. Only cells that are in level ilevel
   ! are updated by the input particle list.
+  ! - Determine the indices of the cells which overlap with the particle
+  ! - Calculate the sub-volume of the particle cloud with each of the
+  !   overlapping cells
+  ! - Update mass density (rho) and number density (stored in phi) fields
   !------------------------------------------------------------------
   logical::error
   integer::j,ind,idim,nx_loc
@@ -369,15 +373,6 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! Gather neighboring father cells (should be present anytime !)
   call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
-  ! Rescale particle position at level ilevel
-  do idim=1,ndim
-     do j=1,np
-        x(j,idim)=xp(ind_part(j),idim)/scale+skip_loc(idim)
-        x(j,idim)=x(j,idim)-x0(ind_grid_part(j),idim)
-        x(j,idim)=x(j,idim)/dx
-     end do
-  end do
-
   ! Gather particle mass and family
   do j=1,np
      fam(j) = typep(ind_part(j))
@@ -403,7 +398,23 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      end do
   end if
 
-  ! Check for illegal moves
+
+  !--------------------------------------------------------------------
+  ! Determine the indices of the cells which overlap with the particle
+  !--------------------------------------------------------------------
+
+  ! Rescale particle position at level ilevel, so that x tells us where 
+  ! in the 3x3x3 grid-cube the particle is located in units of the cell
+  ! size dx. (0,0,0) corresponds to the bottom left corner.
+  do idim=1,ndim
+     do j=1,np
+        x(j,idim)=xp(ind_part(j),idim)/scale+skip_loc(idim)
+        x(j,idim)=x(j,idim)-x0(ind_grid_part(j),idim)
+        x(j,idim)=x(j,idim)/dx
+     end do
+  end do
+
+  ! Check for illegal moves: x should be between 0.5 and 5.5 in units of dx
   error=.false.
   do idim=1,ndim
      do j=1,np
@@ -422,68 +433,42 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      stop
   end if
 
-  ! CIC at level ilevel (dd: right cloud boundary; dg: left cloud boundary)
+  ! For each dimension, the particle cloud (of size dx**ndim) overlaps with
+  ! a cell boundary, dividing the cloud into a left and right part. 
+  ! Calculate the length of each part (left + right part = dx),
+  ! (dd = droit (FR) = right, dg = gauche (FR) = left)
+  ! Also determine info needed for global index computionation later: 
+  ! - id and ig: index of the corresponding cell in the 3x3x3 grid-cube (0 to 5)
+  ! - igg, igd: index of the corresponding grid in the 3x3x3 grid-cube (0 to 2)
+  ! - icg and icd: whether the cell is the left (0) or right (1) its grid for idim
   do idim=1,ndim
      do j=1,np
         dd(j,idim)=x(j,idim)+0.5D0
-        id(j,idim)=int(dd(j,idim))
+        id(j,idim)=int(dd(j,idim))  ! particle cell or cell to the right, 0 - 5
         dd(j,idim)=dd(j,idim)-id(j,idim)
         dg(j,idim)=1.0D0-dd(j,idim)
-        ig(j,idim)=id(j,idim)-1
-     end do
-  end do
-
-  ! Compute cloud volumes
-#if NDIM==1
-  do j=1,np
-     vol(j,1)=dg(j,1)
-     vol(j,2)=dd(j,1)
-  end do
-#endif
-#if NDIM==2
-  do j=1,np
-     vol(j,1)=dg(j,1)*dg(j,2)
-     vol(j,2)=dd(j,1)*dg(j,2)
-     vol(j,3)=dg(j,1)*dd(j,2)
-     vol(j,4)=dd(j,1)*dd(j,2)
-  end do
-#endif
-#if NDIM==3
-  do j=1,np
-     vol(j,1)=dg(j,1)*dg(j,2)*dg(j,3)
-     vol(j,2)=dd(j,1)*dg(j,2)*dg(j,3)
-     vol(j,3)=dg(j,1)*dd(j,2)*dg(j,3)
-     vol(j,4)=dd(j,1)*dd(j,2)*dg(j,3)
-     vol(j,5)=dg(j,1)*dg(j,2)*dd(j,3)
-     vol(j,6)=dd(j,1)*dg(j,2)*dd(j,3)
-     vol(j,7)=dg(j,1)*dd(j,2)*dd(j,3)
-     vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
-  end do
-#endif
-
-  ! Compute parent grids
-  do idim=1,ndim
-     do j=1,np
-        igg(j,idim)=ig(j,idim)/2
+        ig(j,idim)=id(j,idim)-1     ! particle cell or cell to the left
+        igg(j,idim)=ig(j,idim)/2    ! 0 - 2
         igd(j,idim)=id(j,idim)/2
+        icg(j,idim)=ig(j,idim)-2*igg(j,idim) ! 0 or 1
+        icd(j,idim)=id(j,idim)-2*igd(j,idim)
      end do
   end do
-#if NDIM==1
+
+  ! Get the global index of the grids of which there is overlap (igrid) from
+  ! the nbors_father_cells array. For this, we first need to determine the
+  ! identifying number of the neighbor in the 3x3x3 grid-cube. We do this by
+  ! converting igg(j,idim) and igd(j,idim) to the 1D index kg(j,ind)
   do j=1,np
+#if NDIM==1
      kg(j,1)=1+igg(j,1)
      kg(j,2)=1+igd(j,1)
-  end do
-#endif
-#if NDIM==2
-  do j=1,np
+#elif NDIM==2
      kg(j,1)=1+igg(j,1)+3*igg(j,2)
      kg(j,2)=1+igd(j,1)+3*igg(j,2)
      kg(j,3)=1+igg(j,1)+3*igd(j,2)
      kg(j,4)=1+igd(j,1)+3*igd(j,2)
-  end do
-#endif
-#if NDIM==3
-  do j=1,np
+#elif NDIM==3
      kg(j,1)=1+igg(j,1)+3*igg(j,2)+9*igg(j,3)
      kg(j,2)=1+igd(j,1)+3*igg(j,2)+9*igg(j,3)
      kg(j,3)=1+igg(j,1)+3*igd(j,2)+9*igg(j,3)
@@ -492,37 +477,25 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      kg(j,6)=1+igd(j,1)+3*igg(j,2)+9*igd(j,3)
      kg(j,7)=1+igg(j,1)+3*igd(j,2)+9*igd(j,3)
      kg(j,8)=1+igd(j,1)+3*igd(j,2)+9*igd(j,3)
-  end do
 #endif
+  end do
   do ind=1,twotondim
      do j=1,np
         igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
      end do
   end do
 
-  ! Compute parent cell position
-  do idim=1,ndim
-     do j=1,np
-        icg(j,idim)=ig(j,idim)-2*igg(j,idim)
-        icd(j,idim)=id(j,idim)-2*igd(j,idim)
-     end do
-  end do
-#if NDIM==1
+  ! Compute the position ind of the cell in its grid (1 to twotondim)
   do j=1,np
+#if NDIM==1
      icell(j,1)=1+icg(j,1)
      icell(j,2)=1+icd(j,1)
-  end do
-#endif
-#if NDIM==2
-  do j=1,np
+#elif NDIM==2
      icell(j,1)=1+icg(j,1)+2*icg(j,2)
      icell(j,2)=1+icd(j,1)+2*icg(j,2)
      icell(j,3)=1+icg(j,1)+2*icd(j,2)
      icell(j,4)=1+icd(j,1)+2*icd(j,2)
-  end do
-#endif
-#if NDIM==3
-  do j=1,np
+#elif NDIM==3
      icell(j,1)=1+icg(j,1)+2*icg(j,2)+4*icg(j,3)
      icell(j,2)=1+icd(j,1)+2*icg(j,2)+4*icg(j,3)
      icell(j,3)=1+icg(j,1)+2*icd(j,2)+4*icg(j,3)
@@ -531,17 +504,48 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
      icell(j,6)=1+icd(j,1)+2*icg(j,2)+4*icd(j,3)
      icell(j,7)=1+icg(j,1)+2*icd(j,2)+4*icd(j,3)
      icell(j,8)=1+icd(j,1)+2*icd(j,2)+4*icd(j,3)
-  end do
 #endif
+  end do
 
-  ! Compute parent cell adress
+  ! Compute parent cell adress for the twotondim overlap regions of particle j
   do ind=1,twotondim
      do j=1,np
         indp(j,ind)=ncoarse+(icell(j,ind)-1)*ngridmax+igrid(j,ind)
      end do
   end do
 
-  ! Update mass density and number density fields
+  !-----------------------------------------------------------------
+  ! Calculate the sub-volume of the particle cloud with each of the
+  ! overlapping cells.
+  !-----------------------------------------------------------------
+
+  ! Compute the twotondim cloud volumes (overlap of particle cloud with each
+  ! cell) as rectangles, using dd and dg 
+  do j=1,np
+#if NDIM==1
+     vol(j,1)=dg(j,1)
+     vol(j,2)=dd(j,1)
+#elif NDIM==2
+     vol(j,1)=dg(j,1)*dg(j,2)
+     vol(j,2)=dd(j,1)*dg(j,2)
+     vol(j,3)=dg(j,1)*dd(j,2)
+     vol(j,4)=dd(j,1)*dd(j,2)
+#elif NDIM==3
+     vol(j,1)=dg(j,1)*dg(j,2)*dg(j,3)
+     vol(j,2)=dd(j,1)*dg(j,2)*dg(j,3)
+     vol(j,3)=dg(j,1)*dd(j,2)*dg(j,3)
+     vol(j,4)=dd(j,1)*dd(j,2)*dg(j,3)
+     vol(j,5)=dg(j,1)*dg(j,2)*dd(j,3)
+     vol(j,6)=dd(j,1)*dg(j,2)*dd(j,3)
+     vol(j,7)=dg(j,1)*dd(j,2)*dd(j,3)
+     vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
+#endif
+  end do
+
+  !---------------------------------------------------------------------
+  ! Update mass density (rho) and number density (stored in phi) fields
+  !---------------------------------------------------------------------
+
   do ind=1,twotondim
 
      do j=1,np
