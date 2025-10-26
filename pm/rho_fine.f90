@@ -389,7 +389,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   real(dp),dimension(1:nvector,1:twotondim),save::vol
   integer ,dimension(1:nvector,1:twotondim),save::igrid,icell,kg
   real(dp),dimension(1:3)::skip_loc
-  real(dp),dimension(1:threetondim,1:twotondim),save::rho_add,rho_top_add,phi_add
+  real(dp),dimension(1:threetondim,1:twotondim,1:nvector),save::rho_add,rho_top_add,phi_add
   integer ,dimension(1:threetondim,1:twotondim),save::indp
   integer ,dimension(1:threetondim),save::igrid_now
   logical ,dimension(1:nvector),save::part_now
@@ -617,58 +617,52 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   end do
 
    ! Calculate contribution from all particles to each grid
-   do ind_grid_now=1,ng
-      rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
-      ! Obtain mask of which particles need to be processed
-      part_now=.false.
-      do j=1,np
-         part_now(j)=(ind_grid_part(j)==ind_grid_now)
-      end do
+   rho_add = 0d0; rho_top_add = 0d0; phi_add = 0d0
 
-      if(cic_levelmax==0.or.ilevel<cic_levelmax) then
-         do ind=1,twotondim
-            do j=1,np
-               rho_add(kg(j,ind),icell(j,ind)) = merge(rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind),&
-                                                      &  rho_add(kg(j,ind),icell(j,ind)),&
-                                                      &  part_now(j).and.ok(j,ind))
-            end do
-            do j=1,np
-               phi_add(kg(j,ind),icell(j,ind)) = merge(phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind),&
-                                                      &  phi_add(kg(j,ind),icell(j,ind)),&
-                                                      &  part_now(j).and.ok2(j,ind))
-            end do
+   if(cic_levelmax==0.or.ilevel<cic_levelmax) then
+      do ind=1,twotondim
+         do j=1,np
+            rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol2(j,ind),&
+                                                   &  rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                   &  ok(j,ind))
          end do
+         do j=1,np
+            phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol3(j,ind),&
+                                                   &  phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                   &  ok2(j,ind))
+         end do
+      end do
       else if(ilevel==cic_levelmax) then
          do ind=1,twotondim
             do j=1,np
-               rho_add(kg(j,ind),icell(j,ind)) = merge(rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind),&
-                                                      &  rho_add(kg(j,ind),icell(j,ind)),&
-                                                      &  part_now(j).and.ok(j,ind))
+               rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol2(j,ind),&
+                                                      &  rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                      &  ok(j,ind))
             end do
             ! check for DM
             do j=1,np
-                  rho_top_add(kg(j,ind),icell(j,ind)) = merge(rho_top_add(kg(j,ind),icell(j,ind))+vol2(j,ind),&
-                                                      &       rho_top_add(kg(j,ind),icell(j,ind)),&
-                                                      &       part_now(j).and.is_DM(fam(j)).and.ok(j,ind))
+                  rho_top_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(rho_top_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol2(j,ind),&
+                                                      &       rho_top_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                      &       is_DM(fam(j)).and.ok(j,ind))
             end do
             do j=1,np
-                  phi_add(kg(j,ind),icell(j,ind)) = merge(phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind),&
-                                                      &   phi_add(kg(j,ind),icell(j,ind)),&
-                                                      &   part_now(j).and.is_not_DM(fam(j)).and.ok2(j,ind))
+                  phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol3(j,ind),&
+                                                      &   phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                      &   is_not_DM(fam(j)).and.ok2(j,ind))
             end do
          end do
       else if(ilevel>cic_levelmax) then
          do ind=1,twotondim
             ! check for non-DM (and non-tracer)
             do j=1,np
-               rho_add(kg(j,ind),icell(j,ind)) = merge(rho_add(kg(j,ind),icell(j,ind))+vol2(j,ind),&
-                                                      &  rho_add(kg(j,ind),icell(j,ind)),&
-                                                      &  part_now(j).and.is_not_DM(fam(j)).and.ok(j,ind))
+               rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol2(j,ind),&
+                                                      &  rho_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                      &  is_not_DM(fam(j)).and.ok(j,ind))
             end do
             do j=1,np
-               phi_add(kg(j,ind),icell(j,ind)) = merge(phi_add(kg(j,ind),icell(j,ind))+vol3(j,ind),&
-                                                      &  phi_add(kg(j,ind),icell(j,ind)),&
-                                                      &  part_now(j).and.is_not_DM(fam(j)).and.ok2(j,ind))
+               phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j)) = merge(phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+vol3(j,ind),&
+                                                      &  phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j)),&
+                                                      &  is_not_DM(fam(j)).and.ok2(j,ind))
             end do
          end do
       end if
@@ -680,12 +674,19 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
             if(is_cloud(fam(j)) )then
                do ind=1,twotondim
                   ! if (direct_force_sink(-1*idp(ind_part(j))))then
-                  phi_add(kg(j,ind),icell(j,ind))=phi_add(kg(j,ind),icell(j,ind))+m_refine(ilevel)
+                  phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j))=phi_add(kg(j,ind),icell(j,ind),ind_grid_part(j))+m_refine(ilevel)
                   ! endif
                end do
             end if
          end do
       endif
+
+   do ind_grid_now=1,ng
+      ! Obtain mask of which particles need to be processed
+      !part_now=.false.
+      !do j=1,np
+      !   part_now(j)=(ind_grid_part(j)==ind_grid_now)
+      !end do
 
       ! Compute neighboring grid indices
       do ind2=1,threetondim
@@ -699,22 +700,22 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
       ! Add temporal arrays to common arrays
       do ind=1,twotondim
          do ind2=1,threetondim
-            if(rho_add(ind2,ind)>0d0) then
+            if(rho_add(ind2,ind,ind_grid_now)>0d0) then
 !$omp atomic update
-               rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind)
+               rho(indp(ind2,ind))=rho(indp(ind2,ind))+rho_add(ind2,ind,ind_grid_now)
             endif
-            if(phi_add(ind2,ind)>0d0) then
+            if(phi_add(ind2,ind,ind_grid_now)>0d0) then
 !$omp atomic update
-               phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind)
+               phi(indp(ind2,ind))=phi(indp(ind2,ind))+phi_add(ind2,ind,ind_grid_now)
             endif
          end do
       end do
       if(ilevel==cic_levelmax)then
          do ind=1,twotondim
             do ind2=1,threetondim
-               if(rho_top_add(ind2,ind)>0d0) then
+               if(rho_top_add(ind2,ind,ind_grid_now)>0d0) then
 !$omp atomic update
-                  rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind)
+                  rho_top(indp(ind2,ind))=rho_top(indp(ind2,ind))+rho_top_add(ind2,ind,ind_grid_now)
                endif
             end do
          end do
