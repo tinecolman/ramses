@@ -329,8 +329,18 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use poisson_commons
   use hydro_commons, ONLY: mass_sph
   implicit none
+  ! np = number of particles (usually nvector)
+  ! ng = number of grids (or father cells) to which the input particles are attached 
+  ! (between 1 and nvector, depending on how many particles are per grid)
   integer,intent(in)::ng,np,ilevel
-  integer ,dimension(1:nvector),intent(in)::ind_cell,ind_grid_part,ind_part
+  ! indices of the father cells of the grids in which the input particles sit
+  integer ,dimension(1:nvector),intent(in)::ind_cell
+  ! Indices of the particles
+  integer ,dimension(1:nvector),intent(in)::ind_part
+  ! mapping between particles and grids, i.e. to which grid does each particle belong (length np) 
+  integer ,dimension(1:nvector),intent(in)::ind_grid_part
+  ! positional coordinates of the particles within the 3x3x3 neighboring 
+  ! father cell grid (origin is left bottom corner)
   real(dp),dimension(1:nvector,1:ndim),intent(in)::x0
   !------------------------------------------------------------------
   ! This routine computes the density field at level ilevel using
