@@ -193,6 +193,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use pm_commons
   use poisson_commons
   use hydro_commons, ONLY: uold,smallr
+  use cic
   implicit none
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -300,32 +301,9 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
         igd(j,idim)=id(j,idim)/2
      end do
   end do
-#if NDIM==1
   do j=1,np
-     kg(j,1)=1+igg(j,1)
-     kg(j,2)=1+igd(j,1)
+     kg(j,:)=cic_cloud_3cube_grid_indices(igg(j,:),igd(j,:))
   end do
-#endif
-#if NDIM==2
-  do j=1,np
-     kg(j,1)=1+igg(j,1)+3*igg(j,2)
-     kg(j,2)=1+igd(j,1)+3*igg(j,2)
-     kg(j,3)=1+igg(j,1)+3*igd(j,2)
-     kg(j,4)=1+igd(j,1)+3*igd(j,2)
-  end do
-#endif
-#if NDIM==3
-  do j=1,np
-     kg(j,1)=1+igg(j,1)+3*igg(j,2)+9*igg(j,3)
-     kg(j,2)=1+igd(j,1)+3*igg(j,2)+9*igg(j,3)
-     kg(j,3)=1+igg(j,1)+3*igd(j,2)+9*igg(j,3)
-     kg(j,4)=1+igd(j,1)+3*igd(j,2)+9*igg(j,3)
-     kg(j,5)=1+igg(j,1)+3*igg(j,2)+9*igd(j,3)
-     kg(j,6)=1+igd(j,1)+3*igg(j,2)+9*igd(j,3)
-     kg(j,7)=1+igg(j,1)+3*igd(j,2)+9*igd(j,3)
-     kg(j,8)=1+igd(j,1)+3*igd(j,2)+9*igd(j,3)
-  end do
-#endif
   do ind=1,twotondim
      do j=1,np
         igrid(j,ind)=son(nbors_father_cells(ind_grid_part(j),kg(j,ind)))
@@ -373,50 +351,13 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
         end if
      end do
   end do
-#if NDIM==1
-  do j=1,np
-     icell(j,1)=1+icg(j,1)
-     icell(j,2)=1+icd(j,1)
-  end do
-#endif
-#if NDIM==2
   do j=1,np
      if(ok(j))then
-        icell(j,1)=1+icg(j,1)+2*icg(j,2)
-        icell(j,2)=1+icd(j,1)+2*icg(j,2)
-        icell(j,3)=1+icg(j,1)+2*icd(j,2)
-        icell(j,4)=1+icd(j,1)+2*icd(j,2)
+        icell(j,:)=cic_cloud_cell_positions(icg(j,:),icd(j,:))
      else
-        icell(j,1)=1+icg(j,1)+3*icg(j,2)
-        icell(j,2)=1+icd(j,1)+3*icg(j,2)
-        icell(j,3)=1+icg(j,1)+3*icd(j,2)
-        icell(j,4)=1+icd(j,1)+3*icd(j,2)
+        icell(j,:)=cic_cloud_cell_positions_bis(icg(j,:),icd(j,:))
      end if
   end do
-#endif
-#if NDIM==3
-  do j=1,np
-     if(ok(j))then
-        icell(j,1)=1+icg(j,1)+2*icg(j,2)+4*icg(j,3)
-        icell(j,2)=1+icd(j,1)+2*icg(j,2)+4*icg(j,3)
-        icell(j,3)=1+icg(j,1)+2*icd(j,2)+4*icg(j,3)
-        icell(j,4)=1+icd(j,1)+2*icd(j,2)+4*icg(j,3)
-        icell(j,5)=1+icg(j,1)+2*icg(j,2)+4*icd(j,3)
-        icell(j,6)=1+icd(j,1)+2*icg(j,2)+4*icd(j,3)
-        icell(j,7)=1+icg(j,1)+2*icd(j,2)+4*icd(j,3)
-        icell(j,8)=1+icd(j,1)+2*icd(j,2)+4*icd(j,3)
-     else
-        icell(j,1)=1+icg(j,1)+3*icg(j,2)+9*icg(j,3)
-        icell(j,2)=1+icd(j,1)+3*icg(j,2)+9*icg(j,3)
-        icell(j,3)=1+icg(j,1)+3*icd(j,2)+9*icg(j,3)
-        icell(j,4)=1+icd(j,1)+3*icd(j,2)+9*icg(j,3)
-        icell(j,5)=1+icg(j,1)+3*icg(j,2)+9*icd(j,3)
-        icell(j,6)=1+icd(j,1)+3*icg(j,2)+9*icd(j,3)
-        icell(j,7)=1+icg(j,1)+3*icd(j,2)+9*icd(j,3)
-        icell(j,8)=1+icd(j,1)+3*icd(j,2)+9*icd(j,3)
-     end if
-  end do
-#endif
 
   ! Compute parent cell adresses
   do ind=1,twotondim
@@ -430,32 +371,9 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   end do
 
   ! Compute cloud volumes
-#if NDIM==1
   do j=1,np
-     vol(j,1)=dg(j,1)
-     vol(j,2)=dd(j,1)
+     vol(j,:)= cic_cloud_volumes(dg(j,:),dd(j,:))
   end do
-#endif
-#if NDIM==2
-  do j=1,np
-     vol(j,1)=dg(j,1)*dg(j,2)
-     vol(j,2)=dd(j,1)*dg(j,2)
-     vol(j,3)=dg(j,1)*dd(j,2)
-     vol(j,4)=dd(j,1)*dd(j,2)
-  end do
-#endif
-#if NDIM==3
-  do j=1,np
-     vol(j,1)=dg(j,1)*dg(j,2)*dg(j,3)
-     vol(j,2)=dd(j,1)*dg(j,2)*dg(j,3)
-     vol(j,3)=dg(j,1)*dd(j,2)*dg(j,3)
-     vol(j,4)=dd(j,1)*dd(j,2)*dg(j,3)
-     vol(j,5)=dg(j,1)*dg(j,2)*dd(j,3)
-     vol(j,6)=dd(j,1)*dg(j,2)*dd(j,3)
-     vol(j,7)=dg(j,1)*dd(j,2)*dd(j,3)
-     vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
-  end do
-#endif
 
   ! Boolean flag for classical tracers (velocity advected ones)
   ! Note: this is enough as the subroutine is only called if `MC_tracer` is false

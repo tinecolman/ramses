@@ -328,6 +328,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use pm_parameters, only:nlevelmax_sink
   use poisson_commons
   use hydro_commons, ONLY: mass_sph
+  use cic
   implicit none
   ! np = number of particles (usually nvector)
   ! ng = number of grids (or father cells) to which the input particles are attached 
@@ -470,24 +471,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! identifying number of the neighbor in the 3x3x3 grid-cube. We do this by
   ! converting igg(j,idim) and igd(j,idim) to the 1D index kg(j,ind)
   do j=1,np
-#if NDIM==1
-     kg(j,1)=1+igg(j,1)
-     kg(j,2)=1+igd(j,1)
-#elif NDIM==2
-     kg(j,1)=1+igg(j,1)+3*igg(j,2)
-     kg(j,2)=1+igd(j,1)+3*igg(j,2)
-     kg(j,3)=1+igg(j,1)+3*igd(j,2)
-     kg(j,4)=1+igd(j,1)+3*igd(j,2)
-#elif NDIM==3
-     kg(j,1)=1+igg(j,1)+3*igg(j,2)+9*igg(j,3)
-     kg(j,2)=1+igd(j,1)+3*igg(j,2)+9*igg(j,3)
-     kg(j,3)=1+igg(j,1)+3*igd(j,2)+9*igg(j,3)
-     kg(j,4)=1+igd(j,1)+3*igd(j,2)+9*igg(j,3)
-     kg(j,5)=1+igg(j,1)+3*igg(j,2)+9*igd(j,3)
-     kg(j,6)=1+igd(j,1)+3*igg(j,2)+9*igd(j,3)
-     kg(j,7)=1+igg(j,1)+3*igd(j,2)+9*igd(j,3)
-     kg(j,8)=1+igd(j,1)+3*igd(j,2)+9*igd(j,3)
-#endif
+     kg(j,:)=cic_cloud_3cube_grid_indices(igg(j,:),igd(j,:))
   end do
   do ind=1,twotondim
      do j=1,np
@@ -497,24 +481,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
   ! Compute the position ind of the cell in its grid (1 to twotondim)
   do j=1,np
-#if NDIM==1
-     icell(j,1)=1+icg(j,1)
-     icell(j,2)=1+icd(j,1)
-#elif NDIM==2
-     icell(j,1)=1+icg(j,1)+2*icg(j,2)
-     icell(j,2)=1+icd(j,1)+2*icg(j,2)
-     icell(j,3)=1+icg(j,1)+2*icd(j,2)
-     icell(j,4)=1+icd(j,1)+2*icd(j,2)
-#elif NDIM==3
-     icell(j,1)=1+icg(j,1)+2*icg(j,2)+4*icg(j,3)
-     icell(j,2)=1+icd(j,1)+2*icg(j,2)+4*icg(j,3)
-     icell(j,3)=1+icg(j,1)+2*icd(j,2)+4*icg(j,3)
-     icell(j,4)=1+icd(j,1)+2*icd(j,2)+4*icg(j,3)
-     icell(j,5)=1+icg(j,1)+2*icg(j,2)+4*icd(j,3)
-     icell(j,6)=1+icd(j,1)+2*icg(j,2)+4*icd(j,3)
-     icell(j,7)=1+icg(j,1)+2*icd(j,2)+4*icd(j,3)
-     icell(j,8)=1+icd(j,1)+2*icd(j,2)+4*icd(j,3)
-#endif
+     icell(j,:)=cic_cloud_cell_positions(icg(j,:),icd(j,:))
   end do
 
   ! Compute parent cell adress for the twotondim overlap regions of particle j
@@ -532,24 +499,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! Compute the twotondim cloud volumes (overlap of particle cloud with each
   ! cell) as rectangles, using dd and dg 
   do j=1,np
-#if NDIM==1
-     vol(j,1)=dg(j,1)
-     vol(j,2)=dd(j,1)
-#elif NDIM==2
-     vol(j,1)=dg(j,1)*dg(j,2)
-     vol(j,2)=dd(j,1)*dg(j,2)
-     vol(j,3)=dg(j,1)*dd(j,2)
-     vol(j,4)=dd(j,1)*dd(j,2)
-#elif NDIM==3
-     vol(j,1)=dg(j,1)*dg(j,2)*dg(j,3)
-     vol(j,2)=dd(j,1)*dg(j,2)*dg(j,3)
-     vol(j,3)=dg(j,1)*dd(j,2)*dg(j,3)
-     vol(j,4)=dd(j,1)*dd(j,2)*dg(j,3)
-     vol(j,5)=dg(j,1)*dg(j,2)*dd(j,3)
-     vol(j,6)=dd(j,1)*dg(j,2)*dd(j,3)
-     vol(j,7)=dg(j,1)*dd(j,2)*dd(j,3)
-     vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
-#endif
+     vol(j,:)= cic_cloud_volumes(dg(j,:),dd(j,:))
   end do
 
   !---------------------------------------------------------------------
@@ -886,6 +836,7 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
   use amr_commons
   use poisson_commons
   use hydro_commons, ONLY: unew
+  use cic
   implicit none
   integer::ngrid,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -994,32 +945,9 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
      end if
 
      ! Compute cloud volumes
-#if NDIM==1
      do j=1,np
-        vol(j,1)=dg(j,1)
-        vol(j,2)=dd(j,1)
+        vol(j,:)= cic_cloud_volumes(dg(j,:),dd(j,:))
      end do
-#endif
-#if NDIM==2
-     do j=1,np
-        vol(j,1)=dg(j,1)*dg(j,2)
-        vol(j,2)=dd(j,1)*dg(j,2)
-        vol(j,3)=dg(j,1)*dd(j,2)
-        vol(j,4)=dd(j,1)*dd(j,2)
-     end do
-#endif
-#if NDIM==3
-     do j=1,np
-        vol(j,1)=dg(j,1)*dg(j,2)*dg(j,3)
-        vol(j,2)=dd(j,1)*dg(j,2)*dg(j,3)
-        vol(j,3)=dg(j,1)*dd(j,2)*dg(j,3)
-        vol(j,4)=dd(j,1)*dd(j,2)*dg(j,3)
-        vol(j,5)=dg(j,1)*dg(j,2)*dd(j,3)
-        vol(j,6)=dd(j,1)*dg(j,2)*dd(j,3)
-        vol(j,7)=dg(j,1)*dd(j,2)*dd(j,3)
-        vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
-     end do
-#endif
 
      ! Compute parent grids
      do idim=1,ndim
@@ -1028,32 +956,9 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
            igd(j,idim)=id(j,idim)/2
         end do
      end do
-#if NDIM==1
      do j=1,np
-        kg(j,1)=1+igg(j,1)
-        kg(j,2)=1+igd(j,1)
+        kg(j,:)=cic_cloud_3cube_grid_indices(igg(j,:),igd(j,:))
      end do
-#endif
-#if NDIM==2
-     do j=1,np
-        kg(j,1)=1+igg(j,1)+3*igg(j,2)
-        kg(j,2)=1+igd(j,1)+3*igg(j,2)
-        kg(j,3)=1+igg(j,1)+3*igd(j,2)
-        kg(j,4)=1+igd(j,1)+3*igd(j,2)
-     end do
-#endif
-#if NDIM==3
-     do j=1,np
-        kg(j,1)=1+igg(j,1)+3*igg(j,2)+9*igg(j,3)
-        kg(j,2)=1+igd(j,1)+3*igg(j,2)+9*igg(j,3)
-        kg(j,3)=1+igg(j,1)+3*igd(j,2)+9*igg(j,3)
-        kg(j,4)=1+igd(j,1)+3*igd(j,2)+9*igg(j,3)
-        kg(j,5)=1+igg(j,1)+3*igg(j,2)+9*igd(j,3)
-        kg(j,6)=1+igd(j,1)+3*igg(j,2)+9*igd(j,3)
-        kg(j,7)=1+igg(j,1)+3*igd(j,2)+9*igd(j,3)
-        kg(j,8)=1+igd(j,1)+3*igd(j,2)+9*igd(j,3)
-     end do
-#endif
      do ind=1,twotondim
         do j=1,np
            igrid(j,ind)=son(nbors_father_cells(j,kg(j,ind)))
@@ -1067,32 +972,9 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
            icd(j,idim)=id(j,idim)-2*igd(j,idim)
         end do
      end do
-#if NDIM==1
      do j=1,np
-        icell(j,1)=1+icg(j,1)
-        icell(j,2)=1+icd(j,1)
+        icell(j,:)=cic_cloud_cell_positions(icg(j,:),icd(j,:))
      end do
-#endif
-#if NDIM==2
-     do j=1,np
-        icell(j,1)=1+icg(j,1)+2*icg(j,2)
-        icell(j,2)=1+icd(j,1)+2*icg(j,2)
-        icell(j,3)=1+icg(j,1)+2*icd(j,2)
-        icell(j,4)=1+icd(j,1)+2*icd(j,2)
-     end do
-#endif
-#if NDIM==3
-     do j=1,np
-        icell(j,1)=1+icg(j,1)+2*icg(j,2)+4*icg(j,3)
-        icell(j,2)=1+icd(j,1)+2*icg(j,2)+4*icg(j,3)
-        icell(j,3)=1+icg(j,1)+2*icd(j,2)+4*icg(j,3)
-        icell(j,4)=1+icd(j,1)+2*icd(j,2)+4*icg(j,3)
-        icell(j,5)=1+icg(j,1)+2*icg(j,2)+4*icd(j,3)
-        icell(j,6)=1+icd(j,1)+2*icg(j,2)+4*icd(j,3)
-        icell(j,7)=1+icg(j,1)+2*icd(j,2)+4*icd(j,3)
-        icell(j,8)=1+icd(j,1)+2*icd(j,2)+4*icd(j,3)
-     end do
-#endif
 
      ! Compute parent cell adress
      do ind=1,twotondim

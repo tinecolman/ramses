@@ -2789,6 +2789,7 @@ end subroutine read_sink_params
 subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
+  use cic
   implicit none
   integer::ng,np,ilevel
   integer ,dimension(1:nvector)::ind_grid,ind_grid_part
@@ -2890,14 +2891,7 @@ subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ileve
 
   ! Compute cloud volumes
   do j=1,np
-     vol(j,1)=dg(j,1)*dg(j,2)*dg(j,3)
-     vol(j,2)=dd(j,1)*dg(j,2)*dg(j,3)
-     vol(j,3)=dg(j,1)*dd(j,2)*dg(j,3)
-     vol(j,4)=dd(j,1)*dd(j,2)*dg(j,3)
-     vol(j,5)=dg(j,1)*dg(j,2)*dd(j,3)
-     vol(j,6)=dd(j,1)*dg(j,2)*dd(j,3)
-     vol(j,7)=dg(j,1)*dd(j,2)*dd(j,3)
-     vol(j,8)=dd(j,1)*dd(j,2)*dd(j,3)
+     vol(j,:)= cic_cloud_volumes(dg(j,:),dd(j,:))
   end do
 
   ! Compute parent grids
@@ -2908,14 +2902,7 @@ subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ileve
      end do
   end do
   do j=1,np
-     kg(j,1)=1+igg(j,1)+3*igg(j,2)+9*igg(j,3)
-     kg(j,2)=1+igd(j,1)+3*igg(j,2)+9*igg(j,3)
-     kg(j,3)=1+igg(j,1)+3*igd(j,2)+9*igg(j,3)
-     kg(j,4)=1+igd(j,1)+3*igd(j,2)+9*igg(j,3)
-     kg(j,5)=1+igg(j,1)+3*igg(j,2)+9*igd(j,3)
-     kg(j,6)=1+igd(j,1)+3*igg(j,2)+9*igd(j,3)
-     kg(j,7)=1+igg(j,1)+3*igd(j,2)+9*igd(j,3)
-     kg(j,8)=1+igd(j,1)+3*igd(j,2)+9*igd(j,3)
+     kg(j,:)=cic_cloud_3cube_grid_indices(igg(j,:),igd(j,:))
   end do
   do ind=1,twotondim
      do j=1,np
@@ -2943,14 +2930,7 @@ subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ileve
   end do
 
   do j=1,np
-     icell(j,1)=1+icg(j,1)+2*icg(j,2)+4*icg(j,3)
-     icell(j,2)=1+icd(j,1)+2*icg(j,2)+4*icg(j,3)
-     icell(j,3)=1+icg(j,1)+2*icd(j,2)+4*icg(j,3)
-     icell(j,4)=1+icd(j,1)+2*icd(j,2)+4*icg(j,3)
-     icell(j,5)=1+icg(j,1)+2*icg(j,2)+4*icd(j,3)
-     icell(j,6)=1+icd(j,1)+2*icg(j,2)+4*icd(j,3)
-     icell(j,7)=1+icg(j,1)+2*icd(j,2)+4*icd(j,3)
-     icell(j,8)=1+icd(j,1)+2*icd(j,2)+4*icd(j,3)
+     icell(j,:)=cic_cloud_cell_positions(icg(j,:),icd(j,:))
   end do
 
 
