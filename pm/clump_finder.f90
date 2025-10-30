@@ -1523,6 +1523,7 @@ subroutine tsc_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use poisson_commons
+  use tsc
   implicit none
   integer::ng,np,ilevel
   integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
@@ -1621,33 +1622,7 @@ subroutine tsc_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! Compute cloud volumes
   do j=1,np
      if(.not.abandoned(j)) then
-        vol(j,1 )=wl(j,1)*wl(j,2)*wl(j,3)
-        vol(j,2 )=wc(j,1)*wl(j,2)*wl(j,3)
-        vol(j,3 )=wr(j,1)*wl(j,2)*wl(j,3)
-        vol(j,4 )=wl(j,1)*wc(j,2)*wl(j,3)
-        vol(j,5 )=wc(j,1)*wc(j,2)*wl(j,3)
-        vol(j,6 )=wr(j,1)*wc(j,2)*wl(j,3)
-        vol(j,7 )=wl(j,1)*wr(j,2)*wl(j,3)
-        vol(j,8 )=wc(j,1)*wr(j,2)*wl(j,3)
-        vol(j,9 )=wr(j,1)*wr(j,2)*wl(j,3)
-        vol(j,10)=wl(j,1)*wl(j,2)*wc(j,3)
-        vol(j,11)=wc(j,1)*wl(j,2)*wc(j,3)
-        vol(j,12)=wr(j,1)*wl(j,2)*wc(j,3)
-        vol(j,13)=wl(j,1)*wc(j,2)*wc(j,3)
-        vol(j,14)=wc(j,1)*wc(j,2)*wc(j,3)
-        vol(j,15)=wr(j,1)*wc(j,2)*wc(j,3)
-        vol(j,16)=wl(j,1)*wr(j,2)*wc(j,3)
-        vol(j,17)=wc(j,1)*wr(j,2)*wc(j,3)
-        vol(j,18)=wr(j,1)*wr(j,2)*wc(j,3)
-        vol(j,19)=wl(j,1)*wl(j,2)*wr(j,3)
-        vol(j,20)=wc(j,1)*wl(j,2)*wr(j,3)
-        vol(j,21)=wr(j,1)*wl(j,2)*wr(j,3)
-        vol(j,22)=wl(j,1)*wc(j,2)*wr(j,3)
-        vol(j,23)=wc(j,1)*wc(j,2)*wr(j,3)
-        vol(j,24)=wr(j,1)*wc(j,2)*wr(j,3)
-        vol(j,25)=wl(j,1)*wr(j,2)*wr(j,3)
-        vol(j,26)=wc(j,1)*wr(j,2)*wr(j,3)
-        vol(j,27)=wr(j,1)*wr(j,2)*wr(j,3)
+        vol(j,:)=tsc_cloud_volumes(wl(j,:),wc(j,:),wr(j,:))
      end if
   end do
 
@@ -1663,33 +1638,7 @@ subroutine tsc_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   end do
   do j=1,np
      if(.not.abandoned(j)) then
-        kg(j,1 )=1+igl(j,1)+3*igl(j,2)+9*igl(j,3)
-        kg(j,2 )=1+igc(j,1)+3*igl(j,2)+9*igl(j,3)
-        kg(j,3 )=1+igr(j,1)+3*igl(j,2)+9*igl(j,3)
-        kg(j,4 )=1+igl(j,1)+3*igc(j,2)+9*igl(j,3)
-        kg(j,5 )=1+igc(j,1)+3*igc(j,2)+9*igl(j,3)
-        kg(j,6 )=1+igr(j,1)+3*igc(j,2)+9*igl(j,3)
-        kg(j,7 )=1+igl(j,1)+3*igr(j,2)+9*igl(j,3)
-        kg(j,8 )=1+igc(j,1)+3*igr(j,2)+9*igl(j,3)
-        kg(j,9 )=1+igr(j,1)+3*igr(j,2)+9*igl(j,3)
-        kg(j,10)=1+igl(j,1)+3*igl(j,2)+9*igc(j,3)
-        kg(j,11)=1+igc(j,1)+3*igl(j,2)+9*igc(j,3)
-        kg(j,12)=1+igr(j,1)+3*igl(j,2)+9*igc(j,3)
-        kg(j,13)=1+igl(j,1)+3*igc(j,2)+9*igc(j,3)
-        kg(j,14)=1+igc(j,1)+3*igc(j,2)+9*igc(j,3)
-        kg(j,15)=1+igr(j,1)+3*igc(j,2)+9*igc(j,3)
-        kg(j,16)=1+igl(j,1)+3*igr(j,2)+9*igc(j,3)
-        kg(j,17)=1+igc(j,1)+3*igr(j,2)+9*igc(j,3)
-        kg(j,18)=1+igr(j,1)+3*igr(j,2)+9*igc(j,3)
-        kg(j,19)=1+igl(j,1)+3*igl(j,2)+9*igr(j,3)
-        kg(j,20)=1+igc(j,1)+3*igl(j,2)+9*igr(j,3)
-        kg(j,21)=1+igr(j,1)+3*igl(j,2)+9*igr(j,3)
-        kg(j,22)=1+igl(j,1)+3*igc(j,2)+9*igr(j,3)
-        kg(j,23)=1+igc(j,1)+3*igc(j,2)+9*igr(j,3)
-        kg(j,24)=1+igr(j,1)+3*igc(j,2)+9*igr(j,3)
-        kg(j,25)=1+igl(j,1)+3*igr(j,2)+9*igr(j,3)
-        kg(j,26)=1+igc(j,1)+3*igr(j,2)+9*igr(j,3)
-        kg(j,27)=1+igr(j,1)+3*igr(j,2)+9*igr(j,3)
+        kg(j,:) = tsc_cloud_3cube_grid_indices(igl(j,:),igc(j,:),igr(j,:))
      end if
   end do
   do ind=1,threetondim
@@ -1710,33 +1659,7 @@ subroutine tsc_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   end do
   do j=1,np
      if(.not.abandoned(j)) then
-        icell(j,1 )=1+icl(j,1)+2*icl(j,2)+4*icl(j,3)
-        icell(j,2 )=1+icc(j,1)+2*icl(j,2)+4*icl(j,3)
-        icell(j,3 )=1+icr(j,1)+2*icl(j,2)+4*icl(j,3)
-        icell(j,4 )=1+icl(j,1)+2*icc(j,2)+4*icl(j,3)
-        icell(j,5 )=1+icc(j,1)+2*icc(j,2)+4*icl(j,3)
-        icell(j,6 )=1+icr(j,1)+2*icc(j,2)+4*icl(j,3)
-        icell(j,7 )=1+icl(j,1)+2*icr(j,2)+4*icl(j,3)
-        icell(j,8 )=1+icc(j,1)+2*icr(j,2)+4*icl(j,3)
-        icell(j,9 )=1+icr(j,1)+2*icr(j,2)+4*icl(j,3)
-        icell(j,10)=1+icl(j,1)+2*icl(j,2)+4*icc(j,3)
-        icell(j,11)=1+icc(j,1)+2*icl(j,2)+4*icc(j,3)
-        icell(j,12)=1+icr(j,1)+2*icl(j,2)+4*icc(j,3)
-        icell(j,13)=1+icl(j,1)+2*icc(j,2)+4*icc(j,3)
-        icell(j,14)=1+icc(j,1)+2*icc(j,2)+4*icc(j,3)
-        icell(j,15)=1+icr(j,1)+2*icc(j,2)+4*icc(j,3)
-        icell(j,16)=1+icl(j,1)+2*icr(j,2)+4*icc(j,3)
-        icell(j,17)=1+icc(j,1)+2*icr(j,2)+4*icc(j,3)
-        icell(j,18)=1+icr(j,1)+2*icr(j,2)+4*icc(j,3)
-        icell(j,19)=1+icl(j,1)+2*icl(j,2)+4*icr(j,3)
-        icell(j,20)=1+icc(j,1)+2*icl(j,2)+4*icr(j,3)
-        icell(j,21)=1+icr(j,1)+2*icl(j,2)+4*icr(j,3)
-        icell(j,22)=1+icl(j,1)+2*icc(j,2)+4*icr(j,3)
-        icell(j,23)=1+icc(j,1)+2*icc(j,2)+4*icr(j,3)
-        icell(j,24)=1+icr(j,1)+2*icc(j,2)+4*icr(j,3)
-        icell(j,25)=1+icl(j,1)+2*icr(j,2)+4*icr(j,3)
-        icell(j,26)=1+icc(j,1)+2*icr(j,2)+4*icr(j,3)
-        icell(j,27)=1+icr(j,1)+2*icr(j,2)+4*icr(j,3)
+        icell(j,:)=tsc_cloud_cell_positions(icl(j,:),icc(j,:),icr(j,:))
      end if
   end do
 
