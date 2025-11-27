@@ -53,6 +53,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::tp       ! Birth epoch
   real(dp),allocatable,dimension(:)    ::zp       ! Birth metallicity
   integer,  allocatable, dimension(:)  :: itmpp    ! Working array
+  integer,  allocatable, dimension(:)  :: itmpp2   ! Working array
   integer,  allocatable, dimension(:)  :: partp    ! Particle parent (for tracers only)
   integer ,allocatable,dimension(:)    ::nextp    ! Next particle in list
   integer ,allocatable,dimension(:)    ::prevp    ! Previous particle in list
@@ -63,7 +64,7 @@ module pm_commons
   integer ,allocatable,dimension(:)    ::tailp    ! Tail particle in grid
   integer ,allocatable,dimension(:)    ::numbp    ! Number of particles in grid
   ! Global particle linked lists
-  integer::headp_free,tailp_free,numbp_free=0,numbp_free_tot=0
+  integer::headp_free,tailp_free,numbp_free=0,numbp_free_tot=0,numbp_make=0
   ! Local and current seed for random number generator
   integer,dimension(IRandNumSize) :: localseed=-1
   integer, dimension(IRandNumSize) :: tracer_seed = -1

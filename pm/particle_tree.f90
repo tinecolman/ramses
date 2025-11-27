@@ -194,6 +194,7 @@ subroutine make_tree_fine(ilevel)
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,icpu
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
+  logical,dimension(1:nvector),save::ok
 
 !$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 
@@ -209,6 +210,10 @@ subroutine make_tree_fine(ilevel)
   if(ndim>1)skip_loc(2)=dble(jcoarse_min)
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
+  
+  itmpp=0
+  itmpp2=0
+  numbp_make=0
 
   ! Loop over cpus
 !$omp parallel private(icpu,igrid,ig,ip,jgrid,npart1,ipart,jpart,next_part)
@@ -258,6 +263,24 @@ subroutine make_tree_fine(ilevel)
   ! End loop over cpus
 !$omp end parallel
 
+  ok=.true.
+!$omp parallel private(ip,ipart)
+  ip=0
+!$omp do
+  do ipart=1,numbp_make
+     ip=ip+1
+     ind_part(ip)=itmpp2(ipart)
+     ind_grid_part(ip)=itmpp(ipart)
+     if(ip==nvector)then
+         call add_list(ind_part,ind_grid_part,ok,ip)
+         ip=0
+     end if
+  end do
+!$omp end do nowait
+  if(ip>0)call add_list(ind_part,ind_grid_part,ok,ip)
+!$omp end parallel
+
+
   ! Periodic boundaries
   if(sink)then
      do idim=1,ndim
@@ -288,7 +311,7 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! This routine is called by make_tree_fine.
   !-----------------------------------------------------------------------
   logical::error
-  integer::i,j,idim,nx_loc
+  integer::i,j,idim,nx_loc,numbp_local
   real(dp)::dx,xxx,scale
   real(dp),dimension(1:3)::xbound
   ! Grid-based arrays
@@ -391,7 +414,17 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      end if
   end do
   call remove_list(ind_part,list1,ok,np)
-  call add_list(ind_part,list2,ok,np)
+  !call add_list(ind_part,list2,ok,np)
+  do j=1,np
+    if(ok(j))then
+!$omp atomic capture
+        numbp_make=numbp_make+1
+        numbp_local=numbp_make
+!$omp end atomic
+        itmpp(numbp_local)=list2(j)
+        itmpp2(numbp_local)=ind_part(j)
+    end if
+  end do
 
 end subroutine check_tree
 !################################################################

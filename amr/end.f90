@@ -122,6 +122,8 @@ subroutine deallocate_pm
      if(allocated(mp)) deallocate(mp)
      if(allocated(vp)) deallocate(vp)
      if(allocated(xp)) deallocate(xp)
+     if(allocated(itmpp)) deallocate(itmpp)
+     if(allocated(itmpp2)) deallocate(itmpp2)
   endif
 
 end subroutine deallocate_pm
