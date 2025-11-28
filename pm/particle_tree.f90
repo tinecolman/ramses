@@ -211,8 +211,6 @@ subroutine make_tree_fine(ilevel)
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
   
-  itmpp=0
-  itmpp2=0
   numbp_make=0
 
   ! Loop over cpus
