@@ -261,6 +261,7 @@ subroutine make_tree_fine(ilevel)
   ! End loop over cpus
 !$omp end parallel
 
+  ! Attach particles to their new parent grids
   ok=.true.
 !$omp parallel private(ip,ipart)
   ip=0
@@ -277,7 +278,6 @@ subroutine make_tree_fine(ilevel)
 !$omp end do nowait
   if(ip>0)call add_list(ind_part,ind_grid_part,ok,ip)
 !$omp end parallel
-
 
   ! Periodic boundaries
   if(sink)then
@@ -413,6 +413,8 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   end do
   call remove_list(ind_part,list1,ok,np)
   !call add_list(ind_part,list2,ok,np)
+
+  ! Collect destination grids for particles in temporary arrays
   do j=1,np
     if(ok(j))then
 !$omp atomic capture
