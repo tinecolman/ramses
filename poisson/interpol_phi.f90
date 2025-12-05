@@ -89,13 +89,17 @@ subroutine save_phi_old(ilevel)
   integer ilevel
 
   !save the old potential for time extrapolation in case of subcycling
+  ! Common arrays affected:
+  !   in : phi
+  !   out: phi_old
 
   integer::i,ncache,ind,igrid,iskip,istart,ibound
   integer,allocatable,dimension(:)::ind_grid
 
   do ibound=1,nboundary+ncpu
      if(ibound<=ncpu)then
-        ncache=numbl(ibound,ilevel)
+        ncache=numbl(ibound,ilevel) ! TC: can't this go upto ngridmax?? 
+                                    !Why isn't this using a saved array of size nvector?
         istart=headl(ibound,ilevel)
      else
         ncache=numbb(ibound-ncpu,ilevel)

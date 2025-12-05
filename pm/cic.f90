@@ -2,7 +2,16 @@ module cic
    use amr_parameters, only:dp,nvector,ndim,twotondim
    implicit none
 
-   ! This module contains helper functions for the Cloud-in-cell scheme
+   !--------------------------------------------------------------------
+   ! Cloud-in-cell (CIC)
+   ! This technique is used for calculating the particle density on the grid.
+   ! In this scheme, a particle is considered to be a cloud with a cubic
+   ! volume of size dx**ndim. This cloud overlaps with 2**ndim grid cells.
+   ! To update the density field, we need to:
+   !   - determine the indices of the cells which overlap with the particle
+   !   - calculate the overlapping sub-volume of the particle cloud with each
+   !     of those cells.
+   !--------------------------------------------------------------------
 
 contains
 

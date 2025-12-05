@@ -20,11 +20,15 @@ subroutine rho_fine(ilevel,icount)
   ! the CIC or TSC scheme. Particles that are not entirely in
   ! level ilevel contribute also to the level density field
   ! (boundary particles) using buffer grids.
-  ! Array flag1, flag2 and phi are used as temporary work space.
   ! Array rho and cpu_map2 are stored with:
   ! - rho containing the Poisson source term
   ! - cpu_map2 containing the refinement map due to particle
   !   number density criterion (quasi Lagrangian mesh).
+  ! Common arrays affected:
+  !   in : 
+  !   inout: rho, unew
+  !   out: cpu_map2
+  !   Used as temporary work space: flag1, flag2, phi
   !------------------------------------------------------------------
   integer::iskip,icpu,ind,i,nx_loc,ibound,ind_cell
   real(dp)::dx,d_scale,scale,dx_loc,scalar
@@ -222,6 +226,8 @@ subroutine rho_from_current_level(ilevel)
   ! the CIC or TSC scheme from particles that are not entirely in
   ! level ilevel (boundary particles).
   ! Arrays flag1 and flag2 are used as temporary work space.
+  ! Common arrays affected:
+  !   inout: rho, rho_top, phi (contains mass refinement)
   !------------------------------------------------------------------
   integer::igrid,jgrid,ipart,jpart,idim,icpu
   integer::i,ig,ip,npart1
@@ -351,6 +357,8 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   ! - Calculate the sub-volume of the particle cloud with each of the
   !   overlapping cells
   ! - Update mass density (rho) and number density (stored in phi) fields
+  ! Common arrays affected:
+  !   inout: rho, rho_top, phi (contains mass refinement)
   !------------------------------------------------------------------
   logical::error
   integer::j,ind,idim,nx_loc
@@ -613,6 +621,11 @@ subroutine multipole_fine(ilevel)
   ! For pure particle runs, the restriction is not necessary and the
   ! routine only set rho to zero. On the other hand, for the Multigrid
   ! solver, the restriction is necessary in any case.
+  ! Common arrays affected:
+  !   in : 
+  !   inout: 
+  !   out:
+  !   Used as temporary work space: 
   !-------------------------------------------------------------------
   integer ::ind,i,ncache,igrid,ngrid,iskip,nx_loc
   integer ::idim,nleaf,nsplit,ix,iy,iz,iskip_son,ind_son,ind_grid_son,ind_cell_son
@@ -772,6 +785,9 @@ subroutine cic_from_multipole(ilevel)
   ! For pure particle runs, the restriction is not necessary and the
   ! routine only set rho to zero. On the other hand, for the Multigrid
   ! solver, the restriction is necessary in any case.
+  ! Common arrays used:
+  !   input: father, unew, xg
+  !   rho: reset to 0, then updated
   !-------------------------------------------------------------------
   integer::ind,i,icpu,ncache,ngrid,iskip,ibound,igrid
   integer,dimension(1:nvector),save::ind_grid
@@ -840,6 +856,9 @@ subroutine cic_cell(ind_grid,ngrid,ilevel)
   implicit none
   integer::ngrid,ilevel
   integer,dimension(1:nvector)::ind_grid
+  ! Common arrays used:
+  !   input: father, unew, xg
+  !   updated: rho
   !
   !
   integer::i,j,idim,ind_cell_son,iskip_son,np,ind_son,nx_loc,ind
@@ -1015,6 +1034,9 @@ subroutine tsc_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   integer::ng,np,ilevel
   integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
   real(dp),dimension(1:nvector,1:ndim)::x0
+  ! Common arrays used:
+  !   input: xp, mp
+  !   updated: rho, rho_top, phi (temp space) 
   !------------------------------------------------------------------
   ! This routine computes the density field at level ilevel using
   ! the TSC scheme. Only cells that are in level ilevel
@@ -1258,6 +1280,9 @@ subroutine tsc_cell(ind_grid,ngrid,ilevel)
   integer,dimension(1:nvector)::ind_grid
   !
   !
+  ! Common arrays:
+  !   input: unew
+  !   updated: rho 
   integer::i,j,idim,ind_cell_son,iskip_son,np,ind_son,nx_loc,ind
   integer ,dimension(1:nvector),save::ind_cell
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
