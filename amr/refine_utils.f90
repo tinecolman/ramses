@@ -696,6 +696,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
      end do
   end do
 
+!$omp critical
   ! Connect new grids to father cells
   do i=1,nn
      son(ind_cell(i))=ind_grid_son(i)
@@ -707,6 +708,55 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   ! Connect news grids to neighboring father cells
   call getnborgrids(ind_grid,igridn,nn)
   call getnborcells(igridn,ind,indn,nn)
+
+  ! Interpolate parent variables to get new children ones
+  if(.not.init .and. .not.balance)then
+     ! Get neighboring father cells
+     do i=1,nn
+        ind_fathers(i,0)=ind_cell(i)
+     end do
+     do j=1,twondim
+        do i=1,nn
+           ind_fathers(i,j)=indn(i,j)
+        end do
+     end do
+     !============================
+     ! Interpolate hydro variables
+     !============================
+     if(hydro)then
+        do j=0,twondim
+           ! Gather hydro variables
+           do ivar=1,nvar_all
+              do i=1,nn
+                 u1(i,j,ivar)=uold(ind_fathers(i,j),ivar)
+              end do
+           end do
+#ifdef SOLVERmhd
+           ! Gather son index
+           do i=1,nn
+              ind1(i,j)=son(ind_fathers(i,j))
+           end do
+#endif
+        end do
+        ! Interpolate
+#ifdef SOLVERmhd
+        call interpol_hydro(u1,ind1,u2,nn)
+#else
+        call interpol_hydro(u1,u2,nn)
+#endif
+        ! Scatter to children cells
+        do j=1,twotondim
+           iskip=ncoarse+(j-1)*ngridmax
+           do ivar=1,nvar_all
+              do i=1,nn
+                 uold(iskip+ind_grid_son(i),ivar)=u2(i,j,ivar)
+              end do
+           end do
+        end do
+     end if
+  end if
+!$omp end critical
+
   error=.false.
   do j=1,twondim
      do i=1,nn
@@ -840,49 +890,6 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
 
   ! Interpolate parent variables to get new children ones
   if(.not.init .and. .not.balance)then
-     ! Get neighboring father cells
-     do i=1,nn
-        ind_fathers(i,0)=father(ind_grid_son(i))
-     end do
-     do j=1,twondim
-        do i=1,nn
-           ind_fathers(i,j)=nbor(ind_grid_son(i),j)
-        end do
-     end do
-     !============================
-     ! Interpolate hydro variables
-     !============================
-     if(hydro)then
-        do j=0,twondim
-           ! Gather hydro variables
-           do ivar=1,nvar_all
-              do i=1,nn
-                 u1(i,j,ivar)=uold(ind_fathers(i,j),ivar)
-              end do
-           end do
-#ifdef SOLVERmhd
-           ! Gather son index
-           do i=1,nn
-              ind1(i,j)=son(ind_fathers(i,j))
-           end do
-#endif
-        end do
-        ! Interpolate
-#ifdef SOLVERmhd
-        call interpol_hydro(u1,ind1,u2,nn)
-#else
-        call interpol_hydro(u1,u2,nn)
-#endif
-        ! Scatter to children cells
-        do j=1,twotondim
-           iskip=ncoarse+(j-1)*ngridmax
-           do ivar=1,nvar_all
-              do i=1,nn
-                 uold(iskip+ind_grid_son(i),ivar)=u2(i,j,ivar)
-              end do
-           end do
-        enddo
-     end if
 #ifdef RT
      !============================
      ! Interpolate RT variables
