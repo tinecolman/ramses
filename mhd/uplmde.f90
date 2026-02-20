@@ -74,11 +74,14 @@ subroutine diffusion_fine(ilevel,dtdiff)
   integer::i,igrid,ncache,ngrid
   integer,dimension(1:nvector),save::ind_grid
 
+!$omp threadprivate(ind_grid)
+
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
   ! Loop over active grids by vector sweeps
   ncache=active(ilevel)%ngrid
+!$omp parallel do private(igrid,ngrid,i)
   do igrid=1,ncache,nvector
      ngrid=MIN(nvector,ncache-igrid+1)
      do i=1,ngrid
@@ -132,6 +135,8 @@ subroutine diffine1(ind_grid,ncache,dtdiff,ilevel)
   integer::ind_buffer1,ind_buffer2,ind_buffer3
   integer::ivar1,ivar2,ivar3,ivar4,ivar5,ivar6
   real(dp)::dx,dflux,weight,dflux_x,dflux_y,dflux_z,scale,dx_loc
+
+!$omp threadprivate(nbors_father_cells,ibuffer_father,B1,ind1,B2,ok,Bx,By,Bz,emfx,emfy,emfz,igrid_nbor,ind_cell,ind_buffer,exist_nbor)
 
   ! Mesh size at level ilevel in coarse cell units
   dx=0.5D0**ilevel
@@ -381,12 +386,18 @@ subroutine diffine1(ind_grid,ncache,dtdiff,ilevel)
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfx(i,1,1,1)+emfx(i,2,1,1))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar2)=unew(ind_buffer1,ivar2)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar5)=unew(ind_buffer2,ivar5)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar6)=unew(ind_buffer2,ivar6)-dflux
+!$omp atomic update
      unew(ind_buffer3,ivar3)=unew(ind_buffer3,ivar3)-dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer1,ivar6)=unew(ind_buffer1,ivar6)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer3,ivar5)=unew(ind_buffer3,ivar5)-dflux*0.5
      endif
 end do
@@ -403,12 +414,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfx(i,1,1,3)+emfx(i,2,1,3))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar6)=unew(ind_buffer1,ivar6)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar3)=unew(ind_buffer2,ivar3)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar5)=unew(ind_buffer2,ivar5)-dflux
+!$omp atomic update
      unew(ind_buffer3,ivar2)=unew(ind_buffer3,ivar2)-dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer1,ivar5)=unew(ind_buffer1,ivar5)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer3,ivar3)=unew(ind_buffer3,ivar3)+dflux*0.5
      endif
   end do
@@ -425,12 +442,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfx(i,1,3,3)+emfx(i,2,3,3))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar5)=unew(ind_buffer1,ivar5)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar2)=unew(ind_buffer2,ivar2)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar3)=unew(ind_buffer2,ivar3)+dflux
+!$omp atomic update
      unew(ind_buffer3,ivar6)=unew(ind_buffer3,ivar6)+dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar2)=unew(ind_buffer3,ivar2)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar3)=unew(ind_buffer1,ivar3)-dflux*0.5
      endif
   end do
@@ -447,12 +470,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfx(i,1,3,1)+emfx(i,2,3,1))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar3)=unew(ind_buffer1,ivar3)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar6)=unew(ind_buffer2,ivar6)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar2)=unew(ind_buffer2,ivar2)+dflux
+!$omp atomic update
      unew(ind_buffer3,ivar5)=unew(ind_buffer3,ivar5)+dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar6)=unew(ind_buffer3,ivar6)-dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar2)=unew(ind_buffer1,ivar2)-dflux*0.5
      endif
   end do
@@ -473,12 +502,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfy(i,1,1,1)+emfy(i,1,2,1))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar1)=unew(ind_buffer1,ivar1)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar4)=unew(ind_buffer2,ivar4)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar6)=unew(ind_buffer2,ivar6)+dflux
+!$omp atomic update
      unew(ind_buffer3,ivar3)=unew(ind_buffer3,ivar3)+dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar4)=unew(ind_buffer3,ivar4)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar6)=unew(ind_buffer1,ivar6)-dflux*0.5
      endif
   end do
@@ -495,12 +530,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfy(i,1,1,3)+emfy(i,1,2,3))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar6)=unew(ind_buffer1,ivar6)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar3)=unew(ind_buffer2,ivar3)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar4)=unew(ind_buffer2,ivar4)+dflux
+!$omp atomic update
      unew(ind_buffer3,ivar1)=unew(ind_buffer3,ivar1)+dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar3)=unew(ind_buffer3,ivar3)-dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar4)=unew(ind_buffer1,ivar4)-dflux*0.5
      endif
   end do
@@ -517,12 +558,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfy(i,3,1,3)+emfy(i,3,2,3))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar4)=unew(ind_buffer1,ivar4)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar1)=unew(ind_buffer2,ivar1)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar3)=unew(ind_buffer2,ivar3)-dflux
+!$omp atomic update
      unew(ind_buffer3,ivar6)=unew(ind_buffer3,ivar6)-dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar1)=unew(ind_buffer3,ivar1)-dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar3)=unew(ind_buffer1,ivar3)+dflux*0.5
      endif
   end do
@@ -539,12 +586,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfy(i,3,1,1)+emfy(i,3,2,1))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar3)=unew(ind_buffer1,ivar3)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar6)=unew(ind_buffer2,ivar6)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar1)=unew(ind_buffer2,ivar1)-dflux
+!$omp atomic update
      unew(ind_buffer3,ivar4)=unew(ind_buffer3,ivar4)-dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar3)=unew(ind_buffer3,ivar6)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar1)=unew(ind_buffer1,ivar1)+dflux*0.5
      endif
   end do
@@ -565,12 +618,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfz(i,1,1,1)+emfz(i,1,1,2))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar1)=unew(ind_buffer1,ivar1)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar4)=unew(ind_buffer2,ivar4)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar5)=unew(ind_buffer2,ivar5)-dflux
+!$omp atomic update
      unew(ind_buffer3,ivar2)=unew(ind_buffer3,ivar2)-dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar4)=unew(ind_buffer3,ivar4)-dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar5)=unew(ind_buffer1,ivar5)+dflux*0.5
      endif
   end do
@@ -587,12 +646,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfz(i,1,3,1)+emfz(i,1,3,2))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar5)=unew(ind_buffer1,ivar5)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar2)=unew(ind_buffer2,ivar2)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar4)=unew(ind_buffer2,ivar4)-dflux
+!$omp atomic update
      unew(ind_buffer3,ivar1)=unew(ind_buffer3,ivar1)-dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar2)=unew(ind_buffer3,ivar2)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar4)=unew(ind_buffer1,ivar4)+dflux*0.5
      endif
   end do
@@ -609,12 +674,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfz(i,3,3,1)+emfz(i,3,3,2))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar4)=unew(ind_buffer1,ivar4)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar1)=unew(ind_buffer2,ivar1)-dflux
+!$omp atomic update
      unew(ind_buffer2,ivar2)=unew(ind_buffer2,ivar2)+dflux
+!$omp atomic update
      unew(ind_buffer3,ivar5)=unew(ind_buffer3,ivar5)+dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar1)=unew(ind_buffer3,ivar1)+dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar2)=unew(ind_buffer1,ivar2)-dflux*0.5
      endif
   end do
@@ -631,12 +702,18 @@ end do
      if(son(ind_buffer1)>0.and.son(ind_buffer3)>0) cycle
      if(son(ind_buffer1)>0.or.son(ind_buffer2)>0.or.son(ind_buffer3)>0)weight=0.5
      dflux=(emfz(i,3,1,1)+emfz(i,3,1,2))*0.25*weight*dtdiff/dx_loc
+!$omp atomic update
      unew(ind_buffer1,ivar2)=unew(ind_buffer1,ivar2)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar5)=unew(ind_buffer2,ivar5)+dflux
+!$omp atomic update
      unew(ind_buffer2,ivar1)=unew(ind_buffer2,ivar1)+dflux
+!$omp atomic update
      unew(ind_buffer3,ivar4)=unew(ind_buffer3,ivar4)+dflux
      if(son(ind_buffer1)==0.and.son(ind_buffer2)==0.and.son(ind_buffer3)==0) then
+!$omp atomic update
         unew(ind_buffer3,ivar5)=unew(ind_buffer3,ivar5)-dflux*0.5
+!$omp atomic update
         unew(ind_buffer1,ivar1)=unew(ind_buffer1,ivar1)-dflux*0.5
      endif
   end do
