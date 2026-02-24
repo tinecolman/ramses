@@ -270,6 +270,208 @@ subroutine courant_fine(ilevel)
 111 format('   Entering courant_fine for level ',I2)
 
 end subroutine courant_fine
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+#ifdef NIMHD
+!extract nimhd part and put it in a separate routine cmpdt_nimhd
+subroutine cmpdt(uu,gg,dx,dt,ncell,dtambdiff,dtohmdiss,dthallbis)
+#else
+subroutine cmpdt(uu,gg,dx,dt,ncell)
+#endif
+  use amr_parameters
+  use hydro_parameters
+  use const
+#ifdef NIMHD
+  use nimhd_parameters
+#endif
+  implicit none
+  integer::ncell
+  real(dp)::dx,dt
+#ifdef NIMHD
+  real(dp)::dtambdiff,dtohmdiss,dthallbis    ! ambipolar, Ohmic and Hall diffusiom times
+  real(dp)::dtambdiffb,dtohmdissb,dthallb
+  real(dp)::xx,betaad
+  real(dp),dimension(1:nvector),save::rhoad
+  real(dp)::etaohmdiss
+  real(dp),dimension(1:nvector),save::tcell,ionisrate
+#if HALL==1
+  real(dp)::cw,cw1
+  real(dp)::eta_hall_chimie
+#endif
+#endif
+  real(dp),dimension(1:nvector,1:nvar+3)::uu
+  real(dp),dimension(1:nvector,1:ndim)::gg
+  real(dp),dimension(1:nvector),save::a2,B2,rho,ctot
+
+  real(dp)::dtcell,smallp,cf,cc,bc,bn
+  integer::k,idim
+#if NENER>0
+  integer::irad
+#endif
+
+  smallp = smallr*smallc**2/gamma
+
+  ! Convert to primitive variables
+  do k = 1,ncell
+     uu(k,1)=max(uu(k,1),smallr)
+     rho(k)=uu(k,1)
+#ifdef NIMHD
+     rhoad(k)=rho(k)
+     call ideal_gas_temperature(rho(k), uu(k,5), tcell(k))
+     ionisrate(k) = default_ionisrate
+#endif
+  end do
+  do idim = 1,3
+     do k = 1, ncell
+        uu(k,idim+1) = uu(k,idim+1)/rho(k)
+     end do
+  end do
+
+  do k = 1,ncell
+     B2(k)=zero
+  end do
+  do idim = 1,3
+     do k = 1, ncell
+        Bc = half*(uu(k,neul+idim)+uu(k,nvar+idim))
+        B2(k)=B2(k)+Bc**2
+        uu(k,neul) = uu(k,neul)-half*uu(k,1)*uu(k,idim+1)**2-half*Bc**2
+     end do
+  end do
+#if NENER>0
+  do irad = 1,nener
+     do k = 1, ncell
+        uu(k,neul) = uu(k,neul)-uu(k,nhydro+irad)
+     end do
+  end do
+#endif
+
+  ! Compute thermal sound speed
+  do k = 1, ncell
+     uu(k,neul) = max((gamma-one)*uu(k,neul),smallp)
+     a2(k)=gamma*uu(k,neul)/uu(k,1)
+  end do
+#if NENER>0
+  do irad = 1,nener
+     do k = 1, ncell
+        a2(k) = a2(k) + gamma_rad(irad)*(gamma_rad(irad)-1)*uu(k,nhydro+irad)/uu(k,1)
+     end do
+  end do
+#endif
+
+  ! Compute maximum wave speed (fast magnetosonic)
+  do k = 1, ncell
+     ctot(k)=zero
+  end do
+  if(ischeme.eq.1)then
+     do idim = 1,ndim   ! WARNING: ndim instead of 3
+        do k = 1, ncell
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))
+        end do
+     end do
+  else
+     do idim = 1,ndim   ! WARNING: ndim instead of 3
+        do k = 1, ncell
+           cc=half*(B2(k)/rho(k)+a2(k))
+           BN=half*(uu(k,5+idim)+uu(k,nvar+idim))
+           cf=sqrt(cc+sqrt(cc**2-a2(k)*BN**2/rho(k)))
+#if HALL==1
+           if(nhall) then
+             cw1=abs(eta_hall_chimie(rho(k),tcell(k),ionisrate(k),B2(k))/(2.0d0*dx)) ! Whistler wave speed
+             cw = cw1+sqrt(cw1**2+B2(k)/rho(k))                  ! Whistler wave speed
+           else
+             cw=0d0
+           end if
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf+cw
+#else
+           ctot(k)=ctot(k)+abs(uu(k,idim+1))+cf
+#endif
+        end do
+     end do
+  endif
+
+  ! Compute gravity strength ratio
+  do k = 1, ncell
+     rho(k)=zero
+  end do
+  do idim = 1,ndim
+     do k = 1, ncell
+        rho(k)=rho(k)+abs(gg(k,idim))
+     end do
+  end do
+  do k = 1, ncell
+     rho(k)=rho(k)*dx/ctot(k)**2
+     rho(k)=MAX(rho(k),0.0001_dp)
+  end do
+
+  ! Compute maximum time step for each authorized cell
+  dt = courant_factor*dx/smallc
+  do k = 1,ncell
+     dtcell=dx/ctot(k)*(sqrt(one+two*courant_factor*rho(k))-one)/rho(k)
+     dt = min(dt,dtcell)
+  end do
+
+#ifdef NIMHD
+  ! time step for non-ideal mhd
+
+  ! Hall effect - WARNING not working yet
+  if(.not.nhall) then
+     dthallbis=1d34
+  else
+     dthallbis=1d34
+#if HALL==1
+     do k = 1,ncell
+        xx=eta_hall_chimie(rhoad(k),tcell(k),ionisrate(k),B2(k))
+        if(xx.gt.0d0) then
+           dthallb=coefhall*dx*dx/xx
+        else
+           dthallb=1d34
+        endif
+        cw1=abs(xx)/(2.0d0*dx) ! Whistler wave speed
+        cw = cw1+sqrt(cw1**2+B2(k)/uu(k,1))                  ! Whistler wave speed
+        dthallb=coefhall*dx/cw
+        dthallbis=min(dthallbis,dthallb)      
+     end do
+#endif
+  endif
+
+  ! Ohmic dissipation
+  if (.not.nmagdiffu) then
+     dtohmdiss=1d35
+  else
+     dtohmdiss=1d35
+     do k = 1,ncell
+        xx=etaohmdiss(rhoad(k),B2(k),tcell(k),ionisrate(k))
+        if(xx.gt.0d0) then
+           dtohmdissb=coefohm*dx*dx/xx
+        else
+           dtohmdissb=1d35
+        endif
+        dtohmdiss=min(dtohmdissb,dtohmdiss)
+     end do
+  endif
+  
+  ! ambipolar diffusion
+  if (.not.nambipolar) then
+     dtambdiff=1d36
+  else
+     dtambdiff=1d36
+     do k = 1,ncell
+        xx=B2(k)*betaad(rhoad(k),B2(k),tcell(k),ionisrate(k)) 
+        if (xx.gt.0d0) then
+           !! WARNING RHOAD mandatory because rho(k) is not density cf lines above
+           dtambdiffb=coefad*dx*dx/xx
+        else
+           dtambdiffb=1d36
+        endif
+        dtambdiff=min(dtambdiffb,dtambdiff)
+     end do
+  endif
+
+#endif
+
+end subroutine cmpdt
 !#########################################################
 !#########################################################
 !#########################################################
@@ -352,7 +554,12 @@ subroutine velocity_fine(ilevel)
         end do
 
         ! Impose analytical velocity field
-        call velana(xx,vv,dx_loc,t,ngrid)
+        select case (condinit_kind)
+            case('ponomarenko')
+               call velana_ponomarenko(xx,vv,dx_loc,t,ngrid)
+            case default
+               call velana(xx,vv,dx_loc,t,ngrid)
+         end select
 
         ! Impose induction variables
         do i=1,ngrid
