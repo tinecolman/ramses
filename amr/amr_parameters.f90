@@ -116,7 +116,6 @@ module amr_parameters
   logical::output_now=.false.    ! write output next step
   real(dp)::walltime_hrs=-1      ! Wallclock time for submitted job
   real(dp)::minutes_dump=1       ! Dump an output minutes before walltime ends
-  logical::write_conservative=.false. ! if .true., uold is dumped in the outputs
   logical::finish_run=.false.! trigger cleanup after walltime end dump
   real(dp)::delta_tout=HUGE(1.0D0)         ! time difference between outputs
   real(dp)::delta_aout=HUGE(1.0D0)         ! expansion factor difference between outputs
