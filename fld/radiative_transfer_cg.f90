@@ -1207,7 +1207,7 @@ subroutine cmp_energy(Etype)
         dd=rho*scale_d
 
         eps = (uold(this,5)-ekin-emag-erad_loc)
-        if(energy_fix)eps = (uold(this,nvar)) !neil : comment this for radiative shock
+        !if(energy_fix)eps = (uold(this,nvar)) !neil : comment this for radiative shock
 
 
         Tp_loc = cmp_temp(this)
@@ -1290,7 +1290,7 @@ function cmp_temp(this)
      erad_loc = erad_loc + uold(this,8+igrp)
   enddo
   eps = (uold(this,5)-ekin-emag-erad_loc)
-  if(energy_fix)eps = (uold(this,nvar)) !neil : comment this for radiative shock
+  !if(energy_fix)eps = (uold(this,nvar)) !neil : comment this for radiative shock
      
   sum_dust =0.0d0
 #if NDUST>0

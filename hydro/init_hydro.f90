@@ -411,11 +411,11 @@ subroutine init_hydro
                        !if eos, update the total energy
                        do i=1,ncache
                           d=max(uold(ind_grid(i)+iskip,1),smallr)
-                          if(energy_fix) then
-                             e=uold(ind_grid(i)+iskip,nvar)
-                          else
+                          !if(energy_fix) then
+                          !   e=uold(ind_grid(i)+iskip,nvar)
+                          !else
                              call enerint_eos(d,xx(i),e)
-                          endif
+                          !endif
                           u=uold(ind_grid(i)+iskip,2)/d
                           v=uold(ind_grid(i)+iskip,3)/d
                           w=uold(ind_grid(i)+iskip,4)/d

@@ -21,8 +21,10 @@ NPRE = 8
 SOLVER = hydro
 # Patch
 PATCH =
-# Use RT? 1=Yes, 0=No
+# Use RT with M1? 1=Yes, 0=No
 RT = 0
+# Use RT with FLD? 1=Yes, 0=No
+USE_FLD=0
 # Use turbulence? 1=Yes, 0=No (requires fftw3)
 USE_TURB = 0
 # Use MPI? 1=Yes, 0=No
@@ -40,25 +42,18 @@ ATON = 0
 # Number of ions for RT
 # use 1 for HI+HII, +1 for added H2, +2 for added HeI, HeII, HeIII
 NIONS = 0
-# Number of photon groups for RT
+# Number of photon groups for RT with M1
 NGROUPS = 0
+# Number of photon groups for RT with FLD (stored in NENER)
+NGRP=0
 # Number of passive scalars
 NPSCAL = 0
 # Light MPI communicator structure (for > 10k MPI processes)
 LIGHT_MPI_COMM = 0
 
-# FLD stuff
-USE_FLD=0
-NGRP=0
-NDUST=0
-
 ifeq ($(USE_FLD),1)
    # Use nener for FLD radiation groups
    NENER:=$(NENER)+$(NGRP)
-   # keep track of ions as passive scalars
-   NPSCAL := $(NPSCAL)+$(NIONS)
-   # add a scalar for the internal energy
-   NPSCAL := $(NPSCAL)+1
 endif
 
 # Compute NVAR

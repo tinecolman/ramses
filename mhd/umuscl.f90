@@ -2274,7 +2274,7 @@ subroutine ctoprim(uin,q,bf,gravin,dt,ngrid)
               q(l,i,j,k,5)=MAX((gamma-one)*q(l,i,j,k,1)*eint,smallp)
 #else
               eint = eint*q(l,i,j,k,1)   ! volumic
-              if(energy_fix)eint=uin(l,i,j,k,nvar)
+              !if(energy_fix)eint=uin(l,i,j,k,nvar)
               call pressure_eos(uin(l,i,j,k,1),eint,pp_eos)
               q(l,i,j,k,5)=MAX(pp_eos,smallp)
 #endif

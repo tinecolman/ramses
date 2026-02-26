@@ -149,7 +149,7 @@ subroutine read_hydro_params(nml_ok)
         & ,rosseland_params,planck_params,epsilon_diff,fld_limiter &
         & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group  &
         & ,numin,numax,Tr_floor,robin,rad_trans_model,min_optical_depth,rt_feedback &
-        & ,PMS_evol,Hosokawa_track,energy_fix,facc_star,facc_star_lum,valp_min,store_matrix,external_radiation_field &
+        & ,PMS_evol,Hosokawa_track,facc_star,facc_star_lum,valp_min,store_matrix,external_radiation_field &
         & ,rt_protostar_fld,sublimation_kuiper,lum_injection &
         & ,sinks_opt_thin
 #endif
@@ -615,9 +615,9 @@ subroutine read_hydro_params(nml_ok)
      ek_bound=0.5d0*d_bound(i)*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
      em_bound=0.5d0*(A_bound(i)**2+B_bound(i)**2+C_bound(i)**2)
      boundary_var(i,5)=ek_bound+em_bound+er_bound+P_bound(i)/(gamma-1.0d0)
-#if USE_FLD==1
-     if(energy_fix)boundary_var(i,nvar)=P_bound(i)/(gamma-1.0d0)
-#endif
+!#if USE_FLD==1
+!     if(energy_fix)boundary_var(i,nvar)=P_bound(i)/(gamma-1.0d0)
+!#endif
 #else
 #if NDIM>1
      boundary_var(i,3)=d_bound(i)*v_bound(i)
@@ -647,9 +647,9 @@ subroutine read_hydro_params(nml_ok)
      end do
 #endif
      boundary_var(i,ndim+2)=boundary_var(i,ndim+2)+er_bound
-#if USE_FLD==1
-     if(energy_fix)boundary_var(i,nvar)=P_bound(i)/(gamma-1.0d0)
-#endif
+!#if USE_FLD==1
+!     if(energy_fix)boundary_var(i,nvar)=P_bound(i)/(gamma-1.0d0)
+!#endif
 
 #endif
   end do
@@ -668,7 +668,7 @@ subroutine read_hydro_params(nml_ok)
   inener=9 ! MUST BE THIS VALUE !!! RT variable
   imetal=firstindex_pscal+1
   lastindex_pscal=nvar
-  if(energy_fix)lastindex_pscal=nvar-1
+  !if(energy_fix)lastindex_pscal=nvar-1
 #endif
 
   !-------------------------------------------------------------

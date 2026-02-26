@@ -280,9 +280,9 @@ subroutine backup_hydro(filename, filename_desc)
               ! Write temperature
               do i=1,ncache
                  d=max(uold(ind_grid(i)+iskip,1),smallr)
-                 if(energy_fix) then
-                    e=uold(ind_grid(i)+iskip,nvar)
-                 else
+                 !if(energy_fix) then
+                 !   e=uold(ind_grid(i)+iskip,nvar)
+                 !else
                     u=uold(ind_grid(i)+iskip,2)/d
                     v=uold(ind_grid(i)+iskip,3)/d
                     w=uold(ind_grid(i)+iskip,4)/d
@@ -295,7 +295,7 @@ subroutine backup_hydro(filename, filename_desc)
                        e=e-uold(ind_grid(i)+iskip,8+irad)
                     end do
 #endif
-                 endif
+                 !endif
                  call temperature_eos(d,e,cmp_temp,ht)
                  xdp(i)=cmp_temp
               end do

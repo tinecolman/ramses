@@ -312,9 +312,9 @@ subroutine set_uold(ilevel)
            end if
 
            e_prim = uold(ind_cell,5)-e_kin-e_mag ! uncomment this for radiative shock
-           if(energy_fix)then
-              e_prim = uold(ind_cell,nvar)
-           end if
+           !if(energy_fix)then
+           !   e_prim = uold(ind_cell,nvar)
+           !end if
 #if USE_FLD==1
            ! Compute temperature for perfect gas to prevent crash in the interpolation routine of the EOS
            
@@ -343,10 +343,10 @@ subroutine set_uold(ilevel)
               uold(ind_cell,nvar)=e_prim
            end if
 #endif
-           if(energy_fix)then
-              uold(ind_cell,5)=e_prim+e_kin+e_mag
-              uold(ind_cell,nvar)=e_prim
-           end if
+           !if(energy_fix)then
+           !   uold(ind_cell,5)=e_prim+e_kin+e_mag
+           !   uold(ind_cell,nvar)=e_prim
+           !end if
 
         end do
      end if
@@ -667,7 +667,7 @@ subroutine add_pdv_source_terms(ilevel)
            ekin  = d*usquare/2.0
            ! Compute gas temperature in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
-           if(energy_fix)eps   = uold(ind_cell(i),nvar) 
+           !if(energy_fix)eps   = uold(ind_cell(i),nvar) 
            call temperature_eos(d,eps,Tp_loc,ht)
 
            ! Compute radiative pressure in all groups
@@ -886,7 +886,7 @@ subroutine add_pdv_source_terms(ilevel)
            ekin  = d*usquare/2.0
            ! Compute gas pressure in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
-           if(energy_fix)eps   = uold(ind_cell(i),nvar)
+          !if(energy_fix)eps   = uold(ind_cell(i),nvar)
            
            call pressure_eos(d,eps,pp_eos)
            do idim=1,ndim
@@ -2048,7 +2048,7 @@ if(fld)then
            ekin  = d*usquare/2.0
            ! Compute gas temperature in cgs
            eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
-           if(energy_fix)eps   = uold(ind_cell(i),nvar) ! comment this for radiative shock
+           !if(energy_fix)eps   = uold(ind_cell(i),nvar) ! comment this for radiative shock
            ! Compute gas temperature in cgs
            call temperature_eos(d,eps,Tp_loc,ht)
 
