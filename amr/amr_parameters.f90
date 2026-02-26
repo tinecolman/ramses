@@ -62,6 +62,7 @@ module amr_parameters
   logical::cosmo   =.false.   ! Cosmology activated
   logical::star    =.false.   ! Star formation activated
   logical::sink    =.false.   ! Sink particles activated
+  logical::stellar = .false.  ! stellar particles for sink feedback
   logical::rt      =.false.   ! Radiative transfer activated
   logical::debug   =.false.   ! Debug mode activated
   logical::static  =.false.   ! Static mode activated
@@ -96,7 +97,7 @@ module amr_parameters
   integer::nbileafnodes=2                  ! Max number of leaf (terminal) nodes
   real(dp)::bisec_tol=0.05d0               ! Tolerance for bisection load balancing
 
-  ! Step parameters
+                                 ! Step parameters
   integer::nrestart=0            ! New run or backup file number
   integer::nrestart_quad=0       ! Restart with double precision Hilbert keys
   real(dp)::trestart=0           ! Restart time
@@ -109,14 +110,21 @@ module amr_parameters
   ! Output parameters
   integer::iout=1                ! Increment for output times
   integer::ifout=1               ! Increment for output files
-  integer::iback=1               ! Increment for backup files
-  integer::noutput=1             ! Total number of outputs
+  integer::noutput=0             ! Total number of predefined outputs
   integer::foutput=1000000       ! Frequency of outputs
   logical::gadget_output=.false. ! Output in gadget format
   logical::output_now=.false.    ! write output next step
   real(dp)::walltime_hrs=-1      ! Wallclock time for submitted job
   real(dp)::minutes_dump=1       ! Dump an output minutes before walltime ends
   logical::write_conservative=.false. ! if .true., uold is dumped in the outputs
+  logical::finish_run=.false.! trigger cleanup after walltime end dump
+  real(dp)::delta_tout=HUGE(1.0D0)         ! time difference between outputs
+  real(dp)::delta_aout=HUGE(1.0D0)         ! expansion factor difference between outputs
+  real(dp),dimension(1:MAXOUT)::aout=HUGE(1.0D0)      ! Output expansion factors
+  real(dp),dimension(1:MAXOUT)::tout=HUGE(1.0D0)      ! Output times
+  real(dp)::tout_next=HUGE(1.0D0)     ! next output time using delta_tout
+  real(dp)::aout_next=HUGE(1.0D0)     ! next output expansion factor using delta_aout
+  logical::output_to_log=.true.  ! write output to log for 1D runs
 
   ! Lightcone parameters
   real(dp)::thetay_cone=12.5d0
@@ -149,6 +157,7 @@ module amr_parameters
   real(dp)::f_ek   =1                ! Supernovae kinetic energy fraction (only between 0 and 1)
   real(dp)::rbubble=0                ! Supernovae superbubble radius in pc
   real(dp)::f_w    =0                ! Supernovae mass loading factor
+  real(dp)::f_esn  =1                ! Supernovae energy in units of 1d51 erg
   integer ::ndebris=1                ! Supernovae debris particle number
   real(dp)::mass_gmc=-1              ! Stochastic exploding GMC mass
   real(dp)::z_ave  =0                ! Average metal abundance
@@ -168,6 +177,7 @@ module amr_parameters
   real(dp)::sf_trelax=0              ! Relaxation time for star formation (cosmo=.false. only)
   real(dp)::sf_tdiss=0               ! Dissipation timescale for subgrid turbulence in units of turbulent crossing time
   integer::sf_model=3                ! Virial star formation model
+  logical::randomize_sf=.true.       ! Use the poissdev stellar mass random drawing
   integer::nlevel_collapse=3         ! Number of levels to follow initial dark matter collapse (cosmo=.true. only)
   real(dp)::mass_star_max=120        ! Maximum mass of a star in solar mass
   real(dp)::mass_sne_min=10          ! Minimum mass of a single supernova in solar mass
@@ -216,7 +226,7 @@ module amr_parameters
   logical ::iso_jeans=.false.            ! activate isothermal sound speed Jeans length refinement criterion
   real(dp)::Tp_jeans = 10.0d0            ! Default temperature to activate iso_jeans
   logical ::cooling_ism = .false.      ! Use cooling module from Audit & Hennebelle 2005 (non-RT)
-                                        ! instead of ramses classical cooling 
+                                        ! instead of ramses classical cooling
 
   ! EOS parameters
   character(len=20)::barotropic_eos_form='legacy'  !Type of barotropic EOS: choose from:
@@ -232,10 +242,6 @@ module amr_parameters
   real(dp)::mu_gas=1d0                  ! molecular weight
   real(dp)::T2_eos=10                   ! = T/mu, used in the computations
   logical::eos=.false.                  ! non ideal gas EOS module activated
-
-  ! Output times
-  real(dp),dimension(1:MAXOUT)::aout=1.1d0      ! Output expansion factors
-  real(dp),dimension(1:MAXOUT)::tout=HUGE(1.0D0)! Output times
 
   ! Movie
   integer,parameter::NMOV=5
@@ -300,6 +306,9 @@ module amr_parameters
   real(dp)::mass_cut_refine=-1                   ! Mass threshold for particle-based refinement
   integer::ivar_refine=-1                        ! Variable index for refinement
   logical::sink_refine=.false.                   ! Fully refine on sink particles
+
+  ! Initial condition selection parameter
+  character(LEN=60)::condinit_kind ='region'
 
   ! Initial condition files for each level
   logical::multiple=.false.

@@ -7,7 +7,7 @@ ncontrol=100
 nsubcycle=4*1,
 /
 
-&AMR_PARAMS 
+&AMR_PARAMS
 levelmin=5
 levelmax=15
 ngridmax=10000
@@ -39,7 +39,6 @@ C_region=0.0,0.141120
 /
 
 &OUTPUT_PARAMS
-foutput=1000000
 noutput=1
 tout=0.4
 /
@@ -47,17 +46,15 @@ tout=0.4
 &HYDRO_PARAMS
 gamma=1.6666667
 courant_factor=0.8
-slope_type=0
+slope_type=1
 riemann='hlld'
+riemann2d='hlld'
 /
 
-&REFINE_PARAMS 
+&REFINE_PARAMS
 err_grad_d=0.01
 err_grad_u=0.05
 err_grad_p=0.05
 interpol_var=0
 interpol_type=2
 /
-
-
-

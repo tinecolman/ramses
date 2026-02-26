@@ -15,10 +15,16 @@ module pm_parameters
 
   integer::ir_cloud=4                        ! Radius of cloud region in unit of grid spacing (i.e. the ACCRETION RADIUS)
   integer::ir_cloud_massive=4                ! Radius of massive cloud region in unit of grid spacing for PM sinks
+  logical:: cloud_pts_check = .false.        ! If true, build a list of ranks (5^3 cloud points) per sink;
+                                             !ranks not in the list skip all cloud particle checks for that sink
+  integer:: cloud_check_validity_frequency=0 ! Frequency (in main time steps) to test if 5^3 cloud point ranks cover all relevant particle ranks
+
   real(dp)::sink_soft=2                      ! Sink grav softening length in dx at levelmax for "direct force" sinks
   real(dp)::mass_sink_direct_force=-1        ! mass above which sinks are treated as "direct force" objects
+  integer::nlevelmax_sink=0                  ! HACK to put sinks at coarser level (for sims which are not fully refined)
 
   logical::create_sinks=.false.              ! turn formation of new sinks on
+  logical::check_energies=.true.             ! when flagging clumps for sink formation, check whether their gravitational energy is dominant
 
   real(dp)::merging_timescale=-1             ! time during which sinks are considered for merging (only when 'timescale' is used),
                                              ! used also as contraction timescale in creation
@@ -38,6 +44,7 @@ module pm_parameters
   logical::clump_core=.false.                ! Trims the clump (for star formation)
   logical::verbose_AGN=.false.               ! Controls print verbosity for the SMBH case
   real(dp)::acc_sink_boost=1                 ! Boost coefficient for accretion
+  real(dp)::eddington_cap=1                  ! Set the accretion cap in units of the Eddington limit
 
   real(dp)::AGN_fbk_frac_ener=1              ! Fraction of AGN feedback released as thermal blast
   real(dp)::AGN_fbk_frac_mom=0               ! Fraction of AGN feedback released as momentum injection
@@ -45,6 +52,7 @@ module pm_parameters
   real(dp)::T2_min=1d7                      ! Minimum temperature of the gas to trigger AGN blast; in K
   real(dp)::T2_max=1d9                      ! Maximum allowed temperature of the AGN blast; in K
   real(dp)::T2_AGN=1d12                     ! AGN blast temperature; in K
+  real(dp)::v_max=2000                      ! Maximum allowed velocity of the AGN jet; in km/s
 
   real(dp)::cone_opening=180d0              ! Outflow cone opening angle; in deg
   real(dp)::epsilon_kin=1                    ! Efficiency of kinetic feedback

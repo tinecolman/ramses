@@ -12,6 +12,10 @@ subroutine backup_hydro(filename, filename_desc)
 
   integer :: i, ivar, ncache, ind, ilevel, igrid, iskip, istart, ibound
   integer :: unit_out, unit_info
+  real(dp) :: d
+#ifdef SOLVERmhd
+  real(dp) :: A, B, C
+#endif
   integer, allocatable, dimension(:) :: ind_grid
   real(dp), allocatable, dimension(:) :: xdp
   character(LEN = 5) :: nchar
@@ -23,6 +27,12 @@ subroutine backup_hydro(filename, filename_desc)
   logical :: dump_info_flag
   integer :: info_var_count
   character(len=100) :: field_name
+
+!#if USE_FLD==1
+  real(dp)::cmp_temp,p
+  integer::ht
+!#endif
+  
 
   if (verbose) write(*,*)'Entering backup_hydro'
 
@@ -52,10 +62,15 @@ subroutine backup_hydro(filename, filename_desc)
 
   write(unit_out) ncpu
   if(strict_equilibrium>0)then
-     write(unit_out) nvar+2
+     write(unit_out) nvar_all+2
   else
-     write(unit_out) nvar
+     write(unit_out) nvar_all
   endif
+#if USE_FLD==0
+     write(unit_out) nvar_all
+#else
+     write(unit_out) nvar_all+1
+#endif
   write(unit_out) ndim
   write(unit_out) nlevelmax
   write(unit_out) nboundary
@@ -82,14 +97,14 @@ subroutine backup_hydro(filename, filename_desc)
            ! Loop over cells
            do ind = 1, twotondim
               iskip = ncoarse+(ind-1)*ngridmax
-              do ivar = 1, ndim+1
+              do ivar = 1, neul-1
                  if (ivar == 1) then
                     ! Write density
                     do i = 1, ncache
                        xdp(i) = uold(ind_grid(i)+iskip, 1)
                     end do
                     field_name = 'density'
-                 else if (ivar >= 2 .and. ivar <= ndim+1) then
+                 else
                     ! Write velocity field
                     do i = 1, ncache
                        xdp(i) = uold(ind_grid(i)+iskip, ivar)/max(uold(ind_grid(i)+iskip, 1), smallr)
@@ -98,48 +113,207 @@ subroutine backup_hydro(filename, filename_desc)
                  end if
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
+#ifdef SOLVERmhd
+              do ivar = 6, 8 ! Write left B field
+                 do i = 1, ncache
+                    xdp(i) = uold(ind_grid(i)+iskip, ivar)
+                 end do
+                 field_name = 'B_' // dim_keys(ivar - 6 + 1) // '_left'
+                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              end do
+              do ivar = nvar+1, nvar+3 ! Write right B field
+                 do i = 1, ncache
+                    xdp(i) = uold(ind_grid(i)+iskip, ivar)
+                 end do
+                 field_name = 'B_' // dim_keys(ivar - (nvar+1) + 1) // '_right'
+                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              end do
+#endif
+#if USE_FLD==0
 #if NENER > 0
               ! Write non-thermal pressures
-              do ivar = ndim+3, ndim+2+nener
+              do ivar = nhydro+1, nhydro+nener
                  do i = 1, ncache
-                    xdp(i) = (gamma_rad(ivar-ndim-2)-1d0)*uold(ind_grid(i)+iskip, ivar)
+                    xdp(i) = (gamma_rad(ivar-nhydro)-1d0)*uold(ind_grid(i)+iskip, ivar)
                  end do
-                 write(field_name, '("non_thermal_energy_", i0.2)') ivar-3
+                 write(field_name, '("non_thermal_pressure_", i0.2)') ivar-nhydro
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
 #endif
               ! Write thermal pressure
               do i = 1, ncache
-                 xdp(i) = uold(ind_grid(i)+iskip, ndim+2)
-                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 2)**2/max(uold(ind_grid(i)+iskip, 1), smallr)
-#if NDIM > 1
-                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 3)**2/max(uold(ind_grid(i)+iskip, 1), smallr)
+                 d = max(uold(ind_grid(i)+iskip, 1), smallr)
+                 xdp(i) = uold(ind_grid(i)+iskip, neul)
+                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 2)**2/d
+#if NDIM > 1 || SOLVERmhd
+                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 3)**2/d
 #endif
-#if NDIM > 2
-                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 4)**2/max(uold(ind_grid(i)+iskip, 1), smallr)
+#if NDIM > 2 || SOLVERmhd
+                 xdp(i) = xdp(i)-0.5d0*uold(ind_grid(i)+iskip, 4)**2/d
+#endif
+#ifdef SOLVERmhd
+                 A = 0.5d0*(uold(ind_grid(i)+iskip, 6)+uold(ind_grid(i)+iskip, nvar+1))
+                 B = 0.5d0*(uold(ind_grid(i)+iskip, 7)+uold(ind_grid(i)+iskip, nvar+2))
+                 C = 0.5d0*(uold(ind_grid(i)+iskip, 8)+uold(ind_grid(i)+iskip, nvar+3))
+                 xdp(i) = xdp(i) - 0.5*(A**2+B**2+C**2)
 #endif
 #if NENER > 0
                  do irad = 1, nener
-                    xdp(i) = xdp(i)-uold(ind_grid(i)+iskip, ndim+2+irad)
+                    xdp(i) = xdp(i)-uold(ind_grid(i)+iskip, nhydro+irad)
                  end do
 #endif
                  xdp(i) = (gamma-1d0)*xdp(i)
               end do
               field_name = 'pressure'
               call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-#if NVAR > NDIM+2+NENER
-              ! Write passive scalars
-              do ivar = ndim+3+nener, nvar
+#if NVAR > NHYDRO+NENER
+              ! Write passive scalars if any
+              do ivar = nhydro+1+nener, nvar
                  do i = 1, ncache
                     xdp(i) = uold(ind_grid(i)+iskip, ivar)/max(uold(ind_grid(i)+iskip, 1), smallr)
                  end do
                  if (metal .and. imetal == ivar) then
                     field_name = 'metallicity'
                  else
-                    write(field_name, '("scalar_", i0.2)') ivar - ndim - 3 - nener
+                    write(field_name, '("scalar_", i0.2)') ivar - nhydro - 1 - nener
                  end if
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
+#endif
+#else
+#if NENER>NGRP
+              ! Write non-thermal pressures
+              if(write_conservative) then
+                 do ivar=1,nent
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,8+ivar)
+                    end do
+                    write(field_name, '("non_thermal_energy_", i0.2)') ivar-8
+                    call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+                 end do
+              else
+                 !do ivar = 9, 8+nener
+                 do ivar=1,nent
+                    do i = 1, ncache
+                       xdp(i) = (gamma_rad(ivar-8)-1d0)*uold(ind_grid(i)+iskip, ivar)
+                    end do
+                    write(field_name, '("non_thermal_pressure_", i0.2)') ivar-8
+                    call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+                 end do
+              endif
+#endif
+              if(write_conservative) then
+                 do i=1,ncache ! Write total energy
+                    xdp(i)=uold(ind_grid(i)+iskip,5)
+                 enddo
+                 field_name = 'total_energy'
+                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              else
+              do i = 1, ncache ! Write thermal pressure
+                 d = max(uold(ind_grid(i)+iskip, 1), smallr)
+                 u = uold(ind_grid(i)+iskip, 2)/d
+                 v = uold(ind_grid(i)+iskip, 3)/d
+                 w = uold(ind_grid(i)+iskip, 4)/d
+                 A = 0.5*(uold(ind_grid(i)+iskip, 6)+uold(ind_grid(i)+iskip, nvar+1))
+                 B = 0.5*(uold(ind_grid(i)+iskip, 7)+uold(ind_grid(i)+iskip, nvar+2))
+                 C = 0.5*(uold(ind_grid(i)+iskip, 8)+uold(ind_grid(i)+iskip, nvar+3))
+                 e = uold(ind_grid(i)+iskip, 5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+#if NENER > 0
+                 do irad = 1, nener
+                    e = e-uold(ind_grid(i)+iskip, 8+irad)
+                 end do
+#endif
+                 !xdp(i) = (gamma-1d0)*e
+                 call pressure_eos(d,e,p)
+                 xdp(i) = p
+              end do
+              field_name = 'pressure'
+              call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              endif
+!!$#if NVAR > 8+NENER
+!!$              do ivar = 9+nener, nvar ! Write passive scalars if any
+!!$                 do i = 1, ncache
+!!$                    xdp(i) = uold(ind_grid(i)+iskip, ivar)/max(uold(ind_grid(i)+iskip, 1), smallr)
+!!$                 end do
+!!$                 if (imetal == ivar) then
+!!$                    field_name = 'metallicity'
+!!$                 else
+!!$                    write(field_name, '("scalar_", i0.2)') ivar - 9-nener
+!!$                 end if
+!!$                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+!!$              end do
+!!$#endif
+#if NGRP>0
+              do ivar=1,ngrp ! Write radiative energy if any
+                 do i=1,ncache
+                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_er+ivar)
+                 end do
+                 write(field_name, '("radiative_energy_", i0.2)') ivar
+                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              end do
+!!$#if USE_M_1==1
+!!$              do ivar=1,nfr ! Write radiative flux if any
+!!$                 do i=1,ncache
+!!$                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_fr+ivar)
+!!$                 end do
+!!$                 write(field_name, '("radiative_energy_", i0.2)') firstindex_er+3+ivar
+!!$                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+!!$                 write(ilun)xdp
+!!$              end do
+!!$#endif
+#endif
+#if NPSCAL>0
+              if(write_conservative) then
+                 do ivar=1,npscal-1 ! Write conservative passive scalars if any
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)
+                    end do
+                    write(field_name, '("scalar_cons_", i0.2)') ivar
+                    call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+                 end do
+              else
+                 do ivar=1,npscal-1 ! Write passive scalars if any
+                    do i=1,ncache
+                       xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+ivar)/max(uold(ind_grid(i)+iskip,1),smallr)
+                    end do
+                    write(field_name, '("scalar_", i0.2)') ivar
+                    call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+                 end do
+              endif
+              
+              ! Write internal energy
+              do i=1,ncache
+                 xdp(i)=uold(ind_grid(i)+iskip,firstindex_pscal+npscal)
+              end do
+              field_name = 'internal_energy'
+              call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              
+#endif
+              
+              ! Write temperature
+              do i=1,ncache
+                 d=max(uold(ind_grid(i)+iskip,1),smallr)
+                 if(energy_fix) then
+                    e=uold(ind_grid(i)+iskip,nvar)
+                 else
+                    u=uold(ind_grid(i)+iskip,2)/d
+                    v=uold(ind_grid(i)+iskip,3)/d
+                    w=uold(ind_grid(i)+iskip,4)/d
+                    A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
+                    B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
+                    C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
+                    e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
+#if NENER>0
+                    do irad=1,nener
+                       e=e-uold(ind_grid(i)+iskip,8+irad)
+                    end do
+#endif
+                 endif
+                 call temperature_eos(d,e,cmp_temp,ht)
+                 xdp(i)=cmp_temp
+              end do
+              field_name = 'temperature'
+              call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
 #endif
               if(strict_equilibrium>0)then
                  do i = 1, ncache

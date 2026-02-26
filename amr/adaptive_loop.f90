@@ -33,8 +33,7 @@ subroutine adaptive_loop
   call init_time                     ! Initialize time variables
   if(hydro)call init_hydro           ! Initialize hydro variables
 #ifdef RT
-  if(rt.or.neq_chem) &
-       & call rt_init_hydro          ! Initialize radiation variables
+  if(rt.or.neq_chem) call rt_init_hydro ! Initialize radiation variables
 #endif
   if(poisson)call init_poisson       ! Initialize poisson variables
 #ifdef ATON
@@ -45,15 +44,15 @@ subroutine adaptive_loop
 #endif
   if(nrestart==0)call init_refine    ! Build initial AMR grid
 
+  ! Initialize cooling look up table
 #ifdef grackle
   if(use_grackle==0)then
-     if(cooling.and..not.neq_chem.and..not.cooling_ism) &
-        call set_table(dble(aexp))    ! Initialize cooling look up table
+     if(cooling.and..not.neq_chem.and..not.cooling_ism) call set_table(dble(aexp))
   endif
 #else
-  if(cooling.and..not.neq_chem.and..not.cooling_ism) &
-       call set_table(dble(aexp))    ! Initialize cooling look up table
+  if(cooling.and..not.neq_chem.and..not.cooling_ism) call set_table(dble(aexp))
 #endif
+
   if(pic)call init_part              ! Initialize particle variables
   if(pic)call init_tree              ! Initialize particle tree
   if(nrestart==0)call init_refine_2  ! Build initial AMR grid again
@@ -100,17 +99,9 @@ subroutine adaptive_loop
            call build_comm(ilevel)
            call make_virtual_fine_int(cpu_map(1),ilevel)
            if(hydro)then
-#ifdef SOLVERmhd
-              do ivar=1,nvar+3
-#else
-              do ivar=1,nvar
-#endif
+              do ivar=1,nvar_all
                  call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
               end do
-#else
-              end do
-#endif
               if(momentum_feedback>0)call make_virtual_fine_dp(pstarold(1),ilevel)
               if(strict_equilibrium>0)call make_virtual_fine_dp(rho_eq(1),ilevel)
               if(strict_equilibrium>0)call make_virtual_fine_dp(p_eq(1),ilevel)
@@ -149,17 +140,9 @@ subroutine adaptive_loop
            ! Hydro book-keeping
            if(hydro)then
               call upload_fine(ilevel)
-#ifdef SOLVERmhd
-              do ivar=1,nvar+3
-#else
-              do ivar=1,nvar
-#endif
+              do ivar=1,nvar_all
                  call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
               end do
-#else
-              end do
-#endif
               if(momentum_feedback>0)call make_virtual_fine_dp(pstarold(1),ilevel)
               if(strict_equilibrium>0)call make_virtual_fine_dp(rho_eq(1),ilevel)
               if(strict_equilibrium>0)call make_virtual_fine_dp(p_eq(1),ilevel)
@@ -218,6 +201,7 @@ subroutine adaptive_loop
            dumpsec = minutes_dump*60       ! Convert minutes before end to seconds
            if(wallsec-dumpsec.lt.tt2-tstart) then
               output_now=.true.
+              finish_run=.true.
               if(myid==1) write(*,*) 'Dumping snapshot before walltime runs out'
               ! Now set walltime to a negative number so we don't keep printing outputs
               walltime_hrs = -1d0

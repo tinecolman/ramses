@@ -1,7 +1,7 @@
 
 subroutine clean_end
   !---------------------------
-  ! Properly end the run. 
+  ! Properly end the run.
   !---------------------------
   use mpi_mod
   implicit none
@@ -76,6 +76,9 @@ subroutine deallocate_amr
      deallocate(active)
   endif
   if(allocated(emission)) deallocate(emission)
+#ifdef LIGHT_MPI_COMM
+  if(allocated(emission_part)) deallocate(emission_part)
+#endif
   if(allocated(reception)) deallocate(reception)
   !
   if(allocated(father)) deallocate(father)
@@ -131,11 +134,11 @@ subroutine deallocate_poisson
   if(allocated(safe_mode)) deallocate(safe_mode)
   if(allocated(active_mg)) deallocate(active_mg)
   if(allocated(emission_mg)) deallocate(emission_mg)
-  
+
   ! cell-centred variables
   if(allocated(rho)) deallocate(rho)
   if(allocated(phi)) deallocate(phi)
   if(allocated(phi_old)) deallocate(phi_old)
   if(allocated(f)) deallocate(f)
 
-end subroutine deallocate_poisson 
+end subroutine deallocate_poisson

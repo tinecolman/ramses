@@ -26,7 +26,7 @@ module constants
   real(dp),parameter ::mH           = 1.6600000d-24 ! H atom mass [g] = amu, i.e. atomic mass unit; NIST
   real(dp),parameter:: a_r=7.56591469318689378e-015_dp
 #endif
-  real(dp),parameter ::factG_in_cgs = 6.6740800d-08 ! Gravitational const. [cm3 kg-1 s-2]; NIST
+  real(dp),parameter ::factG_in_cgs = 6.6740800d-08 ! Gravitational const. [cm3 g-1 s-2]; NIST
   real(dp),parameter ::sigma_T      = 6.6524587d-25 ! Thomson scattering cross-section [cm2]; NIST
   real(dp),parameter ::M_sun        = 1.9891000d+33 ! Solar Mass [g]; IAU
   real(dp),parameter ::L_sun        = 3.8280000d+33 ! Solar Lum [erg s-1]; IAU

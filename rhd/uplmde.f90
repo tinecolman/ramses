@@ -43,8 +43,8 @@ subroutine tracex(q,dq,c, qm,qp,dx,dt,ngrid)
 !!!!
   entho = gamma/(gamma-one)
 
-  if (eos .eq. 'TM') then
-     write(*,*),'plmde does not work with TM eos, switch to a MUSCL scheme of change the EOS'
+  if (eos_rhd .eq. 'TM') then
+     write(*,*),'plmde does not work with TM eos_rhd, switch to a MUSCL scheme of change the eos_rhd'
      stop
   endif
 
@@ -380,7 +380,7 @@ subroutine tracexy(q,dq,c,qm,qp,dx,dy,dt,ngrid)
   end do
 
   ! Passive scalars
-  do n = ndim+3, nvar
+  do n = nhydro+1, nvar
      do k = klo, khi
         do j = jlo, jhi
            do i = ilo, ihi
@@ -590,7 +590,7 @@ subroutine tracexyz(q,dq,c,qm,qp,dx,dy,dz,dt,ngrid)
   end do
 
   ! Passive scalars
-  do n = ndim+3, nvar
+  do n = nhydro+1, nvar
      do k = klo, khi
         do j = jlo, jhi
            do i = ilo, ihi

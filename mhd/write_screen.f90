@@ -190,8 +190,8 @@ subroutine write_screen
 #if USE_FLD==0
 #if NENER>0
                     do irad=1,nener
-                       ei(icell)=ei(icell)-uold(ind_cell(i),8+irad)
-                       prad(icell,irad)=(gamma_rad(irad)-1.0d0)*uold(ind_cell(i),8+irad)
+                       ei(icell)=ei(icell)-uold(ind_cell(i),nhydro+irad)
+                       prad(icell,irad)=(gamma_rad(irad)-1.0d0)*uold(ind_cell(i),nhydro+irad)
                     end do
 #endif
 #else

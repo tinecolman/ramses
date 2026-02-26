@@ -54,7 +54,7 @@ program amr2cylprof
   integer::id=1,iu=2,iv=3,iw=4,iu2=5,iv2=6,iw2=7,ip=8
   integer::ia=9,ib=10,ic=11,ia2=12,ib2=13,ic2=14,ipm=15
   integer::nvarin=5,ivartemp=5
-  
+
   call read_params
   if(mhd)then
      write(*,*)'MHD mode active'
@@ -151,7 +151,7 @@ program amr2cylprof
   write(*,*)ymin,ymax
   write(*,*)zmin,zmax
 
-  ncell=2000000
+  ncell=10000000
   allocate(x(1:ncell),y(1:ncell),z(1:ncell))
   allocate(l(1:ncell),var(1:ncell,1:nvarin))
   x=0D0; y=0D0; z=0D0; l=0; var=0D0
@@ -233,7 +233,7 @@ program amr2cylprof
         b_z=aa*jx+bb*jy+cc*jz
         b_r=aa*rx+bb*ry+cc*rz
         b_t=aa*tx+bb*ty+cc*tz
-        
+
 !!$        prof(irad,ia)=prof(irad,ia)+b_r
 !!$        prof(irad,ib)=prof(irad,ib)+b_t
 !!$        prof(irad,ic)=prof(irad,ic)+b_z
@@ -248,7 +248,8 @@ program amr2cylprof
         prof(irad,ia2)=prof(irad,ia2)+var(i,1)*b_r**2
         prof(irad,ib2)=prof(irad,ib2)+var(i,1)*b_t**2
         prof(irad,ic2)=prof(irad,ic2)+var(i,1)*b_z**2
-        prof(irad,ipm)=prof(irad,ipm)+var(i,1)*0.5*(b_r**2+b_t**2+b_z**2)
+!        prof(irad,ipm)=prof(irad,ipm)+var(i,1)*0.5*(b_r**2+b_t**2+b_z**2)
+        prof(irad,ipm)=prof(irad,ipm)+0.5*(b_r**2+b_t**2+b_z**2)
 endif
 
   end do
@@ -278,15 +279,16 @@ endif
 !!$        prof(irad,ic)=prof(irad,ic)*dv/(surf*height)*unit_b/1d-6
 !!$        prof(irad,ia2)=sqrt(prof(irad,ia2)*dv/(surf*height)*(unit_b/1d-6)**2-prof(irad,ia)**2)
 !!$        prof(irad,ib2)=sqrt(prof(irad,ib2)*dv/(surf*height)*(unit_b/1d-6)**2-prof(irad,ib)**2)
-!!$        prof(irad,ic2)=sqrt(prof(irad,ic2)*dv/(surf*height)*(unit_b/1d-6)**2-prof(irad,ic)**2)        
+!!$        prof(irad,ic2)=sqrt(prof(irad,ic2)*dv/(surf*height)*(unit_b/1d-6)**2-prof(irad,ic)**2)
 
-        prof(irad,ipm)=sqrt(2.0*prof(irad,ipm)/prof(irad,id))*unit_b/1d-6
+!        prof(irad,ipm)=sqrt(2.0*prof(irad,ipm)/prof(irad,id))*unit_b/1d-6
+        prof(irad,ipm)=sqrt(2.0*prof(irad,ipm)/prof(irad,id))*unit_v/1d5
         prof(irad,ia)=prof(irad,ia)/prof(irad,id)*unit_b/1d-6
         prof(irad,ib)=prof(irad,ib)/prof(irad,id)*unit_b/1d-6
         prof(irad,ic)=prof(irad,ic)/prof(irad,id)*unit_b/1d-6
         prof(irad,ia2)=sqrt(prof(irad,ia2)/prof(irad,id)*(unit_b/1d-6)**2-prof(irad,ia)**2)
         prof(irad,ib2)=sqrt(prof(irad,ib2)/prof(irad,id)*(unit_b/1d-6)**2-prof(irad,ib)**2)
-        prof(irad,ic2)=sqrt(prof(irad,ic2)/prof(irad,id)*(unit_b/1d-6)**2-prof(irad,ic)**2)        
+        prof(irad,ic2)=sqrt(prof(irad,ic2)/prof(irad,id)*(unit_b/1d-6)**2-prof(irad,ic)**2)
      endif
      prof(irad,id)=prof(irad,id)*dv*unit_m/(surf*unit_l**2)/(2d33/3.08d18**2)
      rprev=r(irad)
@@ -297,7 +299,8 @@ endif
   write(*,*)'Ecriture des donnees du fichier '//TRIM(nomfich)
   open(unit=10,file=TRIM(nomfich)//".gas",form='formatted')
   if(mhd)then
-     write(10,'(A190)')" r(kpc)      S_g(Mpc2)   u_r(km/s)   u_t(km/s)   u_z(km/s)   s_r(km/s)   s_t(km/s)   s_z(km/s)   c_g(km/s)   B_r(muG)    B_t(muG)    B_z(muG)    sBr(muG)    sBt(muG)    sBz(muG)    Bstr(muG)"
+!     write(10,'(A190)')" r(kpc)      S_g(Mpc2)   u_r(km/s)   u_t(km/s)   u_z(km/s)   s_r(km/s)   s_t(km/s)   s_z(km/s)   c_g(km/s)   B_r(muG)    B_t(muG)    B_z(muG)    sBr(muG)    sBt(muG)    sBz(muG)    Bstr(muG)"
+     write(10,'(A190)')" r(kpc)      S_g(Mpc2)   u_r(km/s)   u_t(km/s)   u_z(km/s)   s_r(km/s)   s_t(km/s)   s_z(km/s)   c_g(km/s)   B_r(muG)    B_t(muG)    B_z(muG)    sBr(muG)    sBt(muG)    sBz(muG)    c_a(km/s)"
   else
      write(10,'(A106)')" r(kpc)      S_g(Mpc2)   u_r(km/s)   u_t(km/s)   u_z(km/s)   s_r(km/s)   s_t(km/s)   s_z(km/s)   c_g(km/s)"
   endif
@@ -318,7 +321,7 @@ contains
     implicit none
 
     integer       :: i,n
-    
+
     character(len=4)   :: opt
     character(len=128) :: arg
     LOGICAL       :: bad, ok

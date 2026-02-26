@@ -72,7 +72,7 @@ subroutine newdt_fine(ilevel)
      vsink_max=0d0
      do isink=1,nsink
         if(.not. new_born(isink))then
-           vsink2=0d0     
+           vsink2=0d0
            do idim=1,ndim
               vsink2=vsink2+vsink(isink,idim)**2
            end do
@@ -87,7 +87,7 @@ subroutine newdt_fine(ilevel)
         dtnew(ilevel)=MIN(dtnew(ilevel),courant_factor*dx_loc/vsink_max)
      endif
   endif
-  
+
 #ifdef ATON
   ! Maximum time step for ATON
   if(aton)then
@@ -101,9 +101,8 @@ subroutine newdt_fine(ilevel)
 #ifdef RT
   ! Maximum time step for radiative transfer
   if(rt_advect)then
-     call get_rt_courant_coarse(dt_rt)
-     dtnew(ilevel) = 0.99999d0 * &
-          MIN(dtnew(ilevel), dt_rt/2**(ilevel-levelmin) * rt_nsubcycle)
+     call get_rt_courant_dt(dt_rt, ilevel)
+     dtnew(ilevel) = 0.99999d0 * MIN(dtnew(ilevel), dt_rt * rt_nsubcycle)
      if(static) RETURN
   endif
 #endif
@@ -124,8 +123,8 @@ subroutine newdt_fine(ilevel)
      if(numbl(myid,ilevel)>0)then
         ! Loop over grids
         ip=0
-        igrid=headl(myid,ilevel)
-        do jgrid=1,numbl(myid,ilevel)
+        do jgrid=1,active(ilevel)%ngrid
+           igrid=active(ilevel)%igrid(jgrid)
            npart1=numbp(igrid)   ! Number of particles in the grid
            if(npart1>0)then
               ! Loop over particles
@@ -152,7 +151,6 @@ subroutine newdt_fine(ilevel)
               end do
               ! End loop over particles
            end if
-           igrid=next(igrid)   ! Go to next grid
         end do
         ! End loop over grids
         if(ip>0)call newdt2(ind_part,dt_loc,ekin_loc,ip,ilevel)
@@ -231,7 +229,3 @@ subroutine newdt2(ind_part,dt_loc,ekin_loc,nn,ilevel)
   end do
 
 end subroutine newdt2
-
-
-
-

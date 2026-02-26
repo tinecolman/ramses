@@ -37,8 +37,8 @@ p_region=1.0,0.4
 /
 
 &OUTPUT_PARAMS
-noutput=2
-tout=0.0,5.0
+noutput=1
+tout=5.0
 /
 
 &HYDRO_PARAMS
@@ -55,6 +55,3 @@ err_grad_p=0.05
 interpol_var=0
 interpol_type=2
 /
-
-
-

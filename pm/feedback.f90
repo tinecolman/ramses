@@ -176,7 +176,6 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:ndim),save::x0
   integer ,dimension(1:nvector),save::ind_cell
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   ! Particle based arrays
   logical,dimension(1:nvector),save::ok
   real(dp),dimension(1:nvector),save::mloss,mzloss,ethermal,ekinetic,dteff
@@ -244,7 +243,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   do i=1,ng
      ind_cell(i)=father(ind_grid(i))
   end do
-  call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ng,ilevel)
+  call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
   ! Rescale position at level ilevel
   do idim=1,ndim
@@ -380,7 +379,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
               enddo
               write(ilun,'(E24.12)',advance='no') unew(indp(j),1)
               do ivar=2,nvar
-                 if(ivar.eq.ndim+2)then
+                 if(ivar.eq.neul)then
                     e=0.0d0
                     do idim=1,ndim
                        e=e+0.5d0*unew(indp(j),idim+1)**2/max(unew(indp(j),1),smallr)
@@ -392,11 +391,11 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 #endif
 #ifdef SOLVERmhd
                     do idim=1,ndim
-                       e=e+0.125d0*(unew(indp(j),idim+ndim+2)+unew(indp(j),idim+nvar))**2
+                       e=e+0.125d0*(unew(indp(j),idim+neul)+unew(indp(j),idim+nvar))**2
                     enddo
 #endif
                     ! Temperature
-                    uvar=(gamma-1.0d0)*(unew(indp(j),ndim+2)-e)*scale_T2
+                    uvar=(gamma-1.0d0)*(unew(indp(j),neul)-e)*scale_T2
                  else
                     uvar=unew(indp(j),ivar)
                  endif

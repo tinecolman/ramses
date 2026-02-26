@@ -51,7 +51,7 @@ subroutine courant_fine(ilevel)
      ix=(ind-1-2*iy-4*iz)
      xc(ind)=(dble(ix)-0.5D0)*dx
   end do
-  
+
   ! Loop over active grids by vector sweeps
   ncache=active(ilevel)%ngrid
   do igrid=1,ncache,nvector
@@ -59,14 +59,14 @@ subroutine courant_fine(ilevel)
      do i=1,ngrid
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
-     
+
      ! Loop over cells
-     do ind=1,twotondim        
+     do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,ngrid
            ind_cell(i)=ind_grid(i)+iskip
         end do
-        
+
         ! Gather leaf cells
         nleaf=0
         do i=1,ngrid
@@ -83,7 +83,7 @@ subroutine courant_fine(ilevel)
               uu(i,ivar)=uold(ind_leaf(i),ivar)
            end do
         end do
-        
+
         ! Gather gravitational acceleration
         gg=0.0d0
         if(poisson)then
@@ -93,7 +93,7 @@ subroutine courant_fine(ilevel)
               end do
            end do
         end if
-        
+
         ! Compute total mass
         if(geom==3)then
            do i=1,nleaf
@@ -129,10 +129,10 @@ subroutine courant_fine(ilevel)
            call cmpdt(uu,gg,rloc,dx_loc,dt_lev,nleaf)
            dt_loc=min(dt_loc,dt_lev)
         end if
-        
+
      end do
      ! End loop over cells
-     
+
   end do
   ! End loop over grids
 
@@ -166,3 +166,96 @@ end subroutine courant_fine
 !###########################################################
 !###########################################################
 !###########################################################
+subroutine cmpdt(uu,grav,rr,dx,dt,ncell)
+  use amr_parameters
+  use hydro_parameters
+  use const
+  implicit none
+  integer::ncell
+  real(dp)::dx,dt
+  real(dp),dimension(1:nvector,1:nvar)::uu
+  real(dp),dimension(1:nvector,1:ndim)::grav
+  real(dp),dimension(1:nvector)::rr
+
+  real(dp),dimension(1:nvector,1:npri),save::qq
+  real(dp),dimension(1:nvector,1:nmat),save::ff,gg,kappa_matt
+  real(dp),dimension(1:nvector),save::ekin,dtot,cc,st,pp,kappa_hatt
+  real(dp)::dtcell,eps
+  integer::k,idim,imat
+
+  ! Convert to primitive variable
+
+  ! Volume fraction and fluid density
+  do imat = 1,nmat
+     do k = 1,ncell
+        ff(k,imat) = uu(k,imat+npri)
+        gg(k,imat) = uu(k,imat+npri+nmat)
+     end do
+  end do
+
+  ! Compute density
+  do k = 1,ncell
+     qq(k,1) = max(uu(k,1),smallr)
+  end do
+
+  ! Compute velocity and specific kinetic energy
+  ekin(1:ncell)=0.0
+  do idim = 1,ndim
+     do k = 1,ncell
+        qq(k,idim+1) = uu(k,idim+1)/uu(k,1)
+        ekin(k) = ekin(k) + half*qq(k,idim+1)**2
+     end do
+  end do
+
+  ! Compute total internal energy
+  do k = 1,ncell
+     qq(k,npri) = uu(k,npri) - uu(k,1)*ekin(k)
+  end do
+
+  ! Call eos routine
+  call eos(ff,gg,qq,pp,cc,kappa_matt,kappa_hatt,ncell)
+
+  ! Compute wave speed
+  if(geom==3)then
+     do k = 1,ncell
+        eps = dx/two/rr(k)
+        cc(k) = (abs(qq(k,2))+cc(k))*(one+eps)**2/(one+third*eps**2)
+     end do
+  else if(geom==2)then
+     do k = 1,ncell
+        eps = dx/two/rr(k)
+        cc(k) = (abs(qq(k,2))+cc(k))*(one+eps)
+     end do
+  else
+     do k = 1,ncell
+        cc(k) = abs(qq(k,2))+cc(k)
+     end do
+  endif
+  do idim = 2,ndim
+     do k = 1,ncell
+        cc(k) = cc(k) + abs(qq(k,idim+1))+cc(k)
+     end do
+  end do
+
+  ! Compute gravity strength ratio
+  do k = 1,ncell
+     st(k) = zero
+  end do
+  do idim = 1,ndim
+     do k = 1,ncell
+        st(k) = st(k) + abs(grav(k,idim))
+     end do
+  end do
+  do k = 1,ncell
+     st(k) = st(k)*dx/cc(k)**2
+     st(k) = MAX(st(k),0.0001_dp)
+  end do
+
+  ! Compute maximum time step for each authorized cell
+  dt = courant_factor*dx/smallc
+  do k = 1,ncell
+     dtcell = dx/cc(k)*(sqrt(one+two*courant_factor*st(k))-one)/st(k)
+     dt = min(dt,dtcell)
+  end do
+
+end subroutine cmpdt

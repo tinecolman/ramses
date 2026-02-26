@@ -132,25 +132,25 @@ subroutine scale_cosmomag(ind_cell,exp_scale)
   !--------------------------------------------------------------------------
   real(dp)::A,B,C,exp_scale,e_mag
 
-  ! Compute old e_mag 
+  ! Compute old e_mag
   A=0.5*(unew(ind_cell,6)+unew(ind_cell,nvar+1))
   B=0.5*(unew(ind_cell,7)+unew(ind_cell,nvar+2))
   C=0.5*(unew(ind_cell,8)+unew(ind_cell,nvar+3))
   e_mag=0.5*(A**2+B**2+C**2)
-  
+
   ! Remove from internal energy
   unew(ind_cell,5) = unew(ind_cell,5) - e_mag
-  
+
   ! Rescale B
   unew(ind_cell,6:8) = unew(ind_cell,6:8) * exp_scale
   unew(ind_cell,nvar+1:nvar+3) = unew(ind_cell,nvar+1:nvar+3) * exp_scale
-  
+
   ! Compute new e_mag
   A=0.5*(unew(ind_cell,6)+unew(ind_cell,nvar+1))
   B=0.5*(unew(ind_cell,7)+unew(ind_cell,nvar+2))
   C=0.5*(unew(ind_cell,8)+unew(ind_cell,nvar+3))
   e_mag=0.5*(A**2+B**2+C**2)
-      
+
   ! Add back to internal energy
   unew(ind_cell,5) = unew(ind_cell,5) + e_mag
 end subroutine scale_cosmomag
@@ -172,13 +172,13 @@ subroutine update_cosmomag(ilevel,exp_scale)
 
   do ind=1,twotondim
     iskip=ncoarse+(ind-1)*ngridmax
-    
+
     ! Update the active cells
     do i=1,active(ilevel)%ngrid
       ind_cell = active(ilevel)%igrid(i)+iskip
       call scale_cosmomag(ind_cell,exp_scale)
     end do
-    
+
     ! Do the same for reception cells
     do icpu=1,ncpu
       do i=1,reception(icpu,ilevel)%ngrid
@@ -215,17 +215,6 @@ subroutine set_uold(ilevel)
   nx_loc=icoarse_max-icoarse_min+1
   scale=boxlen/dble(nx_loc)
   dx=0.5d0**ilevel*scale
-
-  ! Add gravity source terms to unew
-  if(poisson)then
-     call add_gravity_source_terms(ilevel)
-  end if
-
-  ! Add non conservative pdV terms to unew
-  ! for thermal and/or non-thermal energies
-  if(pressure_fix.OR.nener>0)then
-     call add_pdv_source_terms(ilevel)
-  endif
 
   ! Add turbulent energy source and sink terms
   ! to the corresponding passive scalar
@@ -550,9 +539,9 @@ subroutine add_viscosity_source_terms(ilevel)
   use amr_commons
   use hydro_commons
   use poisson_commons
-  use pm_commons 
+  use pm_commons
   implicit none
-  integer::ilevel,levelmax
+  integer::ilevel
   !--------------------------------------------------------------------------
   ! This routine adds to unew the viscosity terms
   ! with only half a time step. Only the momentum and the
@@ -561,7 +550,7 @@ subroutine add_viscosity_source_terms(ilevel)
   integer::i,ind,iskip,nx_loc
   integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2,jdim
   integer,dimension(1:3,1:2,1:8)::iii,jjj
-  real(dp)::scale,dx,dx_loc,dx_min
+  real(dp)::scale,dx,dx_loc
   real(dp)::Kturb,sigma,d_old
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
 
@@ -584,7 +573,6 @@ subroutine add_viscosity_source_terms(ilevel)
   scale=boxlen/dble(nx_loc)
   dx=0.5d0**ilevel
   dx_loc=dx*scale
-  dx_min=(0.5**levelmax)*scale
 
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -721,7 +709,7 @@ subroutine add_viscosity_source_terms(ilevel)
      ! End loop over cells
   end do
   ! End loop over sweeps
- 
+
 111 format('    Entering add_viscosity_terms for level ',i2)
 
 end subroutine add_viscosity_source_terms
@@ -763,7 +751,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
 
-  integer::neul=5
   integer::ind_buffer1,ind_buffer2,ind_buffer3
   integer::ind_father1,ind_father2,ind_father3
   integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer

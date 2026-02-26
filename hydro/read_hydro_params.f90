@@ -13,7 +13,7 @@ subroutine read_hydro_params(nml_ok)
   !--------------------------------------------------
   ! Local variables
   !--------------------------------------------------
-  integer::i,idim,ifixed,nboundary_true=0
+  integer::i,idim,nboundary_true=0
   integer ,dimension(1:MAXBOUND)::bound_type
   real(dp)::ek_bound
   logical :: dummy
@@ -34,17 +34,14 @@ subroutine read_hydro_params(nml_ok)
   !--------------------------------------------------
 
   ! Initial conditions parameters
-  namelist/init_params/filetype,initfile,multiple,nregion,region_type &
+  namelist/init_params/condinit_kind,filetype,initfile,multiple,nregion,region_type &
        & ,x_center,y_center,z_center,aexp_ini &
        & ,length_x,length_y,length_z,exp_region &
        & ,d_region,u_region,v_region,w_region,p_region &
 #ifdef SOLVERmhd
        & ,A_region,B_region,C_region,B_ave &
-#if NVAR>8+NENER
-       & ,var_region &
 #endif
-#else
-#if NVAR>NDIM+2+NENER
+#if NVAR>NHYDRO+NENER
        & ,var_region &
 #endif
 #endif
@@ -60,7 +57,7 @@ subroutine read_hydro_params(nml_ok)
 #if NGRP>0
        & ,E_region &
 #endif
-       & ,omega_b
+       & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho,theta_mag,mass_c,Mach
 
   ! Hydro parameters
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
@@ -98,14 +95,10 @@ subroutine read_hydro_params(nml_ok)
        & ,prad_bound &
 #endif
 #ifdef SOLVERmhd
-#if NVAR>8+NENER
-       & ,var_bound &
-#endif
        & ,A_bound,B_bound,C_bound &
-#else
-#if NVAR>NDIM+2+NENER
-       & ,var_bound &
 #endif
+#if NVAR>NHYDRO+NENER
+       & ,var_bound &
 #endif
 #if NENER>NGRP
        & ,prad_bound &
@@ -117,7 +110,7 @@ subroutine read_hydro_params(nml_ok)
 
   ! Feedback parameters
   namelist/feedback_params/eta_sn,eta_ssn,yield,rbubble,f_ek,ndebris &
-       & ,f_w,mass_gmc,kappa_IR,delayed_cooling,momentum_feedback &
+       & ,f_w,f_esn,mass_gmc,kappa_IR,delayed_cooling,momentum_feedback &
        & ,ir_feedback,ir_eff,t_diss,t_sne,mass_star_max,mass_sne_min
 
   ! Cooling / basic chemistry parameters
@@ -129,7 +122,7 @@ subroutine read_hydro_params(nml_ok)
   ! Star formation parameters
   namelist/sf_params/m_star,n_star,T2_star,g_star,del_star &
        & ,eps_star,jeans_ncells,sf_virial,sf_trelax,sf_tdiss,sf_model&
-       & ,sf_log_properties,sf_imf,sf_compressive
+       & ,sf_log_properties,sf_imf,sf_compressive,randomize_sf
 
   ! Units parameters
   namelist/units_params/units_density,units_time,units_length
@@ -229,7 +222,7 @@ subroutine read_hydro_params(nml_ok)
 
   CASE DEFAULT
     write(*,*)'unknown scheme'
-    call clean_stop
+    nml_ok=.false.
   END SELECT
   !------------------------------------------------
   ! set iriemann
@@ -250,7 +243,7 @@ subroutine read_hydro_params(nml_ok)
 
   CASE DEFAULT
     write(*,*)'unknown riemann solver'
-    call clean_stop
+    nml_ok=.false.
   END SELECT
   !------------------------------------------------
   ! set iriemann
@@ -270,7 +263,7 @@ subroutine read_hydro_params(nml_ok)
     iriemann2d = 5
   CASE DEFAULT
     write(*,*)'unknown 2D riemann solver'
-    call clean_stop
+    nml_ok=.false.
   END SELECT
 
 #if USE_FLD==1 || USE_M_1==1
@@ -371,12 +364,8 @@ subroutine read_hydro_params(nml_ok)
   !--------------------------------------------------
   ! Check for metal
   !--------------------------------------------------
-#ifdef SOLVERmhd
-  if(metal.and.nvar<(ndim+6))then
-#else
-  if(metal.and.nvar<(ndim+3))then
-#endif
-     if(myid==1)write(*,*)'Error: metals need nvar >= ndim+3'
+  if(metal.and.nvar<(nhydro+1))then
+     if(myid==1)write(*,*)'Error: metals need nvar >= nhydro+1'
      if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
      nml_ok=.false.
   endif
@@ -403,18 +392,14 @@ subroutine read_hydro_params(nml_ok)
      nml_ok=.false.
   endif
 #endif
-  
+
   !--------------------------------------------------
   ! Check for non-thermal energies
   !--------------------------------------------------
 #if USE_FLD==0
 #if NENER>0
-#ifdef SOLVERmhd
-  if(nvar<(8+nener))then
-#else
-  if(nvar<(ndim+2+nener))then
-#endif
-     if(myid==1)write(*,*)'Error: non-thermal energy need nvar >= ndim+2+nener'
+  if(nvar<(nhydro+nener))then
+     if(myid==1)write(*,*)'Error: non-thermal energy need nvar >= nhydro+nener'
      if(myid==1)write(*,*)'Modify NENER and recompile'
      nml_ok=.false.
   endif
@@ -644,7 +629,7 @@ subroutine read_hydro_params(nml_ok)
      do idim=1,ndim
         ek_bound=ek_bound+0.5d0*boundary_var(i,idim+1)**2/boundary_var(i,1)
      end do
-     boundary_var(i,ndim+2)=ek_bound+P_bound(i)/(gamma-1.0d0)     
+     boundary_var(i,neul)=ek_bound+P_bound(i)/(gamma-1.0d0)     
 
      er_bound=0.0D0
 #if NENER>0
@@ -679,20 +664,6 @@ subroutine read_hydro_params(nml_ok)
      jeans_refine(i)=-1
   end do
 
-  !-----------------------------------
-  ! Sort out passive variable indices
-  !-----------------------------------
-#ifdef SOLVERmhd
-  ! Hard-coded variables are rho,v*ndim,P,B*ndim
-  ! MHD only works in 3D, so ndim=3
-  ifixed=8
-#else
-  ! Hard-coded variables are rho,v*ndim,P
-  ifixed=ndim+2
-#endif
-  inener=ifixed+1
-  imetal=inener+nener
-
 #if USE_FLD==1
 !!!
   inener=9 ! MUST BE THIS VALUE !!! RT variable
@@ -701,23 +672,29 @@ subroutine read_hydro_params(nml_ok)
   if(energy_fix)lastindex_pscal=nvar-1
 !!!
 #endif
-  
-  idelay=imetal
-  if(metal)idelay=imetal+1
+
+  !-------------------------------------------------------------
+  ! Shift passive variable indices depending on namelist params
+  !-------------------------------------------------------------
+  if(metal)then
+     idelay=imetal+1
+  endif
   ivirial1=idelay
-  ivirial2=idelay
   if(delayed_cooling)then
      ivirial1=idelay+1
-     ivirial2=idelay+1
   endif
+  ivirial2=ivirial1
+  if(sf_virial.and.sf_compressive)then
+     ivirial2=ivirial1+1
+  endif
+  ixion = ivirial2
   if(sf_virial)then
-     if(sf_compressive) ivirial2=ivirial1+1
+     ixion=ivirial2+1
   endif
-  ixion=ivirial2
-  if(sf_virial)ixion=ivirial2+1
   ichem=ixion
   if(aton)ichem=ixion+1
-  if(myid==1.and.hydro.and.(nvar>ndim+2)) then
+
+  if(myid==1.and.hydro.and.(nvar>nhydro)) then
      write(*,'(A50)')"__________________________________________________"
      write(*,*) 'Hydro var indices:'
 #if NENER>0

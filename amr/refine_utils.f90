@@ -400,7 +400,11 @@ subroutine refine_fine(ilevel)
            end do
         else if(icpu<=ncpu)then
            do i=1,ngrid
+#ifdef LIGHT_MPI_COMM
+              ind_grid(i)=reception(icpu,ilevel)%pcomm%igrid(igrid+i-1)
+#else
               ind_grid(i)=reception(icpu,ilevel)%igrid(igrid+i-1)
+#endif
            end do
         else
            do i=1,ngrid
@@ -493,7 +497,11 @@ subroutine refine_fine(ilevel)
            end do
         else if(icpu<=ncpu)then
            do i=1,ngrid
+#ifdef LIGHT_MPI_COMM
+              ind_grid(i)=reception(icpu,ilevel)%pcomm%igrid(igrid+i-1)
+#else
               ind_grid(i)=reception(icpu,ilevel)%igrid(igrid+i-1)
+#endif
            end do
         else
            do i=1,ngrid
@@ -613,17 +621,11 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   real(dp)::dx,dx_loc,scale
   real(dp),dimension(1:3)::xc,skip_loc
 #ifdef SOLVERmhd
-  integer::neul=5
-  real(dp),dimension(1:nvector,0:twondim  ,1:nvar+3),save::u1
-  real(dp),dimension(1:nvector,1:twotondim,1:nvar+3),save::u2
   integer ,dimension(1:nvector,0:twondim),save::ind1
-  real(dp),dimension(1:nvector,1:nvar+3),save::uu
-#else
-  integer::neul=ndim+2
-  real(dp),dimension(1:nvector,0:twondim  ,1:nvar),save::u1
-  real(dp),dimension(1:nvector,1:twotondim,1:nvar),save::u2
-  real(dp),dimension(1:nvector,1:nvar),save::uu
 #endif
+  real(dp),dimension(1:nvector,0:twondim  ,1:nvar_all),save::u1
+  real(dp),dimension(1:nvector,1:twotondim,1:nvar_all),save::u2
+  real(dp),dimension(1:nvector,1:nvar_all),save::uu
 #ifdef RT
   real(dp),dimension(1:nvector,0:twondim  ,1:nrtvar),save::urt1
   real(dp),dimension(1:nvector,1:twotondim,1:nrtvar),save::urt2
@@ -822,19 +824,11 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
      if(hydro)then
         do j=0,twondim
            ! Gather hydro variables
-#ifdef SOLVERmhd
-           do ivar=1,nvar+3
-#else
-              do ivar=1,nvar
-#endif
-                 do i=1,nn
-                    u1(i,j,ivar)=uold(ind_fathers(i,j),ivar)
-                 end do
-#ifdef SOLVERmhd
+           do ivar=1,nvar_all
+              do i=1,nn
+                 u1(i,j,ivar)=uold(ind_fathers(i,j),ivar)
               end do
-#else
            end do
-#endif
 #ifdef SOLVERmhd
            ! Gather son index
            do i=1,nn
@@ -851,19 +845,11 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
         ! Scatter to children cells
         do j=1,twotondim
            iskip=ncoarse+(j-1)*ngridmax
-#ifdef SOLVERmhd
-           do ivar=1,nvar+3
-#else
-              do ivar=1,nvar
-#endif
-                 do i=1,nn
-                    uold(iskip+ind_grid_son(i),ivar)=u2(i,j,ivar)
-                 end do
-#ifdef SOLVERmhd
+           do ivar=1,nvar_all
+              do i=1,nn
+                 uold(iskip+ind_grid_son(i),ivar)=u2(i,j,ivar)
               end do
-#else
            end do
-#endif
         enddo
      end if
 #ifdef RT
@@ -887,6 +873,10 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
            do ivar=1,nrtvar
               do i=1,nn
                  rtuold(iskip+ind_grid_son(i),ivar)=urt2(i,j,ivar)
+                 ! Rescale according to different speeds of light
+                 if (ivar.le. nrtvar .and. mod(ivar,ndim+1).eq.1) &
+                    rtuold(iskip+ind_grid_son(i),ivar) = &
+                      rtuold(iskip+ind_grid_son(i),ivar) * rt_c(ilevel-1)/rt_c(ilevel)
               end do
            end do
         enddo
@@ -973,12 +963,20 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
   if(upload_equilibrium_x) then
      ! Enforce equilibrium on ionization states when merging, to
      ! prevent unnatural values (e.g when merging hot and cold cells).
+     call updateRTGroups_CoolConstants(ilevel)
      do i=1,nn
         call calc_equilibrium_xion(uold(ind_cell(i),:) &
              , rtuold(ind_cell(i),1:nrtvar), xion)
         uold(ind_cell(i),iIons:iIons+nIons-1)=xion*uold(ind_cell(i),1)
      enddo
   endif
+  do ivar=1,nrtvar
+     do i=1,nn
+        ! Rescale according to speed of light difference
+        if (ilevel .gt. levelmin .and. ivar.le. nrtvar .and. mod(ivar,ndim+1).eq.1) &
+            rtuold(ind_cell(i),ivar) = rtuold(ind_cell(i),ivar) * rt_c(ilevel)/rt_c(ilevel-1)
+     end do
+  end do
 #endif
 
   ! Gather son grids
@@ -1090,20 +1088,12 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
      end if
      ! Hydro variables
      if(hydro)then
-#ifdef SOLVERmhd
-        do ivar=1,nvar+3
-#else
-        do ivar=1,nvar
-#endif
+        do ivar=1,nvar_all
            do i=1,nn
               uold(ind_cell_son(i),ivar)=0.0D0
               unew(ind_cell_son(i),ivar)=0.0D0
            end do
-#ifdef SOLVERmhd
         end do
-#else
-        end do
-#endif
      end if
      if(momentum_feedback>0)then
         do i=1,nn

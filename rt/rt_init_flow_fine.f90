@@ -9,7 +9,7 @@ subroutine rt_init_flow
 
   integer::ilevel,ivar
 
-  if(verbose)write(*,*)'Entering init_flow'
+  if(verbose)write(*,*)'Entering rt_init_flow'
   do ilevel=nlevelmax,1,-1
      if(ilevel>=levelmin)call rt_init_flow_fine(ilevel)
      call rt_upload_fine(ilevel)
@@ -18,7 +18,7 @@ subroutine rt_init_flow
      end do
      if(simple_boundary)call rt_make_boundary_hydro(ilevel)
   end do
-  if(verbose)write(*,*)'Complete init_flow'
+  if(verbose)write(*,*)'Complete rt_init_flow'
 
 end subroutine rt_init_flow
 !################################################################
@@ -173,10 +173,12 @@ subroutine rt_init_flow_fine(ilevel)
               read(ilun) ! skip first line
               do i3=1,n3(ilevel)
                  read(ilun) ((init_plane(i1,i2),i1=1,n1(ilevel)),i2=1,n2(ilevel))
-                 if(i3.ge.i3_min.and.i3.le.i3_max)then
-                    init_array(i1_min:i1_max,i2_min:i2_max,i3) = &
-                         & init_plane(i1_min:i1_max,i2_min:i2_max)
-                 end if
+                 if(ncache>0)then
+                     if(i3.ge.i3_min.and.i3.le.i3_max)then
+                        init_array(i1_min:i1_max,i2_min:i2_max,i3) = &
+                             & init_plane(i1_min:i1_max,i2_min:i2_max)
+                     end if
+                 endif
               end do
               close(ilun)
               ! Send the token
@@ -220,7 +222,9 @@ subroutine rt_init_flow_fine(ilevel)
            ! In most cases, this is zero (you can change that if necessary)
            if(myid==1)write(*,*)'File '//TRIM(filename)//' not found'
            if(myid==1)write(*,*)'Initialize corresponding variable to default value'
-           init_array=0d0
+           if(ncache>0)then
+               init_array=0d0
+           endif
         endif
 
         if(ncache>0)then
@@ -289,7 +293,7 @@ subroutine rt_init_flow_fine(ilevel)
            end do
 
            ! Call initial condition routine
-           call rt_condinit(xx,uu,dx_loc,ngrid)
+           call rt_condinit(xx,uu,dx_loc,ngrid,ilevel)
            ! Scatter variables
            do ivar=1,nrtvar
               do i=1,ngrid
@@ -312,7 +316,7 @@ end subroutine rt_init_flow_fine
 !################################################################
 
 !************************************************************************
-SUBROUTINE rt_region_condinit(x,uu,dx,nn)
+SUBROUTINE rt_region_condinit(x,uu,dx,nn,ilevel)
 
 ! Initialize RT regions, as defined in the namelist setup file.
 !
@@ -327,7 +331,7 @@ SUBROUTINE rt_region_condinit(x,uu,dx,nn)
   real(dp)::dx,dx_cgs
   real(dp),dimension(1:nvector,1:nrtvar)::uu
   real(dp),dimension(1:nvector,1:ndim)  ::x
-  integer::i,k,group_ind
+  integer::i,k,group_ind,ilevel
   real(dp)::vol,r,xn,yn,zn,en
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_np,scale_fp
 !------------------------------------------------------------------------
@@ -369,12 +373,12 @@ SUBROUTINE rt_region_condinit(x,uu,dx,nn)
            ! If cell lies within region, inject value
            if(r .lt. 1.0)then
               uu(i,group_ind)=rt_n_region(k)
-              uu(i,group_ind+1)=rt_u_region(k) * rt_c
+              uu(i,group_ind+1)=rt_u_region(k) * rt_c(ilevel)
 #if NDIM>1
-              uu(i,group_ind+2)=rt_v_region(k) * rt_c
+              uu(i,group_ind+2)=rt_v_region(k) * rt_c(ilevel)
 #endif
 #if NDIM>2
-              uu(i,group_ind+3)=rt_w_region(k) * rt_c
+              uu(i,group_ind+3)=rt_w_region(k) * rt_c(ilevel)
 #endif
            end if
         end do
@@ -399,12 +403,15 @@ SUBROUTINE rt_region_condinit(x,uu,dx,nn)
               ! If cell lies within CIC cloud, inject value
               ! Convert photon number to photon number density
               uu(i,group_ind) = rt_n_region(k)/scale_Np *r/vol
-              uu(i,group_ind+1) = rt_u_region(k)/scale_Np*r/vol*rt_c
+              uu(i,group_ind+1) = rt_u_region(k)/scale_Np*r/vol          &
+                                * rt_c(ilevel)
 #if NDIM>1
-              uu(i,group_ind+2) = rt_v_region(k)/scale_Np*r/vol*rt_c
+              uu(i,group_ind+2) = rt_v_region(k)/scale_Np*r/vol          &
+                                * rt_c(ilevel)
 #endif
 #if NDIM>2
-              uu(i,group_ind+3) = rt_w_region(k)/scale_Np *r/vol*rt_c
+              uu(i,group_ind+3) = rt_w_region(k)/scale_Np *r/vol         &
+                                * rt_c(ilevel)
 #endif
            endif
         end do
@@ -413,7 +420,3 @@ SUBROUTINE rt_region_condinit(x,uu,dx,nn)
 
   return
 END SUBROUTINE rt_region_condinit
-
-
-
-

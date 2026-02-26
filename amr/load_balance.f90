@@ -5,7 +5,7 @@
 subroutine load_balance
   use amr_commons
   use pm_commons
-  use hydro_commons, ONLY: nvar
+  use hydro_commons, ONLY: nvar_all
 #ifndef WITHOUTMPI
   use hydro_commons, ONLY: uold, pstarold, rho_eq, p_eq
   use poisson_commons, ONLY: phi, f
@@ -74,17 +74,9 @@ subroutine load_balance
   !--------------------------------------
   do ilevel=nlevelmax,1,-1
      if(hydro)then
-#ifdef SOLVERmhd
-        do ivar=1,nvar+3
-#else
-        do ivar=1,nvar
-#endif
+        do ivar=1,nvar_all
            call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
         end do
-#else
-        end do
-#endif
         if(momentum_feedback>0)then
            call make_virtual_fine_dp(pstarold(1),ilevel)
         endif
@@ -129,7 +121,11 @@ subroutine load_balance
            if(icpu==myid)then
               igrid=active(ilevel)%igrid(i)
            else
+#ifdef LIGHT_MPI_COMM
+              igrid=reception(icpu,ilevel)%pcomm%igrid(i)
+#else
               igrid=reception(icpu,ilevel)%igrid(i)
+#endif
            end if
            kcpu=cpu_map (father(igrid))
            jcpu=cpu_map2(father(igrid))
@@ -159,7 +155,11 @@ subroutine load_balance
            if(icpu==myid)then
               igrid=active(ilevel)%igrid(i)
            else
+#ifdef LIGHT_MPI_COMM
+              igrid=reception(icpu,ilevel)%pcomm%igrid(i)
+#else
               igrid=reception(icpu,ilevel)%igrid(i)
+#endif
            end if
            kcpu=cpu_map (father(igrid))
            jcpu=cpu_map2(father(igrid))
@@ -402,7 +402,11 @@ subroutine cmp_new_cpu_map
               end do
            else
               do i=1,ngrid
+#ifdef LIGHT_MPI_COMM
+                 ind_grid(i)=reception(icpu,ilevel)%pcomm%igrid(igrid+i-1)
+#else
                  ind_grid(i)=reception(icpu,ilevel)%igrid(igrid+i-1)
+#endif
               end do
            end if
            ! Loop over cells
@@ -674,6 +678,81 @@ subroutine cmp_cpumap(x,c,nn)
   end if
 
 end subroutine cmp_cpumap
+!#########################################################################
+!#########################################################################
+!#########################################################################
+!#########################################################################
+! A modified version of the subroutine'cmp_cpumap'
+! Instead of looping over all the cpu ids, it tests 'suggested' ids first
+
+! particle_cpu : try particle_cpu (an id suggestion) first , if true : exit
+! if not: try the cpus from cpu_list
+! cpu_list is 125 list (3d) containing a list of suggested cpu ids to try -
+! (if it has less than 125 ids, the rest is filled with zeros)
+! if still false: loop over all the cpus
+! exit the loop when you find it.
+
+subroutine cmp_cpumap_modified(x,c,nn,particle_cpu,cpu_list)
+  use amr_parameters
+  use amr_commons
+  use bisection
+  implicit none
+  integer, intent(in) ::nn , particle_cpu
+  integer, dimension(5**ndim), intent(in):: cpu_list
+
+  real(dp),dimension(1:nvector,1:ndim), intent(in)::x
+  integer ,dimension(1:nvector), intent(out)::c
+
+  integer::i,idom , idx, found
+  real(qdp),dimension(1:nvector),save::order
+
+
+  if(ordering /= 'bisection') then
+     call cmp_ordering(x,order,nn)
+     do i=1,nn
+        found = -1
+        c(i)=ndomain ! default value
+
+        if(    order(i) .ge. bound_key(particle_cpu-1) .and. &
+                & order(i) .lt. bound_key(particle_cpu  )) then
+              c(i)=particle_cpu
+              found = 1
+        else
+            do idx=1,5**ndim
+               if (cpu_list(idx)==0) exit
+               if(    order(i) .ge. bound_key(cpu_list(idx)-1) .and. &
+                   & order(i) .lt. bound_key(cpu_list(idx))) then
+                 c(i)=cpu_list(idx)
+                 found = 1
+                 exit
+               end if
+            end do
+         end if
+
+         if (found==-1) then
+              do idom=1,ndomain
+                 if(    order(i) .ge. bound_key(idom-1) .and. &
+                      & order(i) .lt. bound_key(idom)) then
+                    c(i)=idom
+                    found = 1
+                  exit
+
+                 endif
+              end do
+         end if
+
+     end do
+     do i=1,nn
+        c(i)=MOD(c(i)-1,ncpu)+1
+!        c(i)=c(i)-((c(i)-1)/ncpu)*ncpu
+     end do
+  else
+     call cmp_bisection_cpumap(x,c,nn)
+  end if
+
+end subroutine cmp_cpumap_modified
+
+
 !#########################################################################
 !#########################################################################
 !#########################################################################
@@ -1307,11 +1386,7 @@ subroutine defrag
 
   if(hydro)then
 
-#ifdef SOLVERmhd
-  do ivar=1,nvar+3
-#else
-  do ivar=1,nvar
-#endif
+  do ivar=1,nvar_all
   do ind=1,twotondim
   iskip2=ncoarse+(ind-1)*ngridmax
   ngrid2=0

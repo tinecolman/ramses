@@ -313,6 +313,11 @@ subroutine clump_finder(create_output,keep_alive)
         if(ivar_clump==0 .or. ivar_clump==-1)then
            if(pic)call output_part_clump_id()
         endif
+        ! output the clump field
+        if (output_clump_field)then
+           if(myid==1)write(*,*)"Outputing clump field to disc"
+           call write_clump_field
+        end if
      endif
 
   end if
@@ -583,7 +588,6 @@ subroutine neighborsearch(xx,ind_cell,ind_max,np,count,ilevel,action)
   logical ,dimension(1:nvector)::okpeak
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
   integer ,dimension(1:threetondim)::nbors_father_cells_pass
-  integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   integer::ntestpos,ntp,idim,ipos
 
 #if NDIM==3
@@ -694,7 +698,7 @@ subroutine neighborsearch(xx,ind_cell,ind_max,np,count,ilevel,action)
   do j=1,np
      ind_cell_coarse(j)=father(ind_grid(j))
   end do
-  call get3cubefather(ind_cell_coarse,nbors_father_cells,nbors_father_grids,np,ilevel)
+  call get3cubefather(ind_cell_coarse,nbors_father_cells,np,ilevel)
 
 
   ! initialze logical array
@@ -876,7 +880,7 @@ subroutine read_clumpfind_params()
   namelist/clumpfind_params/ivar_clump,&
        & relevance_threshold,density_threshold,&
        & saddle_threshold,mass_threshold,clinfo,&
-       & n_clfind,rho_clfind,age_cut_clfind
+       & n_clfind,rho_clfind,age_cut_clfind,output_clump_field
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   ! Read namelist file
@@ -1154,18 +1158,8 @@ subroutine rho_only(ilevel)
      do i=nlevelmax,ilevel,-1
         ! Compute mass multipole
         if(hydro)call multipole_fine(i)
-        ! Perform TSC using pseudo-particle
-#ifdef TSC
-        if (ndim==3)then
-           call tsc_from_multipole(i)
-        else
-           write(*,*)'TSC not supported for ndim neq 3'
-           call clean_stop
-        end if
-#else
-        ! Perform CIC using pseudo-particle
+        ! Perform CIC or TSC using pseudo-particle
         call cic_from_multipole(i)
-#endif
         ! Update boundaries
         call make_virtual_reverse_dp(rho(1),i)
         call make_virtual_fine_dp   (rho(1),i)
@@ -1179,7 +1173,11 @@ subroutine rho_only(ilevel)
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,reception(icpu,ilevel)%ngrid
+#ifdef LIGHT_MPI_COMM
+           rho(reception(icpu,ilevel)%pcomm%igrid(i)+iskip)=0.0D0
+#else
            rho(reception(icpu,ilevel)%igrid(i)+iskip)=0.0D0
+#endif
         end do
      end do
   end do
@@ -1373,7 +1371,6 @@ subroutine cic_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp)::dx,dx_loc,scale,vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   ! Particle-based arrays
   logical ,dimension(1:nvector),save::ok
   real(dp),dimension(1:nvector),save::mmm
@@ -1396,7 +1393,7 @@ subroutine cic_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   vol_loc=dx_loc**ndim
 
   ! Gather neighboring father cells (should be present anytime !)
-  call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ng,ilevel)
+  call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
   ! Rescale particle position at level ilevel
   do idim=1,ndim
@@ -1607,7 +1604,6 @@ subroutine tsc_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp)::dx,dx_loc,scale,vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   ! Particle-based arrays
   logical ,dimension(1:nvector),save::ok,abandoned
   real(dp),dimension(1:nvector),save::mmm
@@ -1637,7 +1633,7 @@ subroutine tsc_only(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   vol_loc=dx_loc**ndim
 
   ! Gather neighboring father cells (should be present at anytime!)
-  call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ng,ilevel)
+  call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
   ! Rescale particle position at level ilevel
   do idim=1,ndim
@@ -1855,7 +1851,7 @@ end subroutine tsc_only
 subroutine output_part_clump_id()
   !---------------------------------------------------------------------------
   ! This subroutine loops over all test cells and assigns all particles in a
-  ! testcell the peak ID the testcell has. 
+  ! testcell the peak ID the testcell has.
   !---------------------------------------------------------------------------
   use amr_commons
   use clfind_commons    ! unbinding stuff is all in here
@@ -1886,17 +1882,17 @@ subroutine output_part_clump_id()
 
   do itestcell=1, ntest !loop over all test cells
      global_peak_id=flag2(icellp(itestcell))
-     
+
      if (global_peak_id /= 0) then
 
         ind=(icellp(itestcell)-ncoarse-1)/ngridmax+1  ! get cell position
         grid=icellp(itestcell)-ncoarse-(ind-1)*ngridmax ! get grid index
         prtcls_in_grid = numbp(grid)          ! get number of particles in grid
         this_part=headp(grid)             ! get index of first particle
-        
+
         ! loop over particles in grid
         do ipart = 1, prtcls_in_grid
-            
+
             !check cell index of particle so you loop only once over each
             i=0
             j=0
@@ -1904,15 +1900,15 @@ subroutine output_part_clump_id()
             if(xg(grid,1)-xp(this_part,1)/boxlen+(nx-1)/2.0 .le. 0) i=1
             if(xg(grid,2)-xp(this_part,2)/boxlen+(ny-1)/2.0 .le. 0) j=1
             if(xg(grid,3)-xp(this_part,3)/boxlen+(nz-1)/2.0 .le. 0) k=1
-            
+
             part_cell_ind=i+2*j+4*k+1
-            
+
             !If index is correct, assign clump id to particle
             if (part_cell_ind==ind) clmpidp(this_part)=global_peak_id
             !go to next particle in this grid
             this_part = nextp(this_part)
 
-        end do        
+        end do
      end if   !global peak /=0
   end do   !loop over test cells
 

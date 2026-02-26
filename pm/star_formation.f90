@@ -560,8 +560,13 @@ subroutine star_formation(ilevel)
               ! Poisson mean
               PoissMean=mgas/mstar
               if((trel>0.).and.(.not.cosmo)) PoissMean = PoissMean*min((t/trel), 1.0d0)
-              ! Compute Poisson realisation
-              call poissdev(localseed,PoissMean,nstar(i))
+              if(randomize_sf)then
+                 ! Compute Poisson realisation
+                 call poissdev(localseed,PoissMean,nstar(i))
+              else
+                 ! this is useful for the test suite only
+                 nstar(i)=PoissMean
+              endif
               ! Compute depleted gas mass
               mgas=nstar(i)*mstar
               ! Security to prevent more than 90% of gas depletion
@@ -753,9 +758,9 @@ subroutine star_formation(ilevel)
               enddo
               write(ilun,'(E24.12)',advance='no') uold(ind_cell_new(i),1)
               do ivar=2,nvar
-                 if(ivar.eq.ndim+2)then
+                 if(ivar.eq.neul)then
                     ! Temperature
-                    uvar=(gamma-1.0d0)*(uold(ind_cell_new(i),ndim+2))*scale_T2
+                    uvar=(gamma-1.0d0)*(uold(ind_cell_new(i),neul))*scale_T2
                  else
                     uvar=uold(ind_cell_new(i),ivar)
                  endif

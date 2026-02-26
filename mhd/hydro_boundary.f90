@@ -194,7 +194,7 @@ subroutine make_boundary_hydro(ilevel)
               ! Scatter to boundary region
               do ivar=1,nvar+3
                  switch=1
-                 if(ivar>1.and.ivar<=4)switch=gs(ivar-1)
+                 if(ivar>1.and.ivar<neul)switch=gs(ivar-1)
 #if USE_M_1==1
                  ! Reflection for the radiative flux
                  ! [E_nener(1),E_nener(2),E_nener(3),E(1),E(2),Fx(1),Fx(2),Fy(1),Fy(2),Fz(1),Fz(2)]
@@ -267,7 +267,7 @@ subroutine make_boundary_hydro(ilevel)
                     v = uu(i,idim+1)/d
                     ekin = ekin+0.5d0*d*v**2
                  end do
-                 uu(i,5)=uu(i,5)-emag-ekin
+                 uu(i,neul)=uu(i,neul)-emag-ekin
               end do
 
               ! Scatter to boundary region
@@ -315,7 +315,7 @@ subroutine make_boundary_hydro(ilevel)
                     v = uold(ind_cell(i),idim+1)/d
                     ekin = ekin+0.5d0*d*v**2
                  end do
-                 uold(ind_cell(i),5)=uold(ind_cell(i),5)+emag+ekin
+                 uold(ind_cell(i),neul) = uold(ind_cell(i),neul)+emag+ekin
               end do
 
            end do

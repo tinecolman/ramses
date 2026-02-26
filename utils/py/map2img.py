@@ -22,7 +22,7 @@ with FortranFile(path_to_output, 'r') as f:
 print(nx,ny)
 # reshape the output
 dat = np.array(dat)
-dat = dat.reshape(nx, ny)
+dat = dat.reshape(ny, nx)
 dat = np.transpose(dat)
 # plot the map
 my_dpi = 96
@@ -30,12 +30,10 @@ fig, ax = plt.subplots(figsize=(512/my_dpi, 512/my_dpi), dpi=my_dpi)
 
 if args.log:
     dat=np.log10(dat)
-    
+
 ax.imshow(dat[:, :].T, interpolation='nearest', origin='lower')
 ax.set_xlabel("nx")
 ax.set_ylabel("ny")
 if args.out:
     plt.savefig(args.out)
 plt.show()
-
-

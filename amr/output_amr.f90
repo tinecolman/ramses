@@ -14,6 +14,7 @@ subroutine dump_all
   use turb_commons
 #endif
   use mpi_mod
+  use buildinfo
   implicit none
 #if ! defined (WITHOUTMPI) || defined (NOSYSTEM)
   integer::info
@@ -31,6 +32,8 @@ subroutine dump_all
   call title(ifout,nchar)
   ifout=ifout+1
   if(t>=tout(iout).or.aexp>=aout(iout))iout=iout+1
+  if(t>=tout_next)tout_next=tout_next+delta_tout
+  if(aexp>=aout_next)aout_next=aout_next+delta_aout
   output_done=.true.
 
   if(IOGROUPSIZEREP>0) then
@@ -76,6 +79,10 @@ subroutine dump_all
         filename=TRIM(filedir)//'sink_'//TRIM(nchar)//'.csv'
         call output_sink_csv(filename)
      endif
+     if(stellar)then
+        filename=TRIM(filedir)//'stellar_'//TRIM(nchar)//'.csv'
+        call output_stellar_csv(filename)
+     end if
      ! Copy namelist file to output directory
      filename=TRIM(filedir)//'namelist.txt'
      OPEN(10, FILE=namelist_file, ACCESS="STREAM", ACTION="READ")
@@ -90,11 +97,7 @@ subroutine dump_all
      ! Copy compilation details to output directory
      filename=TRIM(filedir)//'compilation.txt'
      OPEN(UNIT=11, FILE=filename, FORM='formatted')
-     write(11,'(" compile date = ",A)')TRIM(builddate)
-     write(11,'(" patch dir    = ",A)')TRIM(patchdir)
-     write(11,'(" remote repo  = ",A)')TRIM(gitrepo)
-     write(11,'(" local branch = ",A)')TRIM(gitbranch)
-     write(11,'(" last commit  = ",A)')TRIM(githash)
+     call write_gitinfo(11)
      CLOSE(11)
   endif
 #ifndef WITHOUTMPI
@@ -139,10 +142,6 @@ subroutine dump_all
      filename=trim(filedir)//'part_'//trim(nchar)//'.out'
      filename_desc=TRIM(filedir)//'part_file_descriptor.txt'
      call backup_part(filename, filename_desc)
-     if(sink)then
-        filename=TRIM(filedir)//'sink_'//TRIM(nchar)//'.csv'
-        call output_sink_csv(filename)
-     end if
 #ifndef WITHOUTMPI
      if(synchro_when_io) call MPI_BARRIER(MPI_COMM_WORLD,info)
 #endif
@@ -527,9 +526,9 @@ subroutine output_header(filename)
   integer::ilun
   character(LEN=80)::fileloc
 #ifdef LONGINT
-  integer(i8b)::npart_family_loc(-5:5), npart_family(-5:5), npart_all_loc, npart_all
+  integer(i8b)::npart_family_loc(-NFAMILIES:NFAMILIES), npart_family(-NFAMILIES:NFAMILIES), npart_all_loc, npart_all
 #else
-  integer::npart_family_loc(-5:5), npart_family(-5:5), npart_all_loc, npart_all
+  integer::npart_family_loc(-NFAMILIES:NFAMILIES), npart_family(-NFAMILIES:NFAMILIES), npart_all_loc, npart_all
 #endif
   integer :: ifam, ipart
 
@@ -566,12 +565,12 @@ subroutine output_header(filename)
 #endif
 
   if (myid == 1) then
-     write(ilun, '(a1,a12,a10)') '#', 'Family', 'Count'
+     write(ilun, '(a1,a12,a15)') '#', 'Family', 'Count'
      do ifam = -NFAMILIES, NFAMILIES
-        write(ilun, '(a13, i10)') &
+        write(ilun, '(a13, i15)') &
              trim(particle_family_keys(ifam)), npart_family(ifam)
      end do
-     write(ilun, '(a13, i10)') &
+     write(ilun, '(a13, i15)') &
           'undefined', npart_all - sum(npart_family)
   end if
 
@@ -705,7 +704,7 @@ subroutine create_output_dirs(filedir)
   integer :: info
 #endif
   integer, parameter :: mode = int(O'755')
-  
+
   if (.not.withoutmkdir) then
     if (myid==1) then
 #ifdef NOSYSTEM
@@ -717,7 +716,7 @@ subroutine create_output_dirs(filedir)
       ierr=1
 !      call system(filecmd,ierr)
 !      call EXECUTE_COMMAND_LINE(filecmd,exitstat=ierr,wait=.true.)
-      call mkdir(TRIM(filedir),mode,ierr) 
+      call mkdir(TRIM(filedir),mode,ierr)
       if(ierr.ne.0 .and. ierr.ne.127)then
         write(*,*) 'Error - Could not create ',TRIM(filedir),' error code=',ierr
 #ifndef WITHOUTMPI

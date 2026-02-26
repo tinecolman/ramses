@@ -25,7 +25,7 @@ def read_descriptor(fname):
 # =======================================================================
 # Load RAMSES data a la OSIRIS
 # =======================================================================
-def load_snapshot(nout):
+def load_snapshot(nout, read_hydro=True, read_grav=False, read_rt=False):
 
     infile = generate_fname(nout)
 
@@ -55,6 +55,25 @@ def load_snapshot(nout):
     # Store the total number of hydro variables
     info["nvar"] = len(list_vars)
 
+    # Add variables from gravity files
+    info["ngravvar"] = 0
+    if read_grav:
+        info["ngravvar"] = 2
+        list_vars.extend(("phi","a_x"))
+        if info["ndim"]>1:
+            list_vars.append(("a_y"))
+            info["ngravvar"] += 1
+        if info["ndim"]>2:
+            list_vars.append(("a_z"))
+            info["ngravvar"] += 1
+
+    # Add photon flux variables
+    if read_rt:
+        rtfile = infile+"/rt_file_descriptor.txt"
+        list_vars_rt, _ = read_descriptor(rtfile)
+        info["nrtvar"] = len(list_vars_rt)
+        list_vars.extend(list_vars_rt[:])
+
     # Make sure we always read the coordinates
     list_vars.extend(("level","x","y","z","dx"))
     nvar_read = len(list_vars)
@@ -77,7 +96,7 @@ def load_snapshot(nout):
     son   = np.zeros([info["ngridmax"],twotondim],dtype=np.int32)
     var   = np.zeros([info["ngridmax"],twotondim,nvar_read],dtype=np.float64)
     xyz   = np.zeros([info["ngridmax"],twotondim,info["ndim"]],dtype=np.float64)
-    ref   = np.zeros([info["ngridmax"],twotondim],dtype=np.bool)
+    ref   = np.zeros([info["ngridmax"],twotondim],dtype=bool) # np.bool removed for numpy>=1.24
 
     partinfofile = infile+"/header_"+infile.split("_")[-1]+".txt"
     info["particle_count"] = {}
@@ -104,7 +123,7 @@ def load_snapshot(nout):
     istep = 10
     ncells_tot = 0
 
-    # Loop over the cpus and read the AMR and HYDRO files in binary format
+    # Loop over the cpus and read the AMR, HYDRO and GRAV files in binary format
     for k in range(info["ncpu"]):
 
         # Print progress
@@ -119,10 +138,22 @@ def load_snapshot(nout):
             amrContent = amr_file.read()
 
         # Read binary HYDRO file
-        hydro_fname = generate_fname(nout,ftype="hydro",cpuid=k+1)
-        with open(hydro_fname, mode='rb') as hydro_file: # b is important -> binary
-            hydroContent = hydro_file.read()
+        if read_hydro:
+            hydro_fname = generate_fname(nout,ftype="hydro",cpuid=k+1)
+            with open(hydro_fname, mode='rb') as hydro_file: # b is important -> binary
+                hydroContent = hydro_file.read()
 
+        # Read binary GRAV file
+        if read_grav:
+            grav_fname = generate_fname(nout,ftype="grav",cpuid=k+1)
+            with open(grav_fname, mode='rb') as grav_file: # b is important -> binary
+                gravContent = grav_file.read()
+
+        # Read binary RT file
+        if read_rt:
+            rt_fname = generate_fname(nout,ftype="rt",cpuid=k+1)
+            with open(rt_fname, mode='rb') as rt_file: # b is important -> binary
+                rtContent = rt_file.read()
 
         # Need to extract info from the file header on the first loop
         if k == 0:
@@ -194,19 +225,32 @@ def load_snapshot(nout):
             offset = 4*ninteg + 8*(nlines+nfloat) + nstrin + nquadr*16 + 4
             ngridlevel[info["ncpu"]:info["ncpu"]+nboundary,:] = np.asarray(struct.unpack("%ii"%(nboundary*info["levelmax"]), amrContent[offset:offset+4*nboundary*info["levelmax"]])).reshape(info["levelmax"],nboundary).T
 
-        # Determine bound key precision
-        ninteg = 14+(3*info["ncpu"]*info["levelmax"])+(10*info["levelmax"])+(3*nboundary*info["levelmax"])+5
-        nfloat = 18+(2*noutput)+(2*info["levelmax"])
-        nlines = 21+2+3*min(1,nboundary)+1+1
-        nstrin = 128
-        nquadr = 0
-        offset = 4*ninteg + 8*(nlines+nfloat) + nstrin + nquadr*16
-        key_size = struct.unpack("i", amrContent[offset:offset+4])[0]
+        # Depending on the ordering type, we have two different cases
+        if(info["ordering type"] == "bisection"):
+            nbinodes = 2**(math.ceil(math.log(float(info["ncpu"]))/math.log(2.0))+1)-1
+            ninteg_ordering = 3*nbinodes
+            nfloat_ordering = nbinodes+2*info["ncpu"]*info["ndim"]
+            nlines_ordering = 5
+            key_size     = 0
+        else:
+            nbinodes = 0
+            ninteg_ordering = 0
+            nfloat_ordering = 0
+            nlines_ordering = 1
+
+            # Determine bound key precision
+            ninteg = 14+(3*info["ncpu"]*info["levelmax"])+(10*info["levelmax"])+(3*nboundary*info["levelmax"])+5
+            nfloat = 18+(2*noutput)+(2*info["levelmax"])
+            nlines = 21+2+3*min(1,nboundary)+1+1
+            nstrin = 128
+            nquadr = 0
+            offset = 4*ninteg + 8*(nlines+nfloat) + nstrin + nquadr*16
+            key_size = struct.unpack("i", amrContent[offset:offset+4])[0]
 
         # Offset for AMR
-        ninteg1 = 14+(3*info["ncpu"]*info["levelmax"])+(10*info["levelmax"])+(3*nboundary*info["levelmax"])+5+3*ncoarse
-        nfloat1 = 18+(2*noutput)+(2*info["levelmax"])
-        nlines1 = 21+2+3*min(1,nboundary)+1+1+1+3
+        ninteg1 = 14+(3*info["ncpu"]*info["levelmax"])+(10*info["levelmax"])+(3*nboundary*info["levelmax"])+5+ninteg_ordering+3*ncoarse
+        nfloat1 = 18+(2*noutput)+(2*info["levelmax"])+nfloat_ordering
+        nlines1 = 21+2+3*min(1,nboundary)+1+1+nlines_ordering+3
         nstrin1 = 128 + key_size
 
         # Offset for HYDRO
@@ -214,6 +258,18 @@ def load_snapshot(nout):
         nfloat2 = 1
         nlines2 = 6
         nstrin2 = 0
+
+        # Offset for GRAV (number of variables of each type in header)
+        ninteg3 = 4
+        nfloat3 = 0
+        nlines3 = 4
+        nstrin3 = 0
+
+        # Offset for RT
+        ninteg4 = 5
+        nfloat4 = 1
+        nlines4 = 6
+        nstrin4 = 0
 
         # Loop over levels
         for ilevel in range(info["levelmax"]):
@@ -241,6 +297,18 @@ def load_snapshot(nout):
             nlines_hydro = nlines2
             nstrin_hydro = nstrin2
 
+            # Cumulative offsets in GRAV file
+            ninteg_grav = ninteg3
+            nfloat_grav = nfloat3
+            nlines_grav = nlines3
+            nstrin_grav = nstrin3
+
+            # Cumulative offsets in RT file
+            ninteg_rt = ninteg4
+            nfloat_rt = nfloat4
+            nlines_rt = nlines4
+            nstrin_rt = nstrin4
+
             # Loop over domains
             for j in range(nboundary+info["ncpu"]):
 
@@ -249,6 +317,10 @@ def load_snapshot(nout):
                 # Skip two lines of integers
                 nlines_hydro += 2
                 ninteg_hydro += 2
+                nlines_grav += 2
+                ninteg_grav += 2
+                nlines_rt += 2
+                ninteg_rt += 2
 
                 if ncache > 0:
 
@@ -271,12 +343,21 @@ def load_snapshot(nout):
                             offset = 4*(ninteg+ind*ncache) + 8*(nlines+nfloat+ind) + nstrin + 4
                             son[:ncache,ind] = struct.unpack("%ii"%(ncache), amrContent[offset:offset+4*ncache])
                             # var: hydro variables
-                            #jvar = 0
-                            for ivar in range(info["nvar"]):
-                                #if var_read[ivar]:
-                                offset = 4*ninteg_hydro + 8*(nlines_hydro+nfloat_hydro+(ind*info["nvar"]+ivar)*(ncache+1)) + nstrin_hydro + 4
-                                var[:ncache,ind,ivar] = struct.unpack("%id"%(ncache), hydroContent[offset:offset+8*ncache])
-                                #jvar += 1
+                            if read_hydro:
+                                for ivar in range(info["nvar"]):
+                                    offset = 4*ninteg_hydro + 8*(nlines_hydro+nfloat_hydro+(ind*info["nvar"]+ivar)*(ncache+1)) + nstrin_hydro + 4
+                                    var[:ncache,ind,ivar] = struct.unpack("%id"%(ncache), hydroContent[offset:offset+8*ncache])
+                            # grav variables
+                            if read_grav:
+                                for ivar in range(info["ndim"]+1):
+                                    offset = 4*ninteg_grav + 8*(nlines_grav+nfloat_grav+(ind*(info["ndim"]+1)+ivar)*(ncache+1)) + nstrin_grav + 4
+                                    var[:ncache,ind,info["nvar"]+ivar] = struct.unpack("%id"%(ncache), gravContent[offset:offset+8*ncache])
+                            # rtvar: rt variables
+                            if read_rt:
+                                for ivar in range(info["nrtvar"]):
+                                    offset = 4*ninteg_rt + 8*(nlines_rt+nfloat_rt+(ind*info["nrtvar"]+ivar)*(ncache+1)) + nstrin_rt + 4
+                                    var[:ncache,ind,info["nvar"]+info["ngravvar"]+ivar] = struct.unpack("%id"%(ncache), rtContent[offset:offset+8*ncache])
+                            # refinement lvl
                             var[:ncache,ind,-5] = float(ilevel+1)
                             for n in range(info["ndim"]):
                                 xyz[:ncache,ind,n] = xg[:ncache,n] + xcent[ind,n]-xbound[n]
@@ -302,6 +383,13 @@ def load_snapshot(nout):
                     nfloat_hydro += ncache*twotondim*info["nvar"]
                     nlines_hydro += twotondim*info["nvar"]
 
+                    if read_rt:
+                        nfloat_rt += ncache*twotondim*info["nrtvar"]
+                        nlines_rt += twotondim*info["nrtvar"]
+
+                    nfloat_grav += ncache*twotondim*(info["ndim"]+1)
+                    nlines_grav += twotondim*(info["ndim"]+1)
+
             # Now increment the offsets while looping through the levels
             ninteg1 = ninteg_amr
             nfloat1 = nfloat_amr
@@ -312,6 +400,16 @@ def load_snapshot(nout):
             nfloat2 = nfloat_hydro
             nlines2 = nlines_hydro
             nstrin2 = nstrin_hydro
+
+            ninteg3 = ninteg_grav
+            nfloat3 = nfloat_grav
+            nlines3 = nlines_grav
+            nstrin3 = nstrin_grav
+
+            ninteg4 = ninteg_rt
+            nfloat4 = nfloat_rt
+            nlines4 = nlines_rt
+            nstrin4 = nstrin_rt
 
         # Read binary particle file
         if info["particle_count"]["total"] > 0:
@@ -356,7 +454,7 @@ def load_snapshot(nout):
         print("Total particles loaded: %i" % npart_read)
 
     # This is the master data dictionary.
-    data = {"data": {}, "info": info, "sinks": {"nsinks": 0}}
+    data = {"data": {}, "info": info, "sinks": {"nsinks": 0}, "stellars": {"nstellars": 0}}
     for i in range(len(list_vars)):
         theKey = list_vars[i]
         data["data"][theKey] = master_data_array[:,i]
@@ -406,6 +504,30 @@ def load_snapshot(nout):
     except IOError:
         pass
 
+    # Read stellar particles if present
+    stellarfile = infile+"/stellar_"+infile.split("_")[-1]+".csv"
+    try:
+        with open(stellarfile) as f:
+            content = f.readlines()
+        # Read the file header to get information on fields
+        stellar_vars = content[0].rstrip().replace(" # ", "").split(",")
+        stellar_units = content[1].rstrip().replace(" # ", "").split(",")
+        data["stellars"]["nstellars"] = len(content) - 2
+        if data["stellars"]["nstellars"] > 0:
+            for entry in stellar_vars:
+                data["stellars"][entry] = np.zeros(data["stellars"]["nstellars"], dtype=np.float64)
+            for i in range(data["stellars"]["nstellars"]):
+                line = content[i+2].rstrip().split(",")
+                for j, entry in enumerate(stellar_vars):
+                    # Try to convert to float
+                    try:
+                        data["stellars"][entry][i] = np.float64(line[j])
+                    except ValueError:
+                        data["stellars"][entry][i] = np.nan
+            data["stellars"]["id"] = np.int32(data["stellars"]["id"])
+    except IOError:
+        pass
+
     return data
 
 # =======================================================================
@@ -441,10 +563,15 @@ def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e
     tex_file.write(" \n")
     tex_file.close()
 
+    vars_to_correct = ["sink_lx","sink_ly","sink_lz",
+                       "sink_vx","sink_vy","sink_vz",
+                       "sink_vx_gas","sink_vy_gas","sink_vz_gas"]
     # Find vectors and normalize components
     norms = dict()
     permutations = {"_x":["_y","_z"],"_y":["_x","_z"],"_z":["_x","_y"]}
     for key in sorted(data.keys()):
+        if key not in vars_to_correct:
+            continue
         norms[key] = 1.0
         if key.endswith("_x") or key.endswith("_y") or key.endswith("_z"):
             rawkey = key[:-2]
@@ -483,8 +610,10 @@ def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e
            key == "temperature" or \
            key.startswith("radiative_energy"):
             solution = np.log10(np.abs(keyData))
-        else:
+        elif key in vars_to_correct:
             solution = np.where(np.abs(keyData)<threshold*norms[key],0.0,np.abs(keyData))
+        else:
+            solution = np.abs(keyData)
 
         try:
             sol[key] = math.fsum(solution)
@@ -562,7 +691,7 @@ def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e
             else:
                 error = abs(this_sol-this_ref)/min(abs(this_sol),abs(this_ref))
         else:
-            error = np.Inf
+            error = np.inf
 
         if error > tol:
             ok = False

@@ -5,8 +5,12 @@
 
 # Do we want a debug build? 1=Yes, 0=No
 DEBUG = 0
+# Do we want to test coverage?
+GCOV = 0
 # Compiler flavor: GNU or INTEL
 COMPILER = GNU
+# Target cluster, to set cluster specific optimisation flags (see Makefile.machines)
+MACHINE = generic
 # Size of vector cache
 NVECTOR = 32
 # Number of dimensions
@@ -20,10 +24,9 @@ PATCH =
 # Use RT? 1=Yes, 0=No
 RT = 0
 # Use turbulence? 1=Yes, 0=No (requires fftw3)
-USE_TURB=0
+USE_TURB = 0
 # Use MPI? 1=Yes, 0=No
-MPI = 1
-MPIF90 = mpif90
+MPI = 0
 # Root name of executable
 EXEC = ramses
 # Number of additional energies
@@ -32,8 +35,8 @@ NENER = 0
 GRACKLE = 0
 # Number of metal species
 NMETALS = 0
-# ATON flages: Uncomment to enable ATON
-ATON_FLAGS = #-DATON
+# Use ATON? 1=Yes, 0=No
+ATON = 0
 # Number of ions for RT
 # use 1 for HI+HII, +1 for added H2, +2 for added HeI, HeII, HeIII
 NIONS = 0
@@ -41,6 +44,8 @@ NIONS = 0
 NGROUPS = 0
 # Number of passive scalars
 NPSCAL = 0
+# Light MPI communicator structure (for > 10k MPI processes)
+LIGHT_MPI_COMM = 0
 
 # FLD stuff
 USE_FLD=0
@@ -55,11 +60,11 @@ NEXTINCT=0
 #
 
 # Compute NVAR
-NVAR = 2+$(NDIM)
+NHYDRO = 2+$(NDIM)
 ifeq ($(SOLVER),mhd)
-   NVAR = 8
+   NHYDRO = 8
 endif
-NVAR := $(NVAR)+$(NENER)+$(NPSCAL)+$(NMETALS)
+NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
 ifeq ($(RT),1)
    NVAR := $(NVAR)+$(NIONS)
 endif
@@ -99,10 +104,11 @@ GITHASH = $(shell git log --pretty=format:'%H' -n 1)
 GITREMOTE = $(shell git config --get branch.$(GITBRANCH).remote)
 GITREPO = $(shell git config --get remote.$(GITREMOTE).url)
 BUILDDATE = $(shell date +"%D-%T")
+BUILDCOMMAND =${MAKE} ${MAKEFLAGS}
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) \
-          -DNVAR=$(NVAR) -DSOLVER$(SOLVER) $(ATON_FLAGS)
-ifeq ($(USE_FLD),1)
-     DEFINES := $(DEFINES) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL)
+          -DNVAR=$(NVAR) -DNHYDRO=$(NHYDRO) -DSOLVER$(SOLVER)
+ifeq ($(ATON),1)
+   DEFINES += -DATON
 endif
 ifeq ($(GRACKLE),1)
    DEFINES += -Dgrackle
@@ -113,6 +119,9 @@ endif
 ifeq ($(RT),1)
    DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
 endif
+ifeq ($(USE_FLD),1)
+     DEFINES := $(DEFINES) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL)
+endif
 ifeq ($(USE_TURB),1)
    DEFINES += -DUSE_TURB
 endif
@@ -120,43 +129,81 @@ ifeq ($(USE_FLD),1)
 DEFINES += -DUSE_FLD=$(USE_FLD)
 endif
 
+ifeq ($(LIGHT_MPI_COMM), 1)
+   DEFINES += -DLIGHT_MPI_COMM
+endif
 #############################################################################
-# Fortran compiler options and directives
+# Compiler command for regular compilation (mpi or serial)
+F90 =
+# Serial compiler command and flags for helper files
+FC =
+# Base compiler flags for compilation
+FFLAGS_BASE =
+# Compiler flags for optimization
+FFLAGS_OPT = -O3
+# Compiler flags for linking
+LDFLAGS =
+# Load presets for MPIF90 and FFLAGS_OPT for specified machine
+-include clusters.mk
 
 # GNU compiler (gfortran)
 ifeq ($(COMPILER),GNU)
-   FFLAGS = -x f95-cpp-input $(DEFINES)
+   # set compiler commands
    ifeq ($(MPI),1)
       F90 = $(MPIF90)
    else
       F90 = gfortran
-      FFLAGS += -DWITHOUTMPI
    endif
-   F90 += -frecord-marker=4 -fbacktrace -ffree-line-length-none -g -fimplicit-none
-   ifeq ($(DEBUG),1)
-      F90 += -O0 -fbounds-check -Wuninitialized -Wall
-      FFLAGS += -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan
-   else
-      F90 += -O3
+   FC = gfortran -ffree-line-length-none -fimplicit-none
+   FFLAGS_BASE += -ffree-line-length-none -fimplicit-none
+   # add preprocessor macro definitions to compilation flags
+   FFLAGS_BASE += -cpp $(DEFINES)
+   ifeq ($(MPI),0)
+      FFLAGS_BASE += -DWITHOUTMPI
+   endif
+   # link-time optimization accross files
+   LDFLAGS += -flto -fwhole-program
+   FFLAGS_OPT += -flto -fwhole-program
+   # Flags for coverage calculation (resets optimization flags)
+   ifeq ($(GCOV),1)
+      FFLAGS_BASE += -fprofile-arcs -ftest-coverage
+      LDFLAGS = -fprofile-arcs -ftest-coverage
+      FFLAGS_OPT = -O0
+   else ifeq ($(DEBUG),1)
+      # Flags for debugging (resets optimization flags)
+      FFLAGS_BASE += -g -fbacktrace -fbounds-check -Wuninitialized -Wall
+      FFLAGS_BASE += -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan
+      LDFLAGS = -g
+      FFLAGS_OPT = -O0
    endif
 endif
 
 # Intel compiler
 ifeq ($(COMPILER),INTEL)
-   FFLAGS = -cpp $(DEFINES)
+   # set compiler commands
    ifeq ($(MPI),1)
       F90 = $(MPIF90)
-      FFLAGS += -DNOSYSTEM
    else
       F90 = ifort
-      FFLAGS += -DWITHOUTMPI
    endif
-   F90 += -fp-model source
-   ifeq ($(DEBUG),1)
-      F90 += -warn all -O0 -g -traceback -check bounds
-      FFLAGS += -fpe0 -ftrapuv -init=zero -init=snan -init=arrays
+   FC = ifort -fp-model source
+   FFLAGS_BASE += -fp-model source
+   # add preprocessor macro definitions to compilation flags
+   FFLAGS_BASE += -cpp $(DEFINES)
+   ifeq ($(MPI),1)
+      FFLAGS_BASE += -DNOSYSTEM
    else
-      F90 += -O3
+      FFLAGS_BASE += -DWITHOUTMPI
+   endif
+   # link-time optimization and inlining accross files
+   LDFLAGS += -ipo -inline-forceinline
+   FFLAGS_OPT += -ipo -inline-forceinline
+   # Flags for debugging (resets optimization flags)
+   ifeq ($(DEBUG),1)
+      FFLAGS_BASE += -g -traceback -check bounds -warn all
+      FFLAGS_BASE += -fpe0 -ftrapuv -init=zero -init=snan -init=arrays
+      LDFLAGS = -g -traceback
+      FFLAGS_OPT = -O0
    endif
 endif
 
@@ -187,7 +234,7 @@ endif
 LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB) $(LIBS_FLD)
 #############################################################################
 # Sources directories are searched in this exact order
-VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../aton:
+VPATH = $(PATCH):../$(SOLVER):../aton:
 ifeq ($(RT),1)
    VPATH += ../rt:
 endif
@@ -200,14 +247,15 @@ ifeq ($(USE_FLD),1)
 endif
 #############################################################################
 # All objects
-MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o \
-         pm_commons.o poisson_parameters.o dump_utils.o constants.o file_module.o
+MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o amr_constants.o random.o pm_parameters.o sink_feedback_parameters.o \
+         pm_commons.o poisson_parameters.o collapse_parameters.o dump_utils.o constants.o file_module.o
 ifeq ($(GRACKLE),1)
    MODOBJ += grackle_parameters.o
 endif
 MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o \
           cooling_module.o bisection.o sparse_mat.o clfind_commons.o \
-          gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o
+          gadgetreadfile.o write_makefile.o write_patch.o write_gitinfo.o \
+          sink_sn_feedback.o
 ifeq ($(RT),1)
    MODOBJ += rt_parameters.o rt_hydro_commons.o coolrates_module.o \
              rt_spectra.o rt_cooling_module.o rt_flux_module.o
@@ -220,24 +268,26 @@ ifeq ($(USE_FLD),1)
 endif
 
 AMROBJ = read_params.o init_amr.o init_time.o init_refine.o tracer_utils.o adaptive_loop.o \
-         amr_step.o update_time.o output_amr.o flag_utils.o \
+         amr_step.o update_time.o timer.o output_amr.o flag_utils.o \
          physical_boundaries.o virtual_boundaries.o refine_utils.o \
          nbors_utils.o hilbert.o load_balance.o title.o sort.o cooling_fine.o \
          eos.o units.o light_cone.o movie.o memory.o end.o
 # Particle-Mesh objects
 PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o \
         newdt_fine.o particle_tree.o add_list.o remove_list.o star_formation.o \
-        sink_particle.o feedback.o clump_finder.o clump_merger.o \
+        sink_particle.o feedback.o clump_finder.o clump_merger.o output_clump.o \
         flag_formation_sites.o init_sink.o output_sink.o \
-        unbinding.o merger_tree.o move_tracer.o init_tracer.o
+        unbinding.o merger_tree.o move_tracer.o init_tracer.o \
+        read_sink_feedback_params.o sink_rt_feedback.o \
+        stellar_particle.o init_stellar.o output_stellar.o
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o \
-             multigrid_coarse.o multigrid_fine_commons.o multigrid_fine_fine.o \
+             multigrid_fine_commons.o multigrid_fine_fine.o \
              multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o \
              output_poisson.o
 # Hydro objects
 HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o \
-           courant_fine.o godunov_fine.o uplmde.o umuscl.o interpol_hydro.o \
+           courant_fine.o godunov_fine.o uplmde.o slope_types.o umuscl.o interpol_hydro.o \
            godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o boundana.o \
            read_hydro_params.o synchro_hydro_fine.o cooling_module_ism.o
 # RT objects
@@ -271,29 +321,29 @@ ATON_OBJ = observe.o init_radiation.o rad_init.o rad_boundary.o rad_stars.o \
            rad_backup.o ../aton/atonlib/libaton.a
 #############################################################################
 ramses:	$(MODOBJ) $(AMRLIB) ramses.o
-	$(F90) $(MODOBJ) $(AMRLIB) ramses.o -o $(EXEC)$(NDIM)d $(LIBS)
+	$(F90) $(LDFLAGS) $(MODOBJ) $(AMRLIB) ramses.o -o $(EXEC)$(NDIM)d $(LIBS)
 	rm write_makefile.f90
 	rm write_patch.f90
 ramses_aton: $(MODOBJ) $(ATON_MODOBJ) $(AMRLIB) $(ATON_OBJ) ramses.o
-	$(F90) $(MODOBJ) $(ATON_MODOBJ) $(AMRLIB) $(ATON_OBJ) ramses.o \
+	$(F90) $(LDFLAGS) $(MODOBJ) $(ATON_MODOBJ) $(AMRLIB) $(ATON_OBJ) ramses.o \
 		-o $(EXEC)$(NDIM)d $(LIBS) $(LIBCUDA)
 	rm write_makefile.f90
 	rm write_patch.f90
 #############################################################################
 write_gitinfo.o: FORCE
-	$(F90) $(FFLAGS) -DPATCH=\'$(PATCH)\' -DGITBRANCH=\'$(GITBRANCH)\' \
+	$(FC) -O0 -cpp -DPATCH=\'$(PATCH)\' -DGITBRANCH=\'$(GITBRANCH)\' \
 		-DGITHASH=\'"$(GITHASH)"\' -DGITREPO=\'$(GITREPO)\' \
-		-DBUILDDATE=\'"$(BUILDDATE)"\' -c ../amr/write_gitinfo.f90 -o $@
+		-DBUILDDATE=\'"$(BUILDDATE)"\' -DBUILDCOMMAND=\'"$(BUILDCOMMAND)"\' -c ../amr/write_gitinfo.f90 -o $@
 write_makefile.o: FORCE
 	../utils/scripts/cr_write_makefile.sh $(MAKEFILE_LIST)
-	$(F90) $(FFLAGS) -c write_makefile.f90 -o $@
+	$(FC) -O0 -c write_makefile.f90 -o $@
 write_patch.o: FORCE
 	../utils/scripts/cr_write_patch.sh $(PATCH)
-	$(F90) -O0 -c write_patch.f90 -o $@
+	$(FC) -O0 -c write_patch.f90 -o $@
 %.o:%.F
-	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB)
+	$(F90) $(FFLAGS_BASE) $(FFLAGS_OPT) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB)
 %.o:%.f90
-	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB)
+	$(F90) $(FFLAGS_BASE) $(FFLAGS_OPT) -c $^ -o $@ $(LIBS_OBJ) $(LIBS_OBJ_TURB)
 FORCE:
 #############################################################################
 clean:

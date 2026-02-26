@@ -375,7 +375,10 @@ program part2map
         read(1) ! Skip level
         read(1)family
         read(1)tag
-        read(1)age
+        read(1,END=101)age
+        GOTO 102
+101     age=-10.
+102     continue
      endif
      close(1)
 
@@ -486,7 +489,7 @@ program part2map
                  if(iyp1<0)iyp1=iyp1+ny
                  if(iyp1>=ny)iyp1=iyp1-ny
               endif
-              if(ix>=0.and.ix<nx.and.iy>=0.and.iy<ny.and.ddx>0.and.ddy>0)then
+              if(ix>=0.and.ix<nx.and.iy>=0.and.iy<ny.and.ddx>=0.and.ddy>=0)then
                  map(ix  ,iy  )=map(ix  ,iy  )+m(i)*dex*dey*weight
                  map(ix  ,iyp1)=map(ix  ,iyp1)+m(i)*dex*ddy*weight
                  map(ixp1,iy  )=map(ixp1,iy  )+m(i)*ddx*dey*weight
@@ -564,7 +567,7 @@ contains
       implicit none
 
       integer       :: i,n
-      
+
       character(len=4)   :: opt
       character(len=128) :: arg
       LOGICAL       :: bad, ok

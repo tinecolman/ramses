@@ -134,11 +134,9 @@ subroutine init_amr
     ! Set initial cpu boundaries
     do i=0,ndomain-1
 #ifdef QUADHILBERT
-       bound_key(i)=order_all_min+real(i,16)/real(ndomain,16)* &
-            & (order_all_max-order_all_min)
+       bound_key(i)=order_all_min+real(i,16)/real(ndomain,16)*(order_all_max-order_all_min)
 #else
-       bound_key(i)=order_all_min+real(i,8)/real(ndomain,8)* &
-            & (order_all_max-order_all_min)
+       bound_key(i)=order_all_min+real(i,8)/real(ndomain,8)*(order_all_max-order_all_min)
 #endif
     end do
     bound_key(ndomain)=order_all_max
@@ -179,13 +177,26 @@ subroutine init_amr
 
   ! Allocate communicators
   allocate(active(1:nlevelmax))
+#ifdef LIGHT_MPI_COMM
+  allocate(emission(1:nlevelmax))
+  allocate(emission_part(1:nlevelmax))
+#else
   allocate(emission(1:ncpu,1:nlevelmax))
+#endif
   allocate(reception(1:ncpu,1:nlevelmax))
   do ilevel=1,nlevelmax
+#ifdef LIGHT_MPI_COMM
+    emission(ilevel)%nactive=0
+    emission_part(ilevel)%nactive=0
+#endif
      active(ilevel)%ngrid=0
      do i=1,ncpu
-        emission (i,ilevel)%ngrid=0
-        emission (i,ilevel)%npart=0
+#ifdef LIGHT_MPI_COMM
+        nullify(reception(i,ilevel)%pcomm)
+#else
+        emission(i,ilevel)%ngrid=0
+        emission(i,ilevel)%npart=0
+#endif
         reception(i,ilevel)%ngrid=0
         reception(i,ilevel)%npart=0
      end do
@@ -251,8 +262,7 @@ subroutine init_amr
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then
         if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
         end if
      endif
 #endif
@@ -299,29 +309,21 @@ subroutine init_amr
      end if
      ! Read time variables
      read(ilun)noutput2,iout2,ifout2
-     if(noutput2>MAXOUT)then
-       write(*,*) 'Error: noutput>MAXOUT'
-       call clean_stop
-     end if
      read(ilun)tout2(1:noutput2)
      read(ilun)aout2(1:noutput2)
      ! Check compatibility with current parameters
      if((ndim2.ne.ndim).or.(nx2.ne.nx).or.(ny2.ne.ny).or.(nz2.ne.nz).or.&
           & (nboundary2.ne.nboundary).or.(nlevelmax2>nlevelmax).or.&
-          & (ngrid_current>ngridmax).or.(noutput2>noutput) )then
+          & (ngrid_current>ngridmax))then
         write(*,*)'File amr.tmp is not compatible with namelist'
-        write(*,*)'         ndim   nx   ny   nz nlevelmax noutput   ngridmax nboundary'
+        write(*,*)'         ndim   nx   ny   nz nlevelmax   ngridmax nboundary'
         write(*,'("amr.tmp  =",4(I4,1x),5x,I4,4x,I4,3x,I8)')&
-             & ndim2,nx2,ny2,nz2,nlevelmax2,noutput2,ngrid_current,nboundary2
+             & ndim2,nx2,ny2,nz2,nlevelmax2,ngrid_current,nboundary2
         write(*,'("namelist =",4(I4,1x),5x,I4,4x,I4,3x,I8)')&
-             & ndim ,nx ,ny ,nz ,nlevelmax ,noutput, ngridmax     ,nboundary
+             & ndim ,nx ,ny ,nz ,nlevelmax , ngridmax     ,nboundary
         if(myid==1)write(*,*)'Restart failed'
         call clean_stop
      end if
-     ! Old output times
-     tout(1:noutput2)=tout2(1:noutput2)
-     aout(1:noutput2)=aout2(1:noutput2)
-     iout=iout2
      ifout=ifout2
      if(ifout.gt.nrestart+1) ifout=nrestart+1
      read(ilun)t
@@ -343,6 +345,20 @@ subroutine init_amr
 #endif
      if(myid==1)write(*,*)'Restarting at t=',t,' nstep_coarse=',nstep_coarse
      trestart = t
+
+     ! determine moment of next output
+     tout_next = (floor(t/delta_tout)+1)*delta_tout
+     aout_next = (floor(aexp/delta_aout)+1)*delta_aout
+     iout = 1
+     if (.not.all(tout==HUGE(1.0D0))) then
+        do while(tout(iout)<=t)
+           iout = iout+1
+        enddo
+     else if(.not.all(aout==HUGE(1.0D0)))then
+        do while(aout(iout)<=aexp)
+           iout = iout+1
+        enddo
+     endif
 
      ! Compute movie frame number if applicable
      if(imovout>0) then
@@ -515,8 +531,7 @@ subroutine init_amr
      if(IOGROUPSIZE>0) then
         if(mod(myid,IOGROUPSIZE)/=0 .and.(myid.lt.ncpu))then
            dummy_io=1
-           call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag, &
-                & MPI_COMM_WORLD,info2)
+           call MPI_SEND(dummy_io,1,MPI_INTEGER,myid-1+1,tag,MPI_COMM_WORLD,info2)
         end if
      endif
 #endif
@@ -537,5 +552,3 @@ subroutine init_amr
   end if
 
 end subroutine init_amr
-
-

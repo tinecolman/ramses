@@ -48,6 +48,7 @@ program amr2map
   character(LEN=80)::GMGM
   character(LEN=128)::nomfich,repository,outfich,filetype='bin'
   logical::ok,ok_part,ok_cell,do_max
+  logical::use_gravity_file=.false.
   real(kind=8),dimension(:),allocatable::bound_key
   logical,dimension(:),allocatable::cpu_read
   integer,dimension(:),allocatable::cpu_list
@@ -73,7 +74,11 @@ program amr2map
   !-----------------------------------------------
   ipos=INDEX(repository,'output_')
   nchar=repository(ipos+7:ipos+13)
-  nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out00001'
+  if(use_gravity_file)then
+     nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out00001'
+  else
+     nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out00001'
+  endif
   inquire(file=nomfich, exist=ok) ! verify input file
   if ( .not. ok ) then
      print *,TRIM(nomfich)//' not found.'
@@ -134,7 +139,7 @@ program amr2map
   read(10,*)
 
   write(*,*)scale_d,scale_l,scale_t
-  
+
   read(10,'(A14,A80)')GMGM,ordering
   write(*,'(" ordering type=",A20)')TRIM(ordering)
   read(10,*)
@@ -328,15 +333,25 @@ program amr2map
      read(10)
      read(10)
 
-     ! Open HYDRO file and skip header
-     nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
-     open(unit=11,file=nomfich,status='old',form='unformatted')
-     read(11)
-     read(11)nvarh
-     read(11)
-     read(11)
-     read(11)
-     read(11)
+     if(use_gravity_file)then
+        ! Open GRAV file and skip header
+        nomfich=TRIM(repository)//'/grav_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+        open(unit=11,file=nomfich,status='old',form='unformatted')
+        read(11)
+        read(11)nvarh
+        read(11)
+        read(11)
+     else
+        ! Open HYDRO file and skip header
+        nomfich=TRIM(repository)//'/hydro_'//TRIM(nchar)//'.out'//TRIM(ncharcpu)
+        open(unit=11,file=nomfich,status='old',form='unformatted')
+        read(11)
+        read(11)nvarh
+        read(11)
+        read(11)
+        read(11)
+        read(11)
+     endif
 
      ! Loop over levels
      do ilevel=1,lmax
@@ -407,7 +422,7 @@ program amr2map
               end do
            endif
 
-           ! Read HYDRO data
+           ! Read HYDRO or GRAV data
            read(11)
            read(11)
            if(ngridfile(j,ilevel)>0)then
@@ -451,6 +466,9 @@ program amr2map
                  metmax=max(metmax,dble(ilevel))
               case (22) !! This is for H2 using HI and HII (ramses_rt patch mol)
                  map = 1.0-var(:,ind,8)-var(:,ind,9)
+                 metmax=max(metmax,maxval(map))
+              case (30) !! This is cell-centered B
+                 map = sqrt(0.25*((var(:,ind,5)+var(:,ind,8))**2+(var(:,ind,6)+var(:,ind,9))**2+(var(:,ind,7)+var(:,ind,10))**2))
                  metmax=max(metmax,maxval(map))
               case (31) !! This is cell-centered Bx
                  map = 0.5*(var(:,ind,5)+var(:,ind,8))
@@ -575,7 +593,7 @@ program amr2map
         allocate(toto(imax-imin+1,jmax-jmin+1))
         if(action==0)then
            toto=grid(lmax)%map(imin:imax,jmin:jmax)/grid(lmax)%rho(imin:imax,jmin:jmax)
-        else 
+        else
            toto=grid(lmax)%map(imin:imax,jmin:jmax)
         endif
         write(20)toto
@@ -651,11 +669,11 @@ contains
     implicit none
 
     integer       :: i,n
-    
+
     character(len=4)   :: opt
     character(len=128) :: arg
     LOGICAL       :: bad, ok
-    
+
     n = command_argument_count()
     if (n < 4) then
        print *, 'usage: amr2map   -inp  input_dir'
@@ -669,6 +687,7 @@ contains
        print *, '                 [-zma zmax] '
        print *, '                 [-lma lmax] '
        print *, '                 [-typ type] '
+       print *, '                 [-gra gravity] '
        print *, '                 [-fil filetype] '
        print *, '                 [-act action] '
        print *, 'ex: amr2map -inp output_00001 -out map.dat'// &
@@ -689,6 +708,9 @@ contains
        print *, ' '
        print *, ' filetype : "bin" = binary output file (default)'
        print *, ' filetype : "ascii" = ascii output file'
+       print *, ' '
+       print *, ' gravity : false = use hydro file (default)'
+       print *, ' gravity : true  = use grav file'
        print *, ' '
        print *, ' action : 0 = mass-weighted average along line of sight (default)'
        print *, ' action : 1 = volume-weighted average along line of sight'
@@ -734,6 +756,8 @@ contains
           read (arg,*) filetype
        case ('-act')
           read (arg,*) action
+       case ('-gra')
+          read (arg,*) use_gravity_file
        case default
           print '("unknown option ",a2," ignored")', opt
        end select
