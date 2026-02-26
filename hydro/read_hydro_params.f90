@@ -44,7 +44,6 @@ subroutine read_hydro_params(nml_ok)
 #if NVAR>NHYDRO+NENER
        & ,var_region &
 #endif
-#endif
 #if USE_FLD==0
 #if NENER>0
        & ,prad_region &
@@ -201,7 +200,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if USE_FLD==1 || USE_M_1==1
   rewind(1)
-  if(FLD)read(1,NML=radiation_params)
+  if(fld)read(1,NML=radiation_params)
 #endif
 
 #if USE_FLD==1

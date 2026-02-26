@@ -500,7 +500,7 @@ recursive subroutine amr_step(ilevel,icount)
 
 #if USE_FLD==1
   ! Compute radiative feedback if radiative transfer with FLD on
-  if(FLD)then
+  if(fld)then
 !     if(rt_feedback .and. sink .and. nsink .gt. 0)call radiative_feedback_sink(ilevel)
   end if
 #endif
@@ -530,7 +530,7 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 #endif
 
-    if((static_gas).and.(FLD))then
+    if((static_gas).and.(fld))then
      call upload_fine(ilevel)
 #ifdef SOLVERmhd
      do ivar=1,nvar+3
@@ -550,7 +550,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Radiation diffusion step
   !-------------------------
 #if USE_FLD==1
-  if(FLD)then
+  if(fld)then
                                call timer('fld','start')
      call diffusion_cg(ilevel,icount)
   end if
