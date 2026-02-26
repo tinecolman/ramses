@@ -530,6 +530,7 @@ recursive subroutine amr_step(ilevel,icount)
   end if
 #endif
 
+#if USE_FLD==1
     if((static_gas).and.(fld))then
      call upload_fine(ilevel)
 #ifdef SOLVERmhd
@@ -549,7 +550,6 @@ recursive subroutine amr_step(ilevel,icount)
   !-------------------------
   ! Radiation diffusion step
   !-------------------------
-#if USE_FLD==1
   if(fld)then
                                call timer('fld','start')
      call diffusion_cg(ilevel,icount)

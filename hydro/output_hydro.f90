@@ -28,10 +28,10 @@ subroutine backup_hydro(filename, filename_desc)
   integer :: info_var_count
   character(len=100) :: field_name
 
-!#if USE_FLD==1
+#if USE_FLD==1
   real(dp)::cmp_temp,p
   integer::ht
-!#endif
+#endif
   
 
   if (verbose) write(*,*)'Entering backup_hydro'

@@ -220,9 +220,6 @@ module amr_parameters
   logical ::sf_log_properties=.false.   ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.              ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false.      ! Advect compressive and solenoidal turbulence terms separately
-  logical ::racc_refine=.true.          ! Refine the grid around the sink to the maximum level of refinement
-  logical ::clump_jeans=.false.         ! Clump finder on cells violating Jeans criterion only
-  real(dp)::larson_lifetime=5000         ! lifetime of first larson core in years
   logical ::iso_jeans=.false.            ! activate isothermal sound speed Jeans length refinement criterion
   real(dp)::Tp_jeans = 10.0d0            ! Default temperature to activate iso_jeans
   logical ::cooling_ism = .false.      ! Use cooling module from Audit & Hennebelle 2005 (non-RT)

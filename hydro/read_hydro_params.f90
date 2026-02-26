@@ -52,9 +52,9 @@ subroutine read_hydro_params(nml_ok)
 #if NENER>NGRP
        & ,prad_region &
 #endif
-#endif
 #if NGRP>0
        & ,E_region &
+#endif
 #endif
        & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho,theta_mag,mass_c,Mach
 
@@ -198,7 +198,7 @@ subroutine read_hydro_params(nml_ok)
 #ifdef ATON
   if(aton)call read_radiation_params(1)
 #endif
-#if USE_FLD==1 || USE_M_1==1
+#if USE_FLD==1
   rewind(1)
   if(fld)read(1,NML=radiation_params)
 #endif
@@ -664,12 +664,10 @@ subroutine read_hydro_params(nml_ok)
   end do
 
 #if USE_FLD==1
-!!!
   inener=9 ! MUST BE THIS VALUE !!! RT variable
   imetal=firstindex_pscal+1
   lastindex_pscal=nvar
   if(energy_fix)lastindex_pscal=nvar-1
-!!!
 #endif
 
   !-------------------------------------------------------------
@@ -724,9 +722,6 @@ subroutine read_hydro_params(nml_ok)
   if (interpol_mag_type == -1) then
     interpol_mag_type = interpol_type
   endif
-!!$  if (interpol_mag_type_cond == -1) then
-!!$    interpol_mag_type_cond = interpol_type_cond
-!!$  endif 
 #endif
 
 end subroutine read_hydro_params

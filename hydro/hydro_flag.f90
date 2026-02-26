@@ -195,7 +195,9 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
   integer::i,indi
   real(dp)::lamb_jeans,tail_pix,n_jeans
   real(dp)::dens,tempe,etherm,factG
+#if USE_FLD==1
   real(dp)::iso_etherm,iso_cs,iso_cs2,rho_star,rho_iso,tempe2
+#endif
 #if NENER>0
   integer::irad
 #endif
@@ -203,13 +205,13 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
   real(dp)::emag
 #endif
 
-!#if USE_FLD==1
+#if USE_FLD==1
   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-!#endif
   
   rho_iso  = 1.0e-08_dp
   rho_star = 1.0e-05_dp
+#endif
 
   factG=1
   if(cosmo)factG=3d0/8d0/pi*omega_m*aexp
