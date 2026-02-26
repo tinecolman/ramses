@@ -81,7 +81,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
      um(k,neul) = (gamma-one)*(um(k,neul)-ekinm(k)-emagm(k))
      ud(k,neul) = (gamma-one)*(ud(k,neul)-ekind(k)-emagd(k))
   end do
-#if USE_FLD==0
   ! Passive scalars
 #if NVAR>NHYDRO+NENER
   do idim = nhydro+1+nener,nvar
@@ -93,18 +92,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   end do
 #endif
 
-#else
-  ! Passive scalars
-#if NPSCAL>0
-  do idim = 1,npscal
-     do k = 1,nn
-        ug(k,firstindex_pscal+idim) = ug(k,firstindex_pscal+idim)/ug(k,1)
-        um(k,firstindex_pscal+idim) = um(k,firstindex_pscal+idim)/um(k,1)
-        ud(k,firstindex_pscal+idim) = ud(k,firstindex_pscal+idim)/ud(k,1)
-     end do
-  end do
-#endif
-#endif
   
   ! Compute errors
   if(err_grad_d >= 0.)then
@@ -680,15 +667,12 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
   fgdnv(6) = Bo*uo-A*vo
   fgdnv(7) = ro*uo*wo-A*Co
   fgdnv(8) = Co*uo-A*wo
-#if USE_FLD==1
-  fgdnv(nvar) = einto*uo
-#endif
 #if NENER>0
   do irad = 1,nener
      fgdnv(nhydro+irad) = uo*erado(irad)
   end do
 #endif
-#if USE_FLD==0
+
 #if NVAR>NHYDRO+NENER
   do ivar = 9+nener,nvar
      if(fgdnv(1)>0)then
@@ -697,28 +681,6 @@ SUBROUTINE hlld(qleft,qright,fgdnv)
         fgdnv(ivar) = fgdnv(1)*qright(ivar)
      endif
   end do
-#endif
-#else
-!!! TO BE CHANGED : should be with frado(irad) for the fluxes
-#if USE_M_1==1
-  do j=1,nrad
-     if(fgdnv(1)>0)then
-        fgdnv(8+j) = uo*qleft (8+j)
-     else
-        fgdnv(8+j) = uo*qright(8+j)
-     endif
-  end do
-#endif
-
-#if NPSCAL>0
-  do ivar = 1,npscal
-     if(fgdnv(1)>0)then
-        fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qleft (firstindex_pscal+ivar)
-     else
-        fgdnv(firstindex_pscal+ivar) = fgdnv(1)*qright(firstindex_pscal+ivar)
-     endif
-  end do
-#endif
 #endif
   !Thermal energy
   fgdnv(nvar+1) = uo*einto
@@ -781,7 +743,6 @@ SUBROUTINE find_mhd_flux(qvar,cvar,ff)
   cvar(6) = B
   cvar(7) = d*w
   cvar(8) = C
-#if USE_FLD==0
 #if NENER>0
   do irad = 1,nener
      cvar(nhydro+irad) = qvar(nhydro+irad)/(gamma_rad(irad)-one)
@@ -791,21 +752,6 @@ SUBROUTINE find_mhd_flux(qvar,cvar,ff)
   do ivar = 9+nener,nvar
      cvar(ivar) = d*qvar(ivar)
   end do
-#endif
-#else
-#if NENER>0
-  do irad = 1,nent
-     cvar(8+irad) = qvar(8+irad)/(gamma_rad(irad)-one)
-  end do
-  do irad = 1,ngrp
-     cvar(firstindex_er+irad) = qvar(firstindex_er+irad)
-  end do
-#endif
-#if NPSCAL>0
-  do ivar = 1,npscal
-     cvar(firstindex_pscal+ivar) = d*qvar(firstindex_pscal+ivar)
-  end do
-#endif
 #endif
   !Thermal energy
   cvar(nvar+1)=P*entho
@@ -827,18 +773,10 @@ SUBROUTINE find_mhd_flux(qvar,cvar,ff)
      ff(nhydro+irad) = u*cvar(nhydro+irad)
   end do
 #endif
-#if USE_FLD==0
 #if NVAR>NHYDRO+NENER
   do ivar = 9+nener,nvar
      ff(ivar) = d*u*qvar(ivar)
   end do
-#endif
-#else
-#if NPSCAL>0
-  do ivar = 1,npscal
-     ff(firstindex_pscal+ivar) = d*u*qvar(firstindex_pscal+ivar)
-  end do
-#endif
 #endif
   ! Thermal energy
   ff(nvar+1)=P*entho*u

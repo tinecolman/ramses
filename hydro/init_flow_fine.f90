@@ -598,7 +598,6 @@ subroutine region_condinit(x,q,dx,nn)
               q(i,nvar+2)=B_region(k)
               q(i,nvar+3)=C_region(k)
 #endif
-#if USE_FLD==0
 #if NENER>0
               do ivar=1,nener
                  q(i,nhydro+ivar)=prad_region(k,ivar)
@@ -608,37 +607,6 @@ subroutine region_condinit(x,q,dx,nn)
               do ivar=nhydro+1+nener,nvar
                  q(i,ivar)=var_region(k,ivar-nhydro-nener)
               end do
-#endif
-#else
-#if NENER>0
-              do ivar=1,nent
-                 q(i,8+ivar)=prad_region(k,ivar)
-              enddo
-#if USE_FLD==1
-!!$              if(T_region(k)==0.0d0) T_region(k) = P_region(k)/d_region(k)*mu_gas*scale_T2
-              if(T_region(k)==0.0d0) T_region(k) = P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
-              do j=1,ngrp
-                 if(E_region(k,j) > 0.0d0)then
-                    q(i,firstindex_er+j)=E_region(k,j)
-                 else
-                    q(i,firstindex_er+j)=radiation_source(T_region(k),j)/(scale_d*scale_v**2)
-                 endif
-              end do
-#endif
-#if USE_M_1==1
-              !Radiative fluxes
-              do j=1,ngrp
-                            q(i,firstindex_er+  ngrp+j)=q(i,firstindex_er+j)*clight/scale_v*fx_region(k,j)
-                 if(ndim>1) q(i,firstindex_er+2*ngrp+j)=q(i,firstindex_er+j)*clight/scale_v*fy_region(k,j)
-                 if(ndim>2) q(i,firstindex_er+3*ngrp+j)=q(i,firstindex_er+j)*clight/scale_v*fz_region(k,j)
-              end do
-#endif
-#endif
-#if NPSCAL>0
-              do ivar=1,npscal
-                 q(i,firstindex_pscal+ivar)=var_region(k,ivar)
-              end do
-#endif
 #endif
            end if
         end do
@@ -670,7 +638,6 @@ subroutine region_condinit(x,q,dx,nn)
            q(i,4)=q(i,4)+w_region(k)*r
 #endif
            q(i,neul)=q(i,neul)+p_region(k)*r/vol
-#if USE_FLD==0
 #if NENER>0
            do ivar=1,nener
               q(i,nhydro+ivar)=q(i,nhydro+ivar)+prad_region(k,ivar)*r/vol
@@ -680,29 +647,6 @@ subroutine region_condinit(x,q,dx,nn)
            do ivar=nhydro+1+nener,nvar
               q(i,ivar)=var_region(k,ivar-nhydro-nener)
            end do
-#endif
-#else
-#if NENER>0
-           do ivar=1,nent
-              q(i,8+ivar)=q(i,8+ivar)+prad_region(k,ivar)*r/vol
-           enddo
-#if USE_FLD==1
-!           if(T_region(k)==0.0d0) T_region(k) = P_region(k)/d_region(k)*mu_gas*scale_T2
-           if(T_region(k)==0.0d0) T_region(k) = P_region(k)*mu_gas*mH/kb/d_region(k) *scale_v**2
-           do j=1,ngrp
-              if(E_region(k,j) > 0.0d0)then
-                 q(i,firstindex_er+j)=q(i,firstindex_er+j)+E_region(k,j)*r/vol
-              else
-                 q(i,firstindex_er+j)=q(i,firstindex_er+j)+radiation_source(T_region(k),j)*r/vol/(scale_d*scale_v**2)
-              endif
-           end do
-#endif
-#endif
-#if NPSCAL>0
-           do ivar=1,npscal
-              q(i,firstindex_pscal+ivar)=var_region(k,ivar)
-           end do
-#endif
 #endif
         end do
      end if

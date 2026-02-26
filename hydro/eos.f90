@@ -31,6 +31,7 @@ subroutine barotropic_eos_temperature(density, temperature)
    END SELECT
 
 end subroutine barotropic_eos_temperature
+#if USE_FLD==1
 !################################################################
 !################################################################
 !################################################################
@@ -153,3 +154,4 @@ function cmp_Cv_eos(rho,Enint)
   cmp_Cv_eos = rho*kB/(mu_gas*mH*(gamma-1.0d0))/scale_v**2
 
 end function cmp_Cv_eos
+#endif

@@ -21,7 +21,6 @@ subroutine read_hydro_params(nml_ok)
   real(dp)::em_bound
 #endif
 
-  real(dp)::er_bound
 #if USE_FLD==1
   integer::j,irad,ht
   real(dp)::radiation_source
@@ -44,17 +43,8 @@ subroutine read_hydro_params(nml_ok)
 #if NVAR>NHYDRO+NENER
        & ,var_region &
 #endif
-#if USE_FLD==0
 #if NENER>0
        & ,prad_region &
-#endif
-#else
-#if NENER>NGRP
-       & ,prad_region &
-#endif
-#if NGRP>0
-       & ,E_region &
-#endif
 #endif
        & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho,theta_mag,mass_c,Mach
 
@@ -81,9 +71,6 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2 &
        & ,floor_A,floor_B,floor_C,floor_B2,interpol_mag_type &
 #endif
-#if USE_FLD==1
-       & ,err_grad_E,floor_E &
-#endif
        & ,interpol_var,interpol_type,sink_refine
 
   ! Boundary parameters
@@ -98,12 +85,6 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #if NVAR>NHYDRO+NENER
        & ,var_bound &
-#endif
-#if NENER>NGRP
-       & ,prad_bound &
-#endif
-#if NGRP>0
-       & ,E_bound &
 #endif
        & ,d_bound,u_bound,v_bound,w_bound,p_bound,no_inflow
 
@@ -266,7 +247,7 @@ subroutine read_hydro_params(nml_ok)
     nml_ok=.false.
   END SELECT
 
-#if USE_FLD==1 || USE_M_1==1
+#if USE_FLD==1
   ! Initialize multigroup
   allocate(nu_min_hz(1:ngrp),nu_max_hz(1:ngrp),nu_min_ev(1:ngrp),nu_max_ev(1:ngrp))
   call create_groups
@@ -280,9 +261,7 @@ subroutine read_hydro_params(nml_ok)
   P_cal = scale_E0 / (scale_d * scale_v**2)
   C_cal = c_cgs / scale_v
   is_radiative_energy = .false.
-#endif
 
-#if USE_FLD==1
   ! Set i_fld_limiter
   i_fld_limiter=i_fld_limiter_nolim
   if(fld_limiter=='levermore') i_fld_limiter=i_fld_limiter_levermore
@@ -396,48 +375,10 @@ subroutine read_hydro_params(nml_ok)
   !--------------------------------------------------
   ! Check for non-thermal energies
   !--------------------------------------------------
-#if USE_FLD==0
 #if NENER>0
   if(nvar<(nhydro+nener))then
      if(myid==1)write(*,*)'Error: non-thermal energy need nvar >= nhydro+nener'
      if(myid==1)write(*,*)'Modify NENER and recompile'
-     nml_ok=.false.
-  endif
-#endif
-#else
-#if NENER>NGRP
-#ifdef SOLVERmhd
-  if(nvar<(8+nent))then
-     if(myid==1)write(*,*)'Error: non-thermal energy need nvar >= 8+nent'
-#else
-  if(nvar<(ndim+2+nent))then
-     if(myid==1)write(*,*)'Error: non-thermal energy need nvar >= ndim+2+nent'
-#endif
-     if(myid==1)write(*,*)'Modify NENER and recompile'
-     nml_ok=.false.
-  endif
-#endif
-#endif
-  
-  !--------------------------------------------------
-  ! Check for radiative variables
-  !--------------------------------------------------
-#if NGRP>0
-#if USE_FLD==1
-  
-#ifdef SOLVERmhd
-  if(nvar<(8+nener))then
-     if(myid==1)write(*,*)'Error: radiative energies need nvar >= 8+nent+ngrp'
-#else
-  if(nvar<(ndim+2+nener))then
-     if(myid==1)write(*,*)'Error: radiative energies need nvar >= ndim+2+nent+ngrp'
-#endif
-
-#else
-  if(nvar<(8+nener+nfr))then
-     if(myid==1)write(*,*)'Error: radiative variables need nvar >= 8+nent+ngrp+nfr'
-#endif
-     if(myid==1)write(*,*)'Modify NENER, NGRP and recompile'
      nml_ok=.false.
   endif
 #endif
@@ -589,35 +530,9 @@ subroutine read_hydro_params(nml_ok)
      boundary_var(i,nvar+1)=A_bound(i)
      boundary_var(i,nvar+2)=B_bound(i)
      boundary_var(i,nvar+3)=C_bound(i)
-
-     er_bound=0.0D0
-#if NENER>0
-     do j=1,nent
-        boundary_var(i,firstindex_er+j)=prad_bound(i,j)
-        er_bound=er_bound+boundary_var(i,8+j)/(gamma_rad(j)-1.0d0)
-     end do
-#endif
-#if USE_FLD==1 || USE_M_1==1
-     !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
-     call temperature_eos(d_bound(i),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
-     do j=1,ngrp
-        boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)
-        er_bound=er_bound+boundary_var(i,firstindex_er+j)
-#if USE_M_1==1
-        !Radiative fluxes
-                   boundary_var(i,firstindex_er+  ngrp+j)=boundary_var(i,firstindex_er+j)*c_cgs/scale_v*fx_bound(i,j)
-        if(ndim>1) boundary_var(i,firstindex_er+2*ngrp+j)=boundary_var(i,firstindex_er+j)*c_cgs/scale_v*fy_bound(i,j)
-        if(ndim>2) boundary_var(i,firstindex_er+3*ngrp+j)=boundary_var(i,firstindex_er+j)*c_cgs/scale_v*fz_bound(i,j)
-#endif
-     end do
-#endif
-     
      ek_bound=0.5d0*d_bound(i)*(u_bound(i)**2+v_bound(i)**2+w_bound(i)**2)
      em_bound=0.5d0*(A_bound(i)**2+B_bound(i)**2+C_bound(i)**2)
-     boundary_var(i,5)=ek_bound+em_bound+er_bound+P_bound(i)/(gamma-1.0d0)
-!#if USE_FLD==1
-!     if(energy_fix)boundary_var(i,nvar)=P_bound(i)/(gamma-1.0d0)
-!#endif
+     boundary_var(i,5)=ek_bound+em_bound+P_bound(i)/(gamma-1.0d0)
 #else
 #if NDIM>1
      boundary_var(i,3)=d_bound(i)*v_bound(i)
@@ -629,28 +544,7 @@ subroutine read_hydro_params(nml_ok)
      do idim=1,ndim
         ek_bound=ek_bound+0.5d0*boundary_var(i,idim+1)**2/boundary_var(i,1)
      end do
-     boundary_var(i,neul)=ek_bound+P_bound(i)/(gamma-1.0d0)     
-
-     er_bound=0.0D0
-#if NENER>0
-     do j=1,nent
-        boundary_var(i,firstindex_er+j)=prad_bound(i,j)
-        er_bound=er_bound+boundary_var(i,8+j)/(gamma_rad(j)-1.0d0)
-     end do
-#endif
-#if USE_FLD==1 || USE_M_1==1
-     !     T_bound(i)=P_bound(i)*mu_gas*mH/kb/d_bound(i) *scale_v**2
-     call temperature_eos(d_bound(i),P_bound(i)/(gamma-1.0d0),T_bound(i),ht)
-     do j=1,ngrp
-        boundary_var(i,firstindex_er+j)=radiation_source(T_bound(i),j)/(scale_d*scale_v**2)
-        er_bound=er_bound+boundary_var(i,firstindex_er+j)
-     end do
-#endif
-     boundary_var(i,ndim+2)=boundary_var(i,ndim+2)+er_bound
-!#if USE_FLD==1
-!     if(energy_fix)boundary_var(i,nvar)=P_bound(i)/(gamma-1.0d0)
-!#endif
-
+     boundary_var(i,neul)=ek_bound+P_bound(i)/(gamma-1.0d0)
 #endif
   end do
 
@@ -663,13 +557,6 @@ subroutine read_hydro_params(nml_ok)
   do i=1,levelmin-1
      jeans_refine(i)=-1
   end do
-
-#if USE_FLD==1
-  inener=9 ! MUST BE THIS VALUE !!! RT variable
-  imetal=firstindex_pscal+1
-  lastindex_pscal=nvar
-  !if(energy_fix)lastindex_pscal=nvar-1
-#endif
 
   !-------------------------------------------------------------
   ! Shift passive variable indices depending on namelist params

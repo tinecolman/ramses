@@ -45,12 +45,6 @@ module hydro_parameters
 #endif
   integer,parameter::nvar_trad=nrad+1   ! Total number of radiative variables (= temperature + radiative energies)
   
-  ! Advect internal energy as a passive scalar, in a supplementary index
-#ifndef NPSCAL
-  integer,parameter::npscal=1
-#else
-  integer,parameter::npscal=NPSCAL
-#endif
   integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
 #if USE_M_1==0
   integer,parameter::nfr = 0              ! Number of radiative fluxes for M1
@@ -70,11 +64,7 @@ module hydro_parameters
   integer,parameter::inener=nhydro+1
   ! total amount of variables
 #ifndef NVAR
-#if USE_FLD==0
   integer,parameter::nvar=nhydro+nener
-  #else
-  integer,parameter::nvar=nhydro+nent+nrad+npscal
-#endif 
 #else
   integer,parameter::nvar=NVAR
 #endif
@@ -124,16 +114,9 @@ module hydro_parameters
 #if NENER>0
   real(dp),dimension(1:MAXBOUND,1:NENER)::prad_bound=0
 #endif
-#if USE_FLD==0
 #if NVAR>NHYDRO+NENER
   real(dp),dimension(1:MAXBOUND,1:NVAR-NHYDRO-NENER)::var_bound=0
 #endif
-#else
-#if NPSCAL>0
-  real(dp),dimension(1:MAXBOUND,1:npscal)::var_bound=0
-#endif
-#endif
-  
   ! Refinement parameters for hydro
   real(dp)::err_grad_d=-1.0d0  ! Density gradient
   real(dp)::err_grad_u=-1.0d0  ! Velocity gradient
@@ -171,19 +154,8 @@ module hydro_parameters
 #if NENER>0
   real(dp),dimension(1:NENER)::err_grad_prad=-1
 #endif
-#if USE_FLD==0
 #if NVAR>NHYDRO+NENER
   real(dp),dimension(1:NVAR-NHYDRO-NENER)::err_grad_var=-1
-#endif
-#else
-#if NPSCAL>0
-#if USE_M_1==0
-  real(dp),dimension(1:NVAR-NHYDRO-NENER)::err_grad_var=-1
-#endif
-#if USE_M_1==1
-  real(dp),dimension(1:NVAR-NHYDRO-NENER-nfr)::err_grad_var=-1.0
-#endif
-#endif
 #endif
   real(dp),dimension(1:MAXLEVEL)::jeans_refine=-1
 
@@ -210,16 +182,9 @@ module hydro_parameters
 #if NENER>0
   real(dp),dimension(1:MAXREGION,1:NENER)::prad_region=0
 #endif
-#if USE_FLD==0
 #if NVAR>NHYDRO+NENER
   real(dp),dimension(1:MAXREGION,1:NVAR-NHYDRO-NENER)::var_region=0
 #endif
-#else 
-#if NPSCAL>0
-  real(dp),dimension(1:MAXREGION,1:npscal)::var_region=0
-#endif
-#endif
-  
   ! Hydro solver parameters
   integer ::niter_riemann=10
   integer ::slope_type=1
@@ -248,11 +213,6 @@ module hydro_parameters
   character(LEN=10)::eos_rhd='constant'
 #endif
 
-#if USE_FLD==1
-  real(dp)::switch_solv=1.d20
-  real(dp)::switch_solv_dens=1.d20
-#endif
-  
   ! Interpolation parameters
   integer ::interpol_var=0
   integer ::interpol_type=1
