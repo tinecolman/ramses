@@ -50,14 +50,16 @@ LIGHT_MPI_COMM = 0
 # FLD stuff
 USE_FLD=0
 NGRP=0
-NENER:=$(NENER)+$(NGRP)
-ifeq ($(USE_FLD),1)
-   # for internal energy
-   NPSCAL := $(NPSCAL)+$(NIONS)+1
-endif
 NDUST=0
-NEXTINCT=0
-#
+
+ifeq ($(USE_FLD),1)
+   # Use nener for FLD radiation groups
+   NENER:=$(NENER)+$(NGRP)
+   # keep track of ions as passive scalars
+   NPSCAL := $(NPSCAL)+$(NIONS)
+   # add a scalar for the internal energy
+   NPSCAL := $(NPSCAL)+1
+endif
 
 # Compute NVAR
 NHYDRO = 2+$(NDIM)
@@ -94,8 +96,6 @@ endif
 #finally note that ichem, idelay and imetal have not been checked carefully
 
 
-
-
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
 OLD_MPI_SUPPORT = 0
 #############################################################################
@@ -120,15 +120,11 @@ ifeq ($(RT),1)
    DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
 endif
 ifeq ($(USE_FLD),1)
-     DEFINES := $(DEFINES) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL)
+     DEFINES += -DUSE_FLD=$(USE_FLD) $(DEFINES) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL)
 endif
 ifeq ($(USE_TURB),1)
    DEFINES += -DUSE_TURB
 endif
-ifeq ($(USE_FLD),1)
-DEFINES += -DUSE_FLD=$(USE_FLD)
-endif
-
 ifeq ($(LIGHT_MPI_COMM), 1)
    DEFINES += -DLIGHT_MPI_COMM
 endif
@@ -226,10 +222,9 @@ ifeq ($(USE_TURB),1)
    LIBS_TURB = -L$(HOME)/local/lib -lfftw3
    LIBS_OBJ_TURB = -I$(HOME)/local/include -lfftw3
 endif
-
-# if USE_FLD and NGRP>1, Add Lapack
+# Add Lapack when using FLD with NGRP>1
 ifneq ($(NGRP),$(filter $(NGRP),0 1))
-LIBS_FLD = -llapack
+   LIBS_FLD = -llapack
 endif
 LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB) $(LIBS_FLD)
 #############################################################################
@@ -241,10 +236,10 @@ endif
 ifeq ($(USE_TURB),1)
    VPATH += ../turb:
 endif
-VPATH += ../hydro:../pm:../poisson:../amr:../io:
 ifeq ($(USE_FLD),1)
    VPATH += ../fld:
 endif
+VPATH += ../hydro:../pm:../poisson:../amr:../io
 #############################################################################
 # All objects
 MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o amr_constants.o random.o pm_parameters.o sink_feedback_parameters.o \
