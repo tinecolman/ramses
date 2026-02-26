@@ -298,9 +298,9 @@ recursive subroutine amr_step(ilevel,icount)
   ! Update photon packages according to star particles and sink particles
                                call timer('radiative transfer','start')
   if(rt .and. rt_star) call update_star_RT_feedback(ilevel)
-
-  ! Now update photon packages on sink particles
-!  if(rt .and. rt_sink) call update_sink_RT_feedback(ilevel)
+#if NDIM==3
+  if(rt .and. rt_sink) call update_sink_RT_feedback
+#endif
 !  if(rt .and. rt_protostar_m1 .and. nsink .gt. 0) call update_sink_RT_feedback(ilevel)
   ! Activates the rt_advect in update_sink_RT_feedback if hybrid RT
 #endif
@@ -308,9 +308,6 @@ recursive subroutine amr_step(ilevel,icount)
 #if USE_FLD==1
   ! Compute radiative acceleration
   if(fld)call rad_force_fine(ilevel)
-#endif
-#if NDIM==3
-  if(rt .and. rt_sink) call update_sink_RT_feedback
 #endif
 
 #if USE_TURB==1
