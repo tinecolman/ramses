@@ -22,7 +22,7 @@ subroutine read_hydro_params(nml_ok)
 #endif
 
 #if USE_FLD==1
-  integer::j,irad,ht
+  integer::j,ht
   real(dp)::radiation_source
   character(len=2):: rad_trans_model='m1'
   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
@@ -46,7 +46,7 @@ subroutine read_hydro_params(nml_ok)
 #if NENER>0
        & ,prad_region,Erad_region &
 #endif
-       & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho,theta_mag,mass_c,Mach
+       & ,omega_b
 
   ! Hydro parameters
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &

@@ -4,7 +4,7 @@ subroutine init_hydro
 #if USE_FLD==1
   use radiation_parameters
   use amr_parameters,only:eos
-  use rt_hydro_commons
+  !use rt_hydro_commons
 #endif
 #ifdef RT
   use rt_parameters,only: convert_birth_times

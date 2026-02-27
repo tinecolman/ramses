@@ -196,7 +196,7 @@ subroutine make_boundary_diffusion(ilevel,igroup)
                     
                     ! Compute Rosseland opacity
                     t2r = cal_Teg(unew(ind_cell(i),firstindex_er+igroup)*scale_E0,igroup)
-                    divu(ind_cell(i))= rosseland_ana(dd*scale_d,t2,t2r,igroup)/scale_kappa
+                    divu(ind_cell(i))= rosseland_ana(dd*scale_d,t2,t2r,igroup,.false.)/scale_kappa
                     if(divu(ind_cell(i))*dx_loc .lt. min_optical_depth) divu(ind_cell(i))=min_optical_depth/dx_loc
                     
                  end if
@@ -424,7 +424,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
                     ! Compute Rosseland opacity
                     do igroup=1,ngrp
                        t2r = cal_Teg(uu(i,firstindex_er+igroup)*scale_d*scale_v**2,igroup)
-                       kappaR_bicg(ind_cell(i),igroup)= rosseland_ana(dd*scale_d,uu(i,ind_trad(1)),t2r,igroup)/scale_kappa
+                       kappaR_bicg(ind_cell(i),igroup)= rosseland_ana(dd*scale_d,uu(i,ind_trad(1)),t2r,igroup,.false.)/scale_kappa
                        if( kappaR_bicg(ind_cell(i),igroup)*dx_loc .lt. min_optical_depth)  kappaR_bicg(ind_cell(i),igroup)=min_optical_depth/dx_loc
                     enddo
 #endif
@@ -457,3 +457,266 @@ subroutine make_boundary_diffusion_tot(ilevel)
 111 format('   Entering make_boundary_diffusion for level ',I2)
 
 end subroutine make_boundary_diffusion_tot
+!#############################################################################
+!#############################################################################
+!#############################################################################
+#if USE_FLD==1
+subroutine rad_force_fine(ilevel)
+  use amr_commons
+  use hydro_commons
+  use cooling_module,ONLY:kB,mH
+  use constants, only : c_cgs
+  use radiation_parameters,ONLY:Tr_floor,eray_min,nu_min_hz,nu_max_hz,frad
+  use const
+  use units_commons
+  implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
+  integer::ilevel
+  !--------------------------------------------------------------------------
+  ! This routine sets array uold to its new value unew after the
+  ! hydro step.
+  !--------------------------------------------------------------------------
+  integer::i,j,k,ivar,ind,iskip,nx_loc,info
+  real(dp)::scale,d,u,v,w,A,B,C,d_old
+  real(dp)::e_mag,e_kin,e_cons,e_prim,e_trunc,div,dx,fact,e_r
+
+  integer ,dimension(1:nvector),save::ind_grid,ind_cell
+  integer ,dimension(1:nvector,0:twondim),save::igridn
+  integer ,dimension(1:nvector,1:ndim),save::ind_left,ind_right
+  real(dp),dimension(1:nvector,1:ndim,1:ngrp),save::Erg,Erd
+  real(dp),dimension(1:nvector,1:ndim,1:ndim),save::velg,veld
+  real(dp),dimension(1:nvector,1:ndim)::dx_g,dx_d
+  real(dp)::rosseland_ana
+  real(dp)::Pgdivu,u_square,d_loc,Tp_loc,Tr_loc,cal_Teg
+
+  integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2,igroup
+  integer  ,dimension(1:3,1:2,1:8)::iii,jjj
+  real(dp)::dx_loc,surf_loc,vol_loc,usquare,emag,erad_loc,ekin,eps,cv,pp_eos
+  real(dp)::kappa_R,gradEr_norm,gradEr_norm2,R,lambda,lambda_fld,chi,PgmErdivu,gradEru
+  real(dp) ,dimension(1:3)::skip_loc
+  real(dp) ,dimension(1:ndim,1:ngrp)::gradEr
+  real(dp) ,dimension(1:ndim,1:ndim)::divu_loc
+  real(dp) ,dimension(1:ndim,1:ndim,1:ngrp)::Pg
+  real(dp) ,dimension(1:ndim       )::u_loc
+  real(dp) :: nuPrDivu,nuPr,nuPl,Pr_nu
+  real(dp), dimension(1:5) :: Pr_temp
+
+  !  EOS
+  real(dp) :: dd,ee,cmp_Cv_eos
+  integer  :: ht 
+
+#if USE_FLD==1
+  real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_kappa=1/scale_l
+#endif
+
+  if(numbtot(1,ilevel)==0)return
+  if(verbose)write(*,111)ilevel
+
+  nx_loc=icoarse_max-icoarse_min+1
+  scale=boxlen/dble(nx_loc)
+  dx=0.5d0**ilevel
+
+  skip_loc=(/0.0d0,0.0d0,0.0d0/)
+  if(ndim>0)skip_loc(1)=dble(icoarse_min)
+  if(ndim>1)skip_loc(2)=dble(jcoarse_min)
+  if(ndim>2)skip_loc(3)=dble(kcoarse_min)
+  scale=boxlen/dble(nx_loc)
+  dx_loc=dx*scale ! Warning: scale factor already done in dx
+  vol_loc=dx_loc**ndim
+  surf_loc=dx_loc**(ndim-1)
+
+  iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
+  iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
+  iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
+  iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
+  iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
+  iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
+
+if(fld)then    
+  ! Loop over myid grids by vector sweeps
+  ncache=active(ilevel)%ngrid
+  do igrid=1,ncache,nvector   
+     ! Gather nvector grids
+     ngrid=MIN(nvector,ncache-igrid+1)
+     do i=1,ngrid
+        ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+     end do
+     
+     ! Gather neighboring grids
+     do i=1,ngrid
+        igridn(i,0)=ind_grid(i)
+     end do
+     do idim=1,ndim
+        do i=1,ngrid
+           ind_left (i,idim)=nbor(ind_grid(i),2*idim-1)
+           ind_right(i,idim)=nbor(ind_grid(i),2*idim  )
+           igridn(i,2*idim-1)=son(ind_left (i,idim))
+           igridn(i,2*idim  )=son(ind_right(i,idim))
+        end do
+     end do
+
+     
+     ! Loop over cells
+     do ind=1,twotondim
+        
+        ! Compute central cell index
+        iskip=ncoarse+(ind-1)*ngridmax
+        do i=1,ngrid
+           ind_cell(i)=iskip+ind_grid(i)
+        end do
+        
+#if USE_FLD==1        
+        ! Gather neighboring temperature
+        do idim=1,ndim
+           id1=jjj(idim,1,ind); ig1=iii(idim,1,ind)
+           ih1=ncoarse+(id1-1)*ngridmax
+           do i=1,ngrid
+              if(igridn(i,ig1)>0)then
+                 do igroup=1,ngrp
+                    Erg(i,idim,igroup) = max(uold(igridn(i,ig1)+ih1,firstindex_er+igroup),eray_min/(scale_d*scale_v**2))
+                 end do
+                 velg(i,idim,1:ndim) = uold(igridn(i,ig1)+ih1,2:ndim+1)/uold(igridn(i,ig1)+ih1,1)
+                 dx_g(i,idim) = dx_loc
+              else
+                 do igroup=1,ngrp
+                    Erg(i,idim,igroup) = max(uold(ind_left(i,idim),firstindex_er+igroup),eray_min/(scale_d*scale_v**2))
+                 end do
+                 velg(i,idim,1:ndim) = uold(ind_left(i,idim),2:ndim+1)/uold(ind_left(i,idim),1)
+                 dx_g(i,idim) = dx_loc*1.5_dp
+              end if
+           enddo
+           id2=jjj(idim,2,ind); ig2=iii(idim,2,ind)
+           ih2=ncoarse+(id2-1)*ngridmax
+           do i=1,ngrid
+              if(igridn(i,ig2)>0)then
+                 do igroup=1,ngrp
+                    Erd(i,idim,igroup) = max(uold(igridn(i,ig2)+ih2,firstindex_er+igroup),eray_min/(scale_d*scale_v**2))
+                 end do
+                 veld(i,idim,1:ndim)= uold(igridn(i,ig2)+ih2,2:ndim+1)/uold(igridn(i,ig2)+ih2,1)
+                 dx_d(i,idim)=dx_loc
+              else 
+                 do igroup=1,ngrp
+                    Erd(i,idim,igroup) = max(uold(ind_right(i,idim),firstindex_er+igroup),eray_min/(scale_d*scale_v**2))
+                 end do
+                 veld(i,idim,1:ndim)= uold(ind_right(i,idim),2:ndim+1)/uold(ind_right(i,idim),1)
+                 dx_d(i,idim)=dx_loc*1.5_dp
+              end if
+           enddo
+        end do
+       ! End loop over dimensions
+  
+        do i=1,ngrid
+           !compute divu
+           do j=1,ndim
+              do k=1,ndim
+                 divu_loc(j,k) = (veld(i,j,k)-velg(i,j,k))/(dx_g(i,j)+dx_d(i,j))
+              enddo
+              do igroup=1,ngrp
+                 gradEr(j,igroup) = (Erd(i,j,igroup)-Erg(i,j,igroup))/(dx_g(i,j)+dx_d(i,j))
+              enddo
+           enddo
+
+           d_loc = uold(ind_cell(i),1)*scale_d
+           u_loc(1:ndim) = uold(ind_cell(i),2:ndim+1)/uold(ind_cell(i),1)
+           
+           usquare=0.0
+           do idim=1,ndim
+              usquare=usquare+(uold(ind_cell(i),idim+1)/uold(ind_cell(i),1))**2
+           end do
+           
+           ! Compute total magnetic energy
+           emag = 0.0d0
+           do ivar=1,3
+              emag = emag + 0.125d0*(uold(ind_cell(i),5+ivar) &
+                   &  +uold(ind_cell(i),nvar+ivar))**2
+           end do
+           erad_loc=0.0D0
+#if NENER>0
+           do igroup=1,nener
+              erad_loc = erad_loc + uold(ind_cell(i),8+igroup)
+           end do
+#endif
+           d     = uold(ind_cell(i),1)
+           ekin  = d*usquare/2.0
+           ! Compute gas temperature in cgs
+           eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
+           !if(energy_fix)eps   = uold(ind_cell(i),nvar) ! comment this for radiative shock
+           ! Compute gas temperature in cgs
+           call temperature_eos(d,eps,Tp_loc,ht)
+
+           frad(ind_cell(i),1:ndim)=0.0d0
+           
+           ! Compute radiative pressure in all groups
+           do igroup=1,ngrp
+              
+              ! Compute radiative pressure
+              Tr_loc = cal_Teg(uold(ind_cell(i),firstindex_er+igroup)*scale_d*scale_v**2,igroup)              
+              kappa_R = rosseland_ana(d_loc,Tp_loc,Tr_loc,igroup,in_sink(ind_cell(i)))/scale_kappa
+              gradEr_norm2 = (sum(gradEr(1:ndim,igroup)**2))
+              gradEr_norm  = (gradEr_norm2)**0.5
+              R =   max(1.d-10,gradEr_norm/(max(uold(ind_cell(i),firstindex_er+igroup),eray_min/(scale_d*scale_v**2))*kappa_R))
+              lambda = lambda_fld(R)
+              chi = lambda + (lambda*R)**2
+              
+              frad(ind_cell(i),1:ndim) =  frad(ind_cell(i),1:ndim) + lambda*gradEr(1:ndim,igroup)/d
+           enddo !end loop over rad groups
+
+        end do
+#endif
+#if USE_M_1==1
+        do i=1,ngrid
+           ! Compute density and temperature for opacity
+           d_loc = uold(ind_cell(i),1)*scale_d
+           
+           usquare=zero
+           do idim=1,ndim
+              usquare=usquare+(uold(ind_cell(i),idim+1)/uold(ind_cell(i),1))**2
+           end do
+
+           emag = zero
+           do ivar=1,3
+              emag = emag + 0.125d0*(uold(ind_cell(i),5+ivar) &
+                   &  +uold(ind_cell(i),nvar+ivar))**2
+           end do
+           erad_loc=zero
+#if NENER>0
+           do igroup=1,nener
+              erad_loc = erad_loc + uold(ind_cell(i),8+igroup)
+           end do
+#endif
+           d     = uold(ind_cell(i),1)
+           ekin  = d*usquare/2.0
+           ! Compute gas temperature in cgs
+           eps   = uold(ind_cell(i),5)-ekin-emag-erad_loc
+           call temperature_eos(d,eps,Tp_loc,ht)
+
+           frad(ind_cell(i),1:ndim)=zero
+
+           do igroup=1,ngrp
+
+              Tr_loc = cal_Teg(uold(ind_cell(i),firstindex_er+igroup)*scale_d*scale_v**2,igroup)
+              kappa_R = rosseland_ana(d_loc,Tp_loc,Tr_loc,igroup,in_sink(ind_cell(i)))/scale_kappa
+
+              ! divide by d because equation over u and not d*u
+              frad(ind_cell(i),1) =  frad(ind_cell(i),1) + kappa_R*uold(ind_cell(i),firstindex_fr+igroup)/(c_cgs/scale_v)/d
+              frad(ind_cell(i),2) =  frad(ind_cell(i),2) + kappa_R*uold(ind_cell(i),firstindex_fr+igroup+ngrp)/(c_cgs/scale_v)/d
+              frad(ind_cell(i),3) =  frad(ind_cell(i),3) + kappa_R*uold(ind_cell(i),firstindex_fr+igroup+2*ngrp)/(c_cgs/scale_v)/d
+
+           enddo !end loop over rad groups
+        enddo
+#endif
+
+     enddo
+     ! End loop over cells
+  end do
+  ! End loop over grids
+endif
+  
+111 format('   Entering rad_force_fine for level ',i2)
+
+end subroutine rad_force_fine
+#endif
