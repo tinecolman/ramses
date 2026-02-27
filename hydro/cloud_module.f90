@@ -94,7 +94,7 @@ subroutine boundary_frig(ilevel)
   ! it uses the 2 last cells of the domain
   !----------------------------------------------------------
   integer::igrid,ngrid,ncache,i,ind,iskip,ix,iy,iz,j
-  integer::info,ibound,nx_loc,idim,neul=5
+  integer::info,ibound,nx_loc,idim
   real(dp)::dx,dx_loc,scale,d,u,v,w,A,B,C
   real(kind=8)::rho_max_loc,rho_max_all,epot_loc,epot_all
   real(dp),dimension(1:twotondim,1:3)::xc

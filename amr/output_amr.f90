@@ -468,8 +468,6 @@ subroutine output_info(filename)
 #if USE_FLD==1
   write(ilun,'("mu_gas      =",E23.15)')mu_gas
   write(ilun,'("ngrp        =",I11)')ngrp
-  write(ilun,'("nent        =",I11)')nent
-  write(ilun,'("npscal      =",I11)')npscal
 #endif
   write(ilun,*)
 
@@ -496,11 +494,6 @@ subroutine output_info(filename)
      write(ilun,'("eos         =",I11)')1
   else
      write(ilun,'("eos         =",I11)')0
-  endif
-  if(write_conservative) then
-     write(ilun,'("write_cons  =",I11)')1
-  else
-     write(ilun,'("write_cons  =",I11)')0
   endif
 #endif
   

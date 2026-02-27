@@ -173,11 +173,6 @@ recursive subroutine amr_step(ilevel,icount)
      ! Dump lightcone
      if(lightcone .and. ndim==3) call output_cone()
 
-#if USE_FLD==1
-     ! Important can't be done in sink routines because it must be done after dump all
-!!$     if(sink)acc_rate=0.
-#endif
-
   endif
 
   !----------------------------
@@ -301,8 +296,6 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDIM==3
   if(rt .and. rt_sink) call update_sink_RT_feedback
 #endif
-!  if(rt .and. rt_protostar_m1 .and. nsink .gt. 0) call update_sink_RT_feedback(ilevel)
-  ! Activates the rt_advect in update_sink_RT_feedback if hybrid RT
 #endif
 
 #if USE_FLD==1
@@ -494,14 +487,6 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDIM==3
                                call timer('feedback','start')
   if(hydro.and.star.and.(.not.static_gas))call star_formation(ilevel)
-
-#if USE_FLD==1
-  ! Compute radiative feedback if radiative transfer with FLD on
-  if(fld)then
-!     if(rt_feedback .and. sink .and. nsink .gt. 0)call radiative_feedback_sink(ilevel)
-  end if
-#endif
-
 #endif
   !---------------------------------------
   ! Update physical and virtual boundaries
@@ -528,19 +513,11 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 
 #if USE_FLD==1
-    if((static_gas).and.(fld))then
+  if((static_gas).and.(fld))then
      call upload_fine(ilevel)
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-        do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
            call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
      end do
-#else
-     end do
-#endif
      if(simple_boundary)call make_boundary_hydro(ilevel)
   end if
 
@@ -555,17 +532,9 @@ recursive subroutine amr_step(ilevel,icount)
   if(hydro)then
                                call timer('hydro - ghostzones2','start')
   ! Update boundaries 
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
      end do
-#else
-     end do
-#endif
      if(simple_boundary)call make_boundary_hydro(ilevel)
   endif
 #endif

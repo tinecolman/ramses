@@ -2,10 +2,6 @@ subroutine read_params
   use amr_commons
   use hydro_parameters, only:nvar,nhydro
   use mpi_mod
-#if USE_FLD==1  
-  use cloud_module
-!!$  use feedback_module
-#endif
   use buildinfo
   use iso_fortran_env, ONLY: output_unit !standard output
   implicit none
@@ -152,14 +148,6 @@ subroutine read_params
 #if USE_TURB==1
   call read_turb_params(nml_ok)
 #endif
-#endif
-#if USE_FLD==1
-!!$  ! Cloud and feedback parameter 
-!!$  call read_cloud_params(nml_ok)
-!!$  call read_feedback_params(nml_ok)
-!!$  
-!!$  ! Stellar objects
-!!$  if (stellar)call read_stellar_params
 #endif
 
   ! DEV INFO: add here your call for new namelist blocks
