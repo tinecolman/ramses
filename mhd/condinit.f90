@@ -21,8 +21,8 @@ subroutine  condinit(x,u,dx,nn)
   ! U(i,nvar+1:nvar+3): Bright
   ! Q is the primitive variable vector. Conventions are here:
   ! Q(i,1): d, Q(i,2:4):u,v,w, Q(i,5): P, Q(i,6:8): Bleft,
-  ! Q(i,nvar+1:nvar+3): Bright, Q(i,9:8+nener): Er (if FLD)
-  ! If nvar > 8+nener, remaining variables (9+nener:nvar) are treated as passive
+  ! Q(i,nvar+1:nvar+3): Bright
+  ! If nvar > 8, remaining variables (9:nvar) are treated as passive
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================

@@ -2370,8 +2370,6 @@ subroutine uslope_mag(bf,dbf,dx,dt,ngrid)
   integer,intent(in)::ngrid
   real(dp),intent(in)::dx,dt
   real(dp),dimension(1:nvector,iu1:iu2+1,ju1:ju2+1,ku1:ku2+1,1:3),intent(in)::bf
-  real(dp),dimension(1:nvector,iu1:iu2+1,ju1:ju2+1,ku1:ku2+1,1:3,1:ndim),intent(out)::dbf
-
 #if USE_FLD==0
   real(dp),dimension(1:nvector,iu1:iu2+1,ju1:ju2+1,ku1:ku2+1,1:3,1:ndim),intent(out)::dbf
 #else

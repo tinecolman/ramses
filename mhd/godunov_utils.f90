@@ -23,11 +23,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
   real(dp),dimension(1:nvector),save::eking,ekinm,ekind
   real(dp),dimension(1:nvector),save::emagg,emagm,emagd
   real(dp)::dg,dm,dd,pg,pm,pd,vg,vm,vd,cg,cm,cd,error,emag_loc,ethres
-
-#if USE_FLD==1
-  integer::j
-  real(dp)::Eg,Em,Ed,Fg,Fm,Fd
-#endif
   
   ! Convert to primitive variables
   do k = 1,nn
@@ -187,68 +182,6 @@ subroutine hydro_refine(ug,um,ud,ok,nn,ilevel)
         end do
      end do
   end if
-  
-#if USE_FLD==1
-  if(err_grad_E >= 0.)then
-     do k=1,nn
-        Eg=0.0D0 ; Em=0.0D0 ; Ed=0.0D0 ; 
-        do j=1,ngrp
-           Eg=Eg+ug(k,firstindex_er+j); Em=Em+um(k,firstindex_er+j); Ed=Ed+ud(k,firstindex_er+j)
-        end do
-        error=2.0d0*MAX( &
-             & ABS((Ed-Em)/(Ed+Em+floor_E)), &
-             & ABS((Em-Eg)/(Em+Eg+floor_E)) )
-        ok(k) = ok(k) .or. error > err_grad_E
-     end do
-  end if
-
-#if NENER>0
-   do irad = 1,nent
-      if(err_grad_prad(irad) >= 0.)then
-         do k=1,nn
-            pg=ug(k,8+irad); pm=um(k,8+irad); pd=ud(k,8+irad)
-            error=2.0d0*MAX( &
-                 & ABS((pd-pm)/(pd+pm+floor_p)), &
-                 & ABS((pm-pg)/(pm+pg+floor_p)) )
-            ok(k) = ok(k) .or. error > err_grad_prad(irad)
-         end do
-      end if
-   end do
-#endif
-
-#if NVAR>8+NENER
-   do irad = 9+nener,nvar
-      if(err_grad_var(irad-8-nener) >= 0.)then
-         do k=1,nn
-            pg=ug(k,irad); pm=um(k,irad); pd=ud(k,irad)
-            error=2.0d0*MAX( &
-                 & ABS((pd-pm)/(pd+pm+floor_p)), &
-                 & ABS((pm-pg)/(pm+pg+floor_p)) )
-            ok(k) = ok(k) .or. error > err_grad_var(irad-8-nener)
-         end do
-      end if
-   end do
-#endif
-
-
-#if USE_M_1==1
-  if(err_grad_F >= 0.)then
-     do idim=1,ndim
-        do k=1,nn
-           Fg=0.0D0 ; Fm=0.0D0 ; Fd=0.0D0 ; 
-           do j=1,ngrp
-              !warning normalization: F in rho*u^3 and E in rho*u^2
-              Fg=Fg+ug(k,firstindex_er+idim*ngrp+j)*ug(k,idim+1)/(clight*ug(k,firstindex_er+j)); Fm=Fm+um(k,firstindex_er+idim*ngrp+j)*um(k,idim+1)/(clight*um(k,firstindex_er+j)); Fd=Fd+ud(k,firstindex_er+idim*ngrp+j)*ud(k,idim+1)/(clight*ud(k,firstindex_er+j))
-           end do
-           error=2.0d0*MAX( &
-                & ABS((Fd-Fm)/(Fd+Fm+floor_F)), &
-                & ABS((Fm-Fg)/(Fm+Fg+floor_F)) )
-           ok(k) = ok(k) .or. error > err_grad_F
-        end do
-     enddo
-  end if
-#endif
-#endif
   
 #if NENER>0
   if(err_grad_prad >= 0.)then
