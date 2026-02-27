@@ -115,7 +115,7 @@ ifeq ($(RT),1)
    DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
 endif
 ifeq ($(USE_FLD),1)
-     DEFINES += -DUSE_FLD=$(USE_FLD) $(DEFINES) -DNGRP=$(NGRP)
+     DEFINES += -DUSE_FLD=$(USE_FLD) -DNGRP=$(NGRP)
 endif
 ifeq ($(USE_TURB),1)
    DEFINES += -DUSE_TURB
