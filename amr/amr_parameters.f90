@@ -63,7 +63,8 @@ module amr_parameters
   logical::star    =.false.   ! Star formation activated
   logical::sink    =.false.   ! Sink particles activated
   logical::stellar = .false.  ! stellar particles for sink feedback
-  logical::rt      =.false.   ! Radiative transfer activated
+  logical::rt      =.false.   ! Radiative transfer using M1 method activated
+  logical::fld     =.false.   ! Radiative transfer using FLD method activated
   logical::debug   =.false.   ! Debug mode activated
   logical::static  =.false.   ! Static mode activated
   logical::static_dm=.false.  ! Static mode for dm only activated

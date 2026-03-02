@@ -18,6 +18,7 @@ More thorough explanations will be given in dedicated sections of the wiki.
 | `make_mergertree=.false.`    |  `logical`    | Make merger trees |
 | `poisson=.false.`            |  `logical`    | Activate Poisson solver for self-gravity |
 | `hydro=.false.`              |  `logical`    | Activate hydro or MHD solver. |
+| `fld=.false.`                |  `logical`    | Activate radiative transfer using FLD solver. |
 | `rt=.false.`                 |  `logical`    | Activate radiative transfer using CPU-based M1 solver. This solver works on the AMR grid. |
 | `aton=.false.`               |  `logical`    | Activate radiative transfer using GPU-based M1 solver. This solver works only on unigrid at `levelmin`. |
 | `verbose=.false.`            |  `logical`    | Activate verbose mode. |
