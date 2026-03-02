@@ -11,9 +11,6 @@ recursive subroutine amr_step(ilevel,icount)
   use coolrates_module, only: update_coolrates_tables
   use rt_cooling_module, only: update_UVrates
 #endif
-#if USE_FLD==1
-  use cloud_module,only:rt_feedback
-#endif
   use sink_feedback_parameters, only: sn_feedback_sink
 #if USE_TURB==1
   use turb_commons
@@ -300,6 +297,7 @@ recursive subroutine amr_step(ilevel,icount)
 
 #if USE_FLD==1
   ! Compute radiative acceleration
+                               call timer('fld - force','start')
   if(fld)call rad_force_fine(ilevel)
 #endif
 
@@ -513,25 +511,23 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 
 #if USE_FLD==1
-  if((static_gas).and.(fld))then
-     call upload_fine(ilevel)
-     do ivar=1,nvar_all
-           call make_virtual_fine_dp(uold(1,ivar),ilevel)
-     end do
-     if(simple_boundary)call make_boundary_hydro(ilevel)
-  end if
-
-  !-------------------------
   ! Radiation diffusion step
-  !-------------------------
   if(fld)then
-                               call timer('fld','start')
+     ! why needed?
+     if(static_gas)then
+        call upload_fine(ilevel)
+        do ivar=1,nvar_all
+           call make_virtual_fine_dp(uold(1,ivar),ilevel)
+        end do
+        if(simple_boundary)call make_boundary_hydro(ilevel)
+     end if
+                               call timer('fld - diffusion','start')
      call diffusion_cg(ilevel,icount)
   end if
 
   if(hydro)then
-                               call timer('hydro - ghostzones2','start')
-  ! Update boundaries 
+                               call timer('hydro - ghostzones','start')
+     ! Update boundaries
      do ivar=1,nvar_all
         call make_virtual_fine_dp(uold(1,ivar),ilevel)
      end do
@@ -611,7 +607,6 @@ subroutine rt_step(ilevel)
   use amr_commons,    only: t, dtnew, myid
   use rt_cooling_module, only: update_UVrates
   use rt_hydro_commons
-  use rt_parameters, only: rt_protostar_m1
   use UV_module
   use SED_module,     only: star_RT_feedback
   use mpi_mod
@@ -646,10 +641,6 @@ subroutine rt_step(ilevel)
      if (i_substep > 1) call rt_set_unew(ilevel)
 
      if(rt_star) call star_RT_feedback(ilevel,dtnew(ilevel))
-#if USE_FLD==1
-     if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
-     if(rt_protostar_m1 .and. sink) call radiative_feedback_sink(ilevel)
-#endif
 #if NDIM==3
      if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
 #endif
