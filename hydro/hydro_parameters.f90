@@ -33,6 +33,14 @@ module hydro_parameters
   integer,parameter::nener=NENER
 #endif
   integer,parameter::inener=nhydro+1
+#if FLD
+  ! Number of FLD radiative energy groups that are stored in NENER variables
+#ifndef FLD_NGRP
+  integer,parameter::ngrp=0
+#else
+  integer,parameter::ngrp=FLD_NGRP
+#endif
+#endif
   ! total amount of variables
 #ifndef NVAR
   integer,parameter::nvar=nhydro+nener
