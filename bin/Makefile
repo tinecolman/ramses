@@ -21,8 +21,10 @@ NPRE = 8
 SOLVER = hydro
 # Patch
 PATCH =
-# Use RT? 1=Yes, 0=No
+# Use RT with M1? 1=Yes, 0=No
 RT = 0
+# Use RT with FLD? 1=Yes, 0=No
+FLD=0
 # Use turbulence? 1=Yes, 0=No (requires fftw3)
 USE_TURB = 0
 # Use MPI? 1=Yes, 0=No
@@ -40,12 +42,19 @@ ATON = 0
 # Number of ions for RT
 # use 1 for HI+HII, +1 for added H2, +2 for added HeI, HeII, HeIII
 NIONS = 0
-# Number of photon groups for RT
+# Number of photon groups for RT with M1
 NGROUPS = 0
+# Number of photon groups for RT with FLD (stored in NENER)
+FLD_NGRP=0
 # Number of passive scalars
 NPSCAL = 0
 # Light MPI communicator structure (for > 10k MPI processes)
 LIGHT_MPI_COMM = 0
+
+# reserve NENER variables for FLD radiation groups
+ifeq ($(FLD),1)
+   NENER:=$(NENER)+$(FLD_NGRP)
+endif
 
 # Compute NVAR
 NHYDRO = 2+$(NDIM)
@@ -79,6 +88,9 @@ ifeq ($(OLD_MPI_SUPPORT),1)
 endif
 ifeq ($(RT),1)
    DEFINES += -DRT -DNIONS=$(NIONS) -DNGROUPS=$(NGROUPS)
+endif
+ifeq ($(FLD),1)
+     DEFINES += -DFLD -DFLD_NGRP=$(FLD_NGRP)
 endif
 ifeq ($(USE_TURB),1)
    DEFINES += -DUSE_TURB
@@ -176,16 +188,24 @@ ifeq ($(GRACKLE),1)
    LIBS_GRACKLE = -L$(HOME)/local/lib -lgrackle -lhdf5 -lz -lgfortran -ldl
    LIBS_OBJ     = -I$(HOME)/local/include -DCONFIG_BFLOAT_8 -DH5_USE_16_API -fPIC
 endif
+# FFTW3 library for turbulence forcing module
 ifeq ($(USE_TURB),1)
    LIBS_TURB = -L$(HOME)/local/lib -lfftw3
    LIBS_OBJ_TURB = -I$(HOME)/local/include -lfftw3
 endif
-LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB)
+# LAPACK library for multi-group FLD (FLD_NGRP>1)
+ifneq ($(FLD_NGRP),$(filter $(FLD_NGRP),0 1))
+   LIBS_FLD = -llapack
+endif
+LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB) $(LIBS_FLD)
 #############################################################################
 # Sources directories are searched in this exact order
 VPATH = $(PATCH):../$(SOLVER):../aton:
 ifeq ($(RT),1)
    VPATH += ../rt:
+endif
+ifeq ($(FLD),1)
+   VPATH += ../radiation_fld:
 endif
 ifeq ($(USE_TURB),1)
    VPATH += ../turb:
@@ -205,6 +225,9 @@ MODOBJ += poisson_commons.o hydro_parameters.o hydro_commons.o \
 ifeq ($(RT),1)
    MODOBJ += rt_parameters.o rt_hydro_commons.o coolrates_module.o \
              rt_spectra.o rt_cooling_module.o rt_flux_module.o
+endif
+ifeq ($(FLD),1)
+   MODOBJ += fld_parameters.o fld_commons.o
 endif
 ifeq ($(USE_TURB),1)
    MODOBJ += turb_parameters.o turb_commons.o
@@ -238,6 +261,8 @@ RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o \
         rt_output_hydro.o rt_godunov_fine.o rt_interpol_hydro.o \
         rt_godunov_utils.o rt_condinit.o rt_hydro_flag.o rt_hydro_boundary.o \
         rt_boundana.o rt_units.o
+# FLD objects
+FLDOBJ = init_radiation.o
 # Turbulence objects
 TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
           turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
@@ -249,6 +274,9 @@ sinclude $(PATCH)/Makefile
 AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ)
 ifeq ($(RT),1)
    AMRLIB += $(RTOBJ)
+endif
+ifeq ($(FLD),1)
+   AMRLIB += $(FLDOBJ)
 endif
 ifeq ($(USE_TURB),1)
    AMRLIB += $(TURBOBJ)
