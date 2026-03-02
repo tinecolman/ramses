@@ -213,11 +213,12 @@ ifeq ($(GRACKLE),1)
    LIBS_GRACKLE = -L$(HOME)/local/lib -lgrackle -lhdf5 -lz -lgfortran -ldl
    LIBS_OBJ     = -I$(HOME)/local/include -DCONFIG_BFLOAT_8 -DH5_USE_16_API -fPIC
 endif
+# FFTW3 library for turbulence forcing module
 ifeq ($(USE_TURB),1)
    LIBS_TURB = -L$(HOME)/local/lib -lfftw3
    LIBS_OBJ_TURB = -I$(HOME)/local/include -lfftw3
 endif
-# Add Lapack when using FLD with NGRP>1
+# LAPACK library for multi-group FLD (NGRP>1)
 ifneq ($(NGRP),$(filter $(NGRP),0 1))
    LIBS_FLD = -llapack
 endif
