@@ -19,4 +19,15 @@ module fld_parameters
    real(dp),dimension(:,:  ),allocatable::inverse_art4_T ! array for tabulated arT4 function dT regular
    real(dp),dimension(:,:,:),allocatable::inverse_art4_E ! array for tabulated arT4 function dE regular
 
+   ! Radiation solver parameters
+   integer::i_fld_limiter
+   integer,parameter::i_fld_limiter_nolim=0
+   integer,parameter::i_fld_limiter_minerbo=1
+   integer,parameter::i_fld_limiter_levermore=2
+
+   ! Opacity
+   logical :: sublimation_kuiper=.false. ! Mimicks dust sublimation with decreasing d/g ratio, see Kuiper+10 ApJ
+   real(dp),dimension(1:3)::rosseland_params=1.0     ! Rosseland opacity coefficient's parameters
+
+
 end module fld_parameters

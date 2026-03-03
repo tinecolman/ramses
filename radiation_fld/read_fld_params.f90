@@ -24,6 +24,7 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    !       If you want the last group to go from numax to +infinity, set extra_end_group=.true.
    !
    !------------------------------------------------------------------------
+   character(LEN=10)::fld_limiter='nolim'             ! Flux limiter (nolim, levermore or minerbo)
    ! radiation group namelist parameters
    real(dp)::numin=1.0d5,numax=1.0d19    ! Overall frequency boundaries
    logical::freqs_in_Hz=.true.           ! Input frequency units in Hz if true; else eV
@@ -37,8 +38,9 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    real(dp),dimension(1:ngrp)::nu_min_ev ! minimum freq of given group in eV
    real(dp),dimension(1:ngrp)::nu_max_ev ! maximum freq of given group in eV
 
-   namelist/radiation_params/numin,numax &
-        & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group
+   namelist/radiation_params/fld_limiter,numin,numax &
+        & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group &
+        & ,sublimation_kuiper,rosseland_params
 
    ! Go to the beginning of the file
    rewind(namelist_unit)
@@ -60,6 +62,11 @@ subroutine read_fld_params(namelist_unit,nml_ok)
       if(myid==1)write(*,*)'Error in FLD namelist: numax should be strictly larger than numin!'
       nml_ok=.false.
    endif
+
+   ! Set i_fld_limiter
+   i_fld_limiter=i_fld_limiter_nolim
+   if(fld_limiter=='levermore') i_fld_limiter=i_fld_limiter_levermore
+   if(fld_limiter=='minerbo')  i_fld_limiter=i_fld_limiter_minerbo
 
    !--------------------------------------------------------
    ! Create frequency groups (sets nu_min_hz and nu_max_hz)

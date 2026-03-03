@@ -3,6 +3,9 @@ subroutine courant_fine(ilevel)
   use hydro_commons
   use poisson_commons
   use mpi_mod
+#if FLD
+  use fld_commons, only:frad
+#endif
 #if USE_TURB==1
   use turb_commons
 #endif
@@ -81,7 +84,19 @@ subroutine courant_fine(ilevel)
            end do
         end if
 
+#if FLD
+        ! Gather radiative force
+        if(fld)then
+           do idim=1,ndim
+              do i=1,nleaf
+                 gg(i,idim)=gg(i,idim)+frad(ind_leaf(i),idim)
+              end do
+           end do
+        end if
+#endif
+
 #if USE_TURB==1
+        ! Gather turbulence driving force
         if (turb .AND. turb_type/=3) then
            do idim=1,ndim
               do i=1,nleaf

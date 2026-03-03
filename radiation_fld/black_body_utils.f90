@@ -4,7 +4,7 @@
 !###########################################################
 
 module coeff_xi
-  use amr_parameters, only : dp
+  use amr_parameters, only:dp
   real(dp), parameter :: C0 = -6.4939394022668291494e+00_dp
   real(dp), parameter :: C1 = -7.2459729120796762965e+00_dp
   real(dp), parameter :: C2 = -4.0425479966955722625e+00_dp
@@ -83,7 +83,7 @@ end subroutine tabulate_art4
 !! inside a given group.
 !<
 function artheta4(Tray,igrp)
-
+  use amr_parameters, only:dp
   use fld_parameters, only : nu_min_hz,nu_max_hz,eray_min
   use constants, only:pi,hplanck,kB,c_cgs
   implicit none
@@ -121,7 +121,9 @@ end function artheta4
 !! distribution between two frequencies.
 !<
 function xi(nu)
+  use amr_parameters, only:dp
   use coeff_xi
+  use const
   implicit none
 
   real(dp),intent(in) :: nu
@@ -169,7 +171,47 @@ function BPlanck(nu,T)
   endif
 
 end function BPlanck
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
 
+!  Function CAL_TEG
+!
+!> Computes the temperature of a black body which would
+!! provide the same energy as Eg inside a given group igrp.
+!<
+function cal_Teg(Eg,igrp)
+  use amr_parameters, only : dp
+  use fld_parameters, only : inverse_art4_E,Ninv_art4,dEr_inv_art4
+
+  implicit none
+
+  real(dp), intent(in) :: Eg
+  integer , intent(in) :: igrp
+  integer              :: iEg
+  real(dp)             :: cal_Teg,m,x1,x2,y1,y2,lEg
+
+  lEg = log10(Eg)
+
+  if(lEg < inverse_art4_E(1,igrp,1))then
+     cal_Teg = inverse_art4_E(2,igrp,1)
+  elseif(lEg >= inverse_art4_E(1,igrp,Ninv_art4))then
+     cal_Teg = inverse_art4_E(2,igrp,Ninv_art4)
+  else
+     iEg = int((lEg-inverse_art4_E(1,igrp,1))/dEr_inv_art4(igrp)) + 1
+     x1 = inverse_art4_E(1,igrp,iEg  )
+     x2 = inverse_art4_E(1,igrp,iEg+1)
+     y1 = inverse_art4_E(2,igrp,iEg  )
+     y2 = inverse_art4_E(2,igrp,iEg+1)
+     ! compute gradient
+     m = (y2-y1)/(x2-x1)
+     cal_Teg = (m*(lEg-x1))+y1
+  endif
+
+  cal_Teg = 10.0_dp**(cal_Teg)
+
+end function cal_Teg
 !###########################################################
 !###########################################################
 !###########################################################
