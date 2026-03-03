@@ -295,7 +295,7 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
 #endif
 
-#if USE_FLD==1
+#ifdef FLD
   ! Compute radiative acceleration
                                call timer('fld - force','start')
   if(fld)call rad_force_fine(ilevel)

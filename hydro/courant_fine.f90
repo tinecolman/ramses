@@ -3,7 +3,7 @@ subroutine courant_fine(ilevel)
   use hydro_commons
   use poisson_commons
   use mpi_mod
-#if FLD
+#ifdef FLD
   use fld_commons, only:frad
 #endif
 #if USE_TURB==1
@@ -84,7 +84,7 @@ subroutine courant_fine(ilevel)
            end do
         end if
 
-#if FLD
+#ifdef FLD
         ! Gather radiative force
         if(fld)then
            do idim=1,ndim
