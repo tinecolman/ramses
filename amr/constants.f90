@@ -18,6 +18,7 @@ module constants
   real(dp),parameter ::kB           = 1.3806490d-16 ! Boltzmann const. [erg K-1]; SI
   real(dp),parameter ::c_cgs        = 2.9979246d+10 ! Speed of light [cm s-1]; SI
   real(dp),parameter ::a_r          = 7.5657233d-15 ! Radiation density const. [erg cm-3 K-4]; SI (derived)
+  ! ramses-ism:aR=7.56591469318689378e-015_dp
   real(dp),parameter ::mH           = 1.6605390d-24 ! H atom mass [g] = amu, i.e. atomic mass unit; NIST
   real(dp),parameter ::factG_in_cgs = 6.6740800d-08 ! Gravitational const. [cm3 g-1 s-2]; NIST
   real(dp),parameter ::sigma_T      = 6.6524587d-25 ! Thomson scattering cross-section [cm2]; NIST

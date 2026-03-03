@@ -35,6 +35,9 @@ subroutine adaptive_loop
 #ifdef RT
   if(rt.or.neq_chem) call rt_init_hydro ! Initialize radiation variables
 #endif
+#ifdef FLD
+  if(fld) call init_fld
+#endif
   if(poisson)call init_poisson       ! Initialize poisson variables
 #ifdef ATON
   if(aton)call init_radiation        ! Initialize radiation variables
