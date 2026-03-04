@@ -263,7 +263,7 @@ RTOBJ = rt_init_hydro.o rt_init_xion.o rt_init.o rt_init_flow_fine.o \
         rt_boundana.o rt_units.o
 # FLD objects
 FLDOBJ = read_fld_params.o init_fld.o black_body_utils.o rosseland_opacity.o \
-         rad_boundary.o rad_force_fine.o
+         boundary_rad_diffusion.o rad_force_fine.o
 # Turbulence objects
 TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
           turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
