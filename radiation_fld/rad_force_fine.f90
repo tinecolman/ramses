@@ -30,7 +30,7 @@ subroutine rad_force_fine(ilevel)
 
    real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1/scale_l
+   scale_kappa=1d0/scale_l
    eray_min_cu = eray_min/(scale_d*scale_v**2)
 
    if(numbtot(1,ilevel)==0)return
