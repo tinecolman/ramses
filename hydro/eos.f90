@@ -62,7 +62,9 @@ end subroutine internal_energy_to_temperature
 !#####################################################################
 !#####################################################################
 subroutine compute_internal_energy(uu,eps)
-   use hydro_commons, only:uold
+   use amr_parameters, only:dp
+   use hydro_parameters, only: neul,nhydro,nener,nvar,nvar_all
+   use hydro_commons,  only:uold
    ! conservative hydro variables in the cell
    real(dp),dimension(1:nvar_all),intent(in):: uu
    ! volumetric internal energy
@@ -71,6 +73,7 @@ subroutine compute_internal_energy(uu,eps)
    ! Compute internal energy from conservative hydro variables
    !-----------------------------------------------------------
    real(dp)::d
+   integer::igroup
 
    d = uu(1)
    eps = uu(neul)
@@ -92,4 +95,4 @@ subroutine compute_internal_energy(uu,eps)
    end do
 #endif
 
-end subroutine internal_energy_from_uold
+end subroutine compute_internal_energy
