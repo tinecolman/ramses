@@ -5,7 +5,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   use fld_parameters
   use fld_commons
   use const
-  use constants, only: eV2erg
+  use constants, only: eV2erg,c_cgs
   use mpi_mod
   implicit none
   !=========================================================
@@ -60,9 +60,10 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
    scale_kappa=1d0/scale_l
+   C_cal = c_cgs/scale_v
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
@@ -553,9 +554,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      rho = uold(liste_ind(i),1)
      Told= uold(liste_ind(i),nvar) * Tr_floor
      !Cv = unew(liste_ind(i),nvar+1)
-
-     ambi_heating=zero
-     ohm_heating=zero
      
      rhs=zero
      lhs=zero
@@ -733,6 +731,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
   use amr_parameters, only : ndim
   use hydro_commons
   use fld_parameters
+  use fld_commons
   use const
   implicit none
 
@@ -866,7 +865,9 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
 
               do igroup=1,ngrp
                  do igrp=1,ngrp
-                    if(store_matrix) mat_residual_glob(ind_cell(i),igroup,igrp) = mat_residual(igroup,igrp)
+                    if(store_matrix) then
+                     mat_residual_glob(ind_cell(i),igroup,igrp) = mat_residual(igroup,igrp)
+                    endif
                     if(block_diagonal_precond_bicg.or.igroup==igrp) then
                        precond_bicg(ind_cell(i),igroup,igrp) = mat_residual(igroup,igrp)
                     endif
@@ -956,6 +957,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
   use amr_parameters, only : ndim
   use hydro_commons
   use fld_parameters
+  use fld_commons
   use hydro_parameters,only:ngrp
   use const
   implicit none
@@ -1536,7 +1538,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   use hydro_commons
   use fld_parameters
   use const
-  use constants, only: eV2erg
+  use constants, only: eV2erg,c_cgs
 
   implicit none
   integer,intent(in)::i
@@ -1547,16 +1549,16 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   real(dp)::rho,Told_norm,Told,cv,lhs,rhs,rosseland_ana,radiation_source,deriv_radiation_source,cal_Teg
   integer::igrp,igroup
   real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
-  real(dp)::ambi_heating,ohm_heating,nimhd_heating,protostellar_heating
+
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
+   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+   scale_kappa=1d0/scale_l
+   C_cal = c_cgs/scale_v
 
   rho       = uold(i,1          )
   Told_norm = uold(i,ind_trad(1))
   Told      = Told_norm * Tr_floor
   !Cv        = unew(i,nvar+1)
-
-  ambi_heating=zero
-  ohm_heating=zero
-  nimhd_heating=zero
 
   lhs=zero
   rhs=zero
@@ -1579,12 +1581,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
      do igrp=1,ngrp
         mat_residual(igroup,igrp) = mat_residual(igroup,igrp) - wdtB(igroup)*(deriv(igroup)*P_cal*wdtE(igrp)/scale_E0/(cv+lhs))*vol_loc
      enddo
-     protostellar_heating = 0.0d0
 
      residual(igroup) = uold(i,firstindex_er+igroup)*vol_loc  &
           & + vol_loc*wdtB(igroup)*(source(igroup)/scale_E0-Told*deriv(igroup)/scale_E0) &
-          & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*protostellar_heating*dt_imp*scale_t/(cv+lhs) &
-          & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs+nimhd_heating)/(cv+lhs)
+          & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs)/(cv+lhs)
   enddo
 
   return
@@ -1602,6 +1602,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   use hydro_commons
   use fld_parameters
   use const
+  use constants, only:c_cgs
   
   implicit none
   integer,intent(in)::i,idim,cell_left,cell_right
@@ -1612,6 +1613,11 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   real(dp)::rho,Told,cal_Teg,cmp_temp,rosseland_ana,lambda,lambda_fld,R,nu_surf,surf_loc
   integer::igroup,irad
   real(dp),dimension(ngrp)::C_g,C_d,phi_g,phi_c,phi_d,nu_g,nu_c,nu_d
+
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
+   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+   scale_kappa=1d0/scale_l
+   C_cal = c_cgs/scale_v
 
   surf_loc = dx_loc**(ndim-1)
 
