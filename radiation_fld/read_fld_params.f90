@@ -43,7 +43,7 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    namelist/radiation_params/fld_limiter,numin,numax &
         & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group &
         & ,sublimation_kuiper,rosseland_params &
-        & ,Tr_floor,min_optical_depth,grey_rad_transfer
+        & ,Tr_floor,min_optical_depth,grey_rad_transfer,epsilon_diff
 
    ! Go to the beginning of the file
    rewind(namelist_unit)

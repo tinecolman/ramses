@@ -537,10 +537,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      rhs=zero
      lhs=zero
      do igrp=1,ngrp
-        Trold = cal_Teg(uold(liste_ind(i),firstindex_er+igrp)*scale_E0,igrp)
-
-        wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp,in_sink(liste_ind(i)))/scale_kappa
-        wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp,in_sink(liste_ind(i)))/scale_kappa
+        wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
+        wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
 
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
              & + P_cal*wdtE*unew(liste_ind(i),nhydro+igrp)
@@ -1498,11 +1496,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   rhs=zero
   do igrp=1,ngrp
      ! Store radiation_source, deriv_radiation_source and planck opacity to save cpu time
-     Trold=cal_Teg(uold(i,firstindex_er+igrp)*scale_E0,igrp)
      source(igrp)=radiation_source(Told,igrp)
      deriv(igrp)=deriv_radiation_source(Told,igrp)
-     wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp,in_sink(i))/scale_kappa
-     wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp,in_sink(i))/scale_kappa
+     wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
+     wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
      lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
      rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
   enddo

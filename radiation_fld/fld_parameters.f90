@@ -27,7 +27,8 @@ module fld_parameters
 
    ! Opacity
    logical :: sublimation_kuiper=.false. ! Mimicks dust sublimation with decreasing d/g ratio, see Kuiper+10 ApJ
-   real(dp),dimension(1:3)::rosseland_params=1.0     ! Rosseland opacity coefficient's parameters
+   real(dp),dimension(1:10)::rosseland_params=1.0     ! Rosseland opacity coefficient's parameters
+   real(dp),dimension(1:10)::planck_params=1.0        ! Planck opacity coefficient's parameters
 
 
    ! Parameters for Bi-Conjugate Gradient method

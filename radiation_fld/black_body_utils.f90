@@ -436,9 +436,8 @@ end function cal_Teg_slow
 !! distribution function.
 !<
 function Div_BPlanck(nu,T)
-
   use amr_parameters, only : dp
-  use coeff_xi  , only : limhigh
+  use coeff_xi,       only : limhigh
   use const
   use constants, only:hplanck,kB
 
