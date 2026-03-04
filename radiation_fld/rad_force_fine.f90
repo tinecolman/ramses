@@ -125,7 +125,7 @@ subroutine rad_force_fine(ilevel)
             d = uold(ind_cell(i),1)
 
             ! Compute internal energy from total energy
-            call internal_energy_from_uold(uold(ind_cell(i),1:nvar_all),eps)
+            call compute_internal_energy(uold(ind_cell(i),1:nvar_all),eps)
 
             ! Compute gas temperature in Kelvin
             call internal_energy_to_temperature(d,eps,Tp_loc)

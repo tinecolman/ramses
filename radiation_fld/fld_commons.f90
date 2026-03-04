@@ -8,5 +8,14 @@ module fld_commons
    real(dp),dimension(:,:    ),allocatable :: kappaR_bicg
 
    real(dp),dimension(:,:,:  ),allocatable :: precond_bicg
+   real(dp),dimension(:,:,:,:),allocatable :: coeff_glob_left,coeff_glob_right
+  real(dp),dimension(:,:,:  ),allocatable :: mat_residual_glob
+  real(dp),dimension(:,:    ),allocatable :: residual_glob
+
+
+  real(dp)   ::dt_imp                            ! Implicit timestep               
+  integer,allocatable,dimension(:)::liste_ind
+  integer::nb_ind
+
 
 end module fld_commons

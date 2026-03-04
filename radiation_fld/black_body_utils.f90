@@ -21,6 +21,73 @@ end module coeff_xi
 !###########################################################
 !###########################################################
 
+!  Function RADIATION_SOURCE
+!
+!> Computes radiation source
+!<
+function radiation_source(T,igrp)
+  use const
+  use constants, only: a_r
+  use hydro_parameters, only:ngrp
+  use fld_parameters, only : grey_rad_transfer
+
+  implicit none
+
+  real(dp), intent(in) :: T
+  integer , intent(in) :: igrp
+  real(dp)             :: radiation_source,artheta4
+
+  if(grey_rad_transfer)then
+     radiation_source = a_r*T**4
+  else
+     if(T.gt.zero) then
+        radiation_source = artheta4(T,igrp)
+     else
+        radiation_source = zero
+     end if
+  end if
+
+end function radiation_source
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
+!  Function DERIV_RADIATION_SOURCE
+!
+!> Computes radiation source derivative
+!<
+function deriv_radiation_source(T,igrp)
+  use const
+  use constants, only: a_r
+  use hydro_parameters, only:ngrp
+  use fld_parameters, only : grey_rad_transfer
+  implicit none
+
+  real(dp), intent(in) :: T
+  integer , intent(in) :: igrp
+  real(dp)              :: deriv_radiation_source,deriv_artheta4
+
+  if(grey_rad_transfer)then
+     deriv_radiation_source = four*a_r*T**3
+  else
+     if(T.gt.zero) then
+        deriv_radiation_source = deriv_artheta4(T,igrp)
+     else
+        deriv_radiation_source = zero
+     end if
+  end if
+
+  return
+
+end function deriv_radiation_source
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
 !  Subroutine TABULATE_ART4
 !
 !> Tabulates the artheta4 function to find group interface
@@ -109,6 +176,84 @@ function artheta4(Tray,igrp)
 
 end function artheta4
 
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
+!  Function DERIV_ARTHETA4
+!
+!> Derivative of the artheta4() function which is used
+!! to compute the radiative energy source term.
+!<
+function deriv_artheta4(Tray,igrp)
+
+  use const
+  use fld_parameters, only : nu_min_hz,nu_max_hz,eray_min,deray_min
+  use constants, only:pi,hplanck,kB,c_cgs
+
+  implicit none
+
+  real(dp), intent(in) :: Tray
+  integer , intent(in) :: igrp
+  real(dp)             :: xi,deriv_xi,deriv_artheta4,nu,dnu,Div_BPlanck
+  real(dp)             :: constant,xmin,xmax,xsimin,xsimax,v1,v2,v3
+
+  constant = (8d0*pi*kb**4)/(c_cgs*hplanck)**3
+
+  xmin = hplanck*nu_min_hz(igrp)/(kb*Tray)
+  xmax = hplanck*nu_max_hz(igrp)/(kb*Tray)
+
+  xsimin = xi(xmin) ; xsimax = xi(xmax)
+
+  if(xsimin==xsimax)then
+     deriv_artheta4 = max(Div_BPlanck(half*(nu_min_hz(igrp)+nu_max_hz(igrp)),Tray)*(nu_max_hz(igrp)-nu_min_hz(igrp)),deray_min)
+  else
+     v1 = four*constant*(Tray**3)*(xsimax-xsimin)
+     v2 = deriv_xi(xmin,Tray)
+     v3 = deriv_xi(xmax,Tray)
+     deriv_artheta4 = v1 + constant*(Tray**4)*(v3-v2)
+     deriv_artheta4 = max(deriv_artheta4,deray_min)
+  endif
+
+  return
+
+end function deriv_artheta4
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
+!  Function DERIV_XI
+!
+!> Derivative of the xi() function which is used in the
+!! artheta4() computations.
+!<
+function deriv_xi(x,T)
+
+  use amr_parameters, only : dp
+  use coeff_xi
+  use const
+
+  implicit none
+
+  real(dp),intent(in) :: x,T
+  real(dp)            :: deriv_xi,p0,p1,p2
+
+  if(x >= limhigh)then
+     deriv_xi = zero
+  elseif(x <= limlow)then
+     deriv_xi = zero
+  else
+     p0 = exp(-c7*x)
+     p1 = c7*(x/T) * p0 * (c0 + c1*x + c2*(x**2) + c3*(x**3) + c4*(x**4) + c5*(x**5))
+     p2 = -p0*( c1*x/T + 2.0d0*c2*(x**2)/T + 3.0d0*c3*(x**3)/T + 4.0d0*c4*(x**4)/T + 5.0d0*c5*(x**5)/T )
+     deriv_xi = p1 + p2
+  endif
+
+end function deriv_xi
 
 !###########################################################
 !###########################################################
@@ -279,3 +424,36 @@ function cal_Teg_slow(Eg,igrp)
   !write(*,*) 'Teg_slow: i,cal_Teg_slow',i,cal_Teg_slow,Eg,inverse_art4_T(igrp,i)
 
 end function cal_Teg_slow
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
+!  Function DIV_BPLANCK
+!
+!> Computes the derivative of the Planck Black Body
+!! distribution function.
+!<
+function Div_BPlanck(nu,T)
+
+  use amr_parameters, only : dp
+  use coeff_xi  , only : limhigh
+  use const
+  use constants, only:hplanck,kB
+
+  implicit none
+
+  real(dp), intent(in) :: nu,T
+  real(dp)             :: Div_BPlanck,x,BPlanck,y,ee
+
+  x = hplanck*nu/(kb*T)
+  if(x > limhigh)then
+     Div_BPlanck = BPlanck(nu,T) * (x/T)
+  else
+     ee = exp(x)
+     y = ee / (ee - one)
+     Div_BPlanck = BPlanck(nu,T) * (x/T) * y
+  endif
+
+end function Div_BPlanck

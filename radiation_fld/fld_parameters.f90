@@ -10,7 +10,7 @@ module fld_parameters
    ! numerical limits
    real(dp),parameter::Tray_min=0.5d0 ! Minimum temperature in the radiative energy
    real(dp),parameter::eray_min=(a_r)*Tray_min**4 ! minimum rad energy inside frequency group
-   !real(dp),parameter::deray_min=(4.0d0*a_r)*Tray_min**3 ! minimum rad energy derivative inside frequency group
+   real(dp),parameter::deray_min=(4.0d0*a_r)*Tray_min**3 ! minimum rad energy derivative inside frequency group
    !real(dp):: small_er=1.0d-30       ! minimum rad energy inside frequency group in code units
 
    ! Tabulated black body radiative energy 
@@ -39,8 +39,17 @@ module fld_parameters
 
    !
    real(dp)::Tr_floor=10.0 ! namelist, Background radiation field temperature - WARNING: it affects the pressure_fix in set_uold.
-   real(dp)::P_cal
+   real(dp)::P_cal,scale_E0
    real(dp)::min_optical_depth=1.d-6        ! set the minimum optical depth in the cell (it may accelerate convergence in optically thin regions)
+
+   logical::store_matrix=.true.
+  logical::block_diagonal_precond_bicg ! if .false. only diagonal, if .true. block diagonal
+
+  integer :: i_rho,i_beta,i_y,i_pAp,i_s
+  real(dp):: alpha_imp = 1.0d0	!0.0:explicite 0.5:CN 1.0:implicite
+  real(dp):: robin = 1.0d0	!0.0:Von Neumann 1.0:Dirichlet
+  real(dp)::epsilon_diff=1d-6                        ! CG iteration break criteria
+  logical :: grey_rad_transfer=.true.! Default: grey radiation transfer
 
 
 end module fld_parameters

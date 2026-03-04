@@ -38,13 +38,12 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    real(dp),dimension(1:ngrp)::nu_min_ev ! minimum freq of given group in eV
    real(dp),dimension(1:ngrp)::nu_max_ev ! maximum freq of given group in eV
    ! local variables for unit conversion
-   real(dp)::scale_E0
    real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
    namelist/radiation_params/fld_limiter,numin,numax &
         & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group &
         & ,sublimation_kuiper,rosseland_params &
-        & ,Tr_floor,min_optical_depth
+        & ,Tr_floor,min_optical_depth,grey_rad_transfer
 
    ! Go to the beginning of the file
    rewind(namelist_unit)
@@ -67,6 +66,11 @@ subroutine read_fld_params(namelist_unit,nml_ok)
       nml_ok=.false.
    endif
 
+   if(grey_rad_transfer.and.(ngrp.gt.1))then
+      if(myid==1)write(*,*)'Error in FLD namelist: grey_rad_transfer while with NGRP>1'
+      nml_ok=.false.
+   endif
+
    ! Set i_fld_limiter
    i_fld_limiter=i_fld_limiter_nolim
    if(fld_limiter=='levermore') i_fld_limiter=i_fld_limiter_levermore
@@ -76,6 +80,23 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
    scale_E0 = a_r*(Tr_floor**4)
    P_cal = scale_E0 / (scale_d * scale_v**2)
+
+   ! 
+  if(bicg_to_cg)then
+     block_diagonal_precond_bicg=.false.
+     i_rho  = 6
+     i_beta = 6
+     i_y    = 2
+     i_pAp  = 2
+     i_s    = 1
+  else
+     block_diagonal_precond_bicg=.true.
+     i_rho  = 9
+     i_beta = 1
+     i_y    = 5
+     i_pAp  = 9
+     i_s    = 7
+  endif
 
    !--------------------------------------------------------
    ! Create frequency groups (sets nu_min_hz and nu_max_hz)

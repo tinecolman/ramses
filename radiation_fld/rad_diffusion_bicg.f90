@@ -53,11 +53,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   integer::info,nleaf_all
   real(dp)::max_loc_all
 #endif
-  logical::block_diagonal_precond_bicg ! if .false. only diagonal, if .true. block diagonal
 
   logical::exist_leaf_cell=.true.,debug_energy=.false.
-  integer,allocatable,dimension(:)::liste_ind
-
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
    real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
@@ -66,22 +63,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    C_cal = c_cgs/scale_v
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
-
-  if(bicg_to_cg)then
-     block_diagonal_precond_bicg=.false.
-     i_rho  = 6
-     i_beta = 6
-     i_y    = 2
-     i_pAp  = 2
-     i_s    = 1
-  else
-     block_diagonal_precond_bicg=.true.
-     i_rho  = 9
-     i_beta = 1
-     i_y    = 5
-     i_pAp  = 9
-     i_s    = 7
-  endif
 
   if(verbose)write(*,111)
   if(numbtot(1,ilevel)==0)return
@@ -169,7 +150,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
      ! Compute Rosseland opacity (Compute kappa*rho)
      do igroup=1,ngrp
-        kappaR_bicg(this,igroup)= rosseland_ana(density,temp,igroup,in_sink(this)) / scale_kappa
+        kappaR_bicg(this,igroup)= rosseland_ana(density,temp,igroup) / scale_kappa
         if(kappaR_bicg(this,igroup)*dx_loc .lt. min_optical_depth) then
           kappaR_bicg(this,igroup)=min_optical_depth/dx_loc
         endif
@@ -544,8 +525,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      call clean_stop
   end if
 
-  niter=niter+iter
-
   !====================================
   ! Update gas temperature
   !====================================
@@ -563,7 +542,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         wdtE = C_cal*dt_imp*rosseland_ana(rho*scale_d,Told,igrp)/scale_kappa
 
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
-             & + P_cal*wdtE*unew(liste_ind(i),firstindex_er+igrp)
+             & + P_cal*wdtE*unew(liste_ind(i),nhydro+igrp)
 
         lhs=lhs+P_cal*wdtB*deriv_radiation_source(Told,igrp)/scale_E0
      enddo
@@ -596,7 +575,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
            write(*,*)' BiCGSTAB :',iter, 'error_ini=',error_ini
         endif
      endif
-     write(*,*)'niter tot=',niter
      if(error_ini.ne.zero) then
         write(*,115)ilevel,iter,error,error/error_ini
      else
@@ -1094,7 +1072,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                  do irad = 1,ngrp
                     residu(i,irad) = residual_glob(ind_res,irad)
                     do jrad = 1,ngrp
-                       residu(i,irad) = residu(i,irad) - mat_residual_glob(ind_res,irad,jrad)*uold(ind_cell(i),ind_bicg(jrad))
+                       residu(i,irad) = residu(i,irad) - mat_residual_glob(ind_res,irad,jrad)*uold(ind_cell(i),nhydro+jrad)
                     enddo
                  enddo
 
@@ -1245,13 +1223,13 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
                     if( nbor_ilevel(i,2*idim-1) == -1)then
                        do irad=1,ngrp
-                          phi_c(i,irad) = uold(ind_cell(i),firstindex_er+irad)
+                          phi_c(i,irad) = uold(ind_cell(i),nhydro+irad)
                        enddo
                     end if
 
                     if( nbor_ilevel(i,2*idim)   == -1 )then
                        do irad=1,ngrp
-                          phi_c(i,irad) = uold(ind_cell(i),firstindex_er+irad)
+                          phi_c(i,irad) = uold(ind_cell(i),nhydro+irad)
                        enddo
                     end if
 
@@ -1346,29 +1324,6 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
 end subroutine cmp_matrix_vector_product
 
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-
-function lambda_fld(R)
-  use fld_parameters
-  use const
-  implicit none
-  real(dp)::R,lambda_fld
-
-  lambda_fld = one/three
-  if(i_fld_limiter==i_fld_limiter_levermore) lambda_fld =(2.0d0+r)/(6.0d0+2.0d0*R+R**2)! (one/tanh(R)-one/R) / R
-  if(i_fld_limiter==i_fld_limiter_minerbo) then 
-     if(R .le. three/two) then
-        lambda_fld = two/(three+sqrt(nine+12.0_dp*R*R))
-     else
-        lambda_fld = one/(one + R + sqrt(one+two*R))
-     end if
-  end if
-  return 
-end function lambda_fld
-
 !################################################################
 !################################################################
 !################################################################ 
@@ -1377,6 +1332,7 @@ end function lambda_fld
 subroutine cmp_energy(Etype)
   use hydro_commons
   use fld_parameters
+  use fld_commons
   use const
   implicit none
   integer,intent(in) :: Etype ! Etype=1 : beginning ; Etype=2 : end
@@ -1402,7 +1358,7 @@ subroutine cmp_energy(Etype)
      ! Compute total magnetic energy
      emag = zero
      do ivar=1,3
-        emag = emag + ((uold(this,5+ivar)+uold(this,nvar+ivar))**2)/eight
+        emag = emag + ((uold(this,5+ivar)+uold(this,nvar+ivar))**2)/8d0
      end do
 
      if(Etype==1)then
@@ -1413,7 +1369,7 @@ subroutine cmp_energy(Etype)
         enddo
         
         eps = uold(this,5)-ekin-emag-erad_loc
-        if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
+        !if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
         
         Tp_loc = cmp_temp(this)
         Cv = eps/Tp_loc
@@ -1422,8 +1378,8 @@ subroutine cmp_energy(Etype)
         uold(this,nvar  ) = Tp_loc
 
         do irad=1,ngrp
-           uold(this,nhydro+irad)=uold(this,nhydro+irad)/norm_trad(irad)
-           if(is_radiative_energy(irad)) uold(this,nhydro+irad) = max(uold(this,nhydro+irad),eray_min/scale_E0)
+           uold(this,nhydro+irad)=uold(this,nhydro+irad)/P_cal
+           uold(this,nhydro+irad) = max(uold(this,nhydro+irad),eray_min/scale_E0)
            unew(this,nhydro+irad)=uold(this,nhydro+irad)
         enddo
 
@@ -1432,9 +1388,9 @@ subroutine cmp_energy(Etype)
         !unew(this,nvar)=unew(this,nvar)*unew(this,nvar+1)
 
         do irad=1,ngrp
-           if(is_radiative_energy(irad)) unew(this,nhydro+irad) = max(unew(this,nhydro+irad),eray_min/scale_E0)
-           unew(this,nhydro+irad)=unew(this,nhydro+irad)*norm_trad(irad)
- !          unew(this,nhydro+irad)=uold(this,nhydro+irad)*norm_trad(irad)
+           unew(this,nhydro+irad) = max(unew(this,nhydro+irad),eray_min/scale_E0)
+           unew(this,nhydro+irad)=unew(this,nhydro+irad)*P_cal
+ !          unew(this,nhydro+irad)=uold(this,nhydro+irad)*P_cal
            uold(this,nhydro+irad)=unew(this,nhydro+irad)
         enddo
 
@@ -1456,53 +1412,22 @@ end subroutine cmp_energy
 !################################################################ 
 !################################################################
 function cmp_temp(this)
-  use hydro_commons
-  use fld_parameters
-  use const
-  implicit none
-  integer,intent(in) ::this
-  integer ::idim,ivar,igrp,ht
-  real(dp)::usquare,eps,ekin,emag,rho,erad_loc
-  real(dp)::cmp_temp
-  real(dp) :: sum_dust
-#if NDUST>0
-  integer :: idust
-#endif  
-  rho   = uold(this,1)
-!!$  Cv    = rho*kB/(mu_gas*mH*(gamma-one))/scale_v**2
+   use hydro_commons
+   implicit none
+   integer,intent(in) ::this
+   real(dp)::cmp_temp,eps,rho
 
-  ! Compute total kinetic energy
-  usquare=zero
-  do idim=1,ndim
-     usquare=usquare+(uold(this,idim+1)/uold(this,1))**2
-  end do
-  ekin  = rho*usquare*half
+   rho   = uold(this,1)
+   !!$  Cv    = rho*kB/(mu_gas*mH*(gamma-one))/scale_v**2
 
-  ! Compute total magnetic energy
-  emag = zero
-  do ivar=1,3
-     emag = emag + ((uold(this,5+ivar)+uold(this,nvar+ivar))**2)/eight
-  end do
+   ! Compute internal energy from total energy
+   call compute_internal_energy(uold(this,:),eps)
 
-  ! Compute total non-thermal+radiative energy
-  erad_loc  = zero
-  do igrp=1,nener
-     erad_loc = erad_loc + uold(this,8+igrp) 
-  enddo
-  eps = uold(this,5)-ekin-emag-erad_loc
-  if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
+   ! Compute gas temperature in Kelvin
+   call internal_energy_to_temperature(rho,eps,cmp_temp)
 
+  !if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
 
-  sum_dust =0.0d0
-#if NDUST>0
-  do idust = 1, ndust
-     sum_dust = sum_dust + uold(this,firstindex_ndust+idust)/uold(this,1)
-  end do
-#endif
-  
-  call temperature_eos((1.0d0-sum_dust)*rho,eps,cmp_temp,ht)
-
-  return
 
 end function cmp_temp
 !################################################################
@@ -1537,6 +1462,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   use hydro_parameters,only:nvar
   use hydro_commons
   use fld_parameters
+  use fld_commons
   use const
   use constants, only: eV2erg,c_cgs
 
@@ -1546,7 +1472,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   real(dp),dimension(ngrp,ngrp),intent(out)::mat_residual
   real(dp),dimension(ngrp          ),intent(out)::residual
 
-  real(dp)::rho,Told_norm,Told,cv,lhs,rhs,rosseland_ana,radiation_source,deriv_radiation_source,cal_Teg
+  real(dp)::rho,Told_norm,Told,cv,lhs,rhs,rosseland_ana,radiation_source,deriv_radiation_source,cal_Teg,eps
   integer::igrp,igroup
   real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
 
@@ -1555,10 +1481,17 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
    scale_kappa=1d0/scale_l
    C_cal = c_cgs/scale_v
 
-  rho       = uold(i,1          )
-  Told_norm = uold(i,ind_trad(1))
-  Told      = Told_norm * Tr_floor
-  !Cv        = unew(i,nvar+1)
+
+   rho = uold(i,1)
+
+   ! Compute internal energy from total energy
+   call compute_internal_energy(uold(i,1:nvar_all),eps)
+
+   ! Compute gas temperature in Kelvin
+   call internal_energy_to_temperature(rho,eps,Told_norm)
+
+   Told      = Told_norm * Tr_floor
+   Cv        = eps
 
   lhs=zero
   rhs=zero
@@ -1582,7 +1515,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
         mat_residual(igroup,igrp) = mat_residual(igroup,igrp) - wdtB(igroup)*(deriv(igroup)*P_cal*wdtE(igrp)/scale_E0/(cv+lhs))*vol_loc
      enddo
 
-     residual(igroup) = uold(i,firstindex_er+igroup)*vol_loc  &
+     residual(igroup) = uold(i,nhydro+igroup)*vol_loc  &
           & + vol_loc*wdtB(igroup)*(source(igroup)/scale_E0-Told*deriv(igroup)/scale_E0) &
           & + vol_loc*wdtB(igroup)*deriv(igroup)/scale_E0*(cv*Told+rhs)/(cv+lhs)
   enddo
@@ -1601,6 +1534,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   use hydro_parameters,only:nvar
   use hydro_commons
   use fld_parameters
+  use fld_commons
   use const
   use constants, only:c_cgs
   
@@ -1638,7 +1572,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      Told = cmp_temp(cell_left)
      rho  = scale_d * max(uold(cell_left,1),smallr)
      do igroup=1,ngrp
-        nu_g(igroup) = rosseland_ana(rho,Told,igroup,in_sink(cell_left)) / scale_kappa
+        nu_g(igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
         if(nu_g(igroup)*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/dx_loc
      enddo
 
@@ -1662,7 +1596,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      Told = cmp_temp(cell_left)
      rho  = scale_d * max(uold(cell_left,1),smallr)
      do igroup=1,ngrp
-        nu_g  (igroup) = rosseland_ana(rho,Told,igroup,in_sink(cell_left)) / scale_kappa
+        nu_g  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
         if(nu_g(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/(2.0d0*dx_loc)
      enddo
 
@@ -1685,7 +1619,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      Told = cmp_temp(cell_right)
      rho  = scale_d * max(uold(cell_right,1),smallr)
      do igroup=1,ngrp
-        nu_d  (igroup) = rosseland_ana(rho,Told,igroup,in_sink(cell_right)) / scale_kappa
+        nu_d  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
         if(nu_d(igroup)*dx_loc .lt. min_optical_depth) nu_d(igroup)=min_optical_depth/dx_loc
      enddo
 
@@ -1709,7 +1643,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      Told = cmp_temp(cell_right)
      rho  = scale_d * max(uold(cell_right,1),smallr)
      do igroup=1,ngrp
-        nu_d  (igroup) = rosseland_ana(rho,Told,igroup,in_sink(cell_right)) / scale_kappa
+        nu_d  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
         if(nu_d(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_d(igroup)=min_optical_depth/(2.0d0*dx_loc)
      enddo
 
@@ -1720,7 +1654,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
      C_g(igroup) = C_g(igroup) * nu_surf(nu_g(igroup),nu_c(igroup), cell_left ,i,dx_loc)
      C_d(igroup) = C_d(igroup) * nu_surf(nu_d(igroup),nu_c(igroup), cell_right,i,dx_loc)
 
-     phi_c(igroup) = uold(i,firstindex_er+igroup)
+     phi_c(igroup) = uold(i,nhydro+igroup)
 
      if(C_g(igroup) > zero)then
         R = max(1.0e-10_dp,abs (phi_c(igroup)-phi_g(igroup)) /(half*(phi_c(igroup)+phi_g(igroup))))

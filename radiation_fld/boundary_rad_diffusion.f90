@@ -134,7 +134,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
                   if(son(ind_cell(i)) == 0)then
 
                      ! Compute internal energy from total energy
-                     call internal_energy_from_uold(uu(i,1:nvar_all),eps)
+                     call compute_internal_energy(uu(i,1:nvar_all),eps)
 
                      ! Compute gas temperature in Kelvin
                      call internal_energy_to_temperature(uu(i,1),eps,t2)
