@@ -7,4 +7,6 @@ module fld_commons
    real(dp),dimension(:,:,:  ),allocatable :: var_bicg
    real(dp),dimension(:,:    ),allocatable :: kappaR_bicg
 
+   real(dp),dimension(:,:,:  ),allocatable :: precond_bicg
+
 end module fld_commons

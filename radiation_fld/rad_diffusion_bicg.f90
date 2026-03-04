@@ -3,6 +3,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   use amr_parameters, only: dp,verbose,ndim
   use hydro_commons
   use fld_parameters
+  use fld_commons
   use const
   use constants, only: eV2erg
   use mpi_mod
@@ -33,10 +34,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !
   !  new radiative energy at time n+1 : stored in unew(i,irad)
   !      radiative energy at time n   : stored in uold(i,irad)
-  !
-  !Tgas (iteration) : stored in unew(i,nvar)
-  !Tgas (old)       : stored in uold(i,nvar)
-  !
   !
   !=========================================================
   integer,intent(IN)::ilevel,Nsub
@@ -109,15 +106,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      end do
   end do
 
-  if(debug_energy)then
-  write(*,*) 'At the beginning of uplmde - uold(5-9)-unew(5-9)'
-  do i=1,nb_ind
-     this = liste_ind(i)
-     write(*,'(12(ES15.6))') uold(this,5),uold(this,nvar),uold(this,9),uold(this,10),unew(this,5),unew(this,nvar),unew(this,9),unew(this,10)
-  enddo
-  read(*,*)
-  endif
-
   !===================================================================
   ! Begin of subcycles....
   !===================================================================
@@ -144,16 +132,15 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   do i=1,nb_ind
      this = liste_ind(i)
 
-     var_bicg(this,:,:)=zero
+     var_bicg(this,:,:)=0
      if(block_diagonal_precond_bicg)then
-        precond_bicg(this,:,:)=zero
+        precond_bicg(this,:,:)=0
      endif
 
-     do irad=1,nvar_bicg
-        unew(this,nhydro+irad)=zero
+     do irad=1,ngrp
+        unew(this,nhydro+irad)=0
      enddo
-     unew(this,nvar+1)=zero
-     kappaR_bicg(this,:)=zero
+     kappaR_bicg(this,:)=0
   end do
 
   ! Set constants
@@ -194,11 +181,10 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   do igrp=1,ngrp
      call make_virtual_fine_dp(kappaR_bicg(1,igrp),ilevel)
   enddo
-  call make_virtual_fine_dp(unew(1,nvar+1),ilevel)
 
   call make_virtual_fine_dp(uold(1,5),ilevel)
   call make_virtual_fine_dp(unew(1,5),ilevel)
-  do irad=1,nvar_bicg
+  do irad=1,ngrp
      call make_virtual_fine_dp(uold(1,nhydro+irad),ilevel)
      call make_virtual_fine_dp(unew(1,nhydro+irad),ilevel)
 
@@ -207,7 +193,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      enddo
 
      if(block_diagonal_precond_bicg) then
-        do ivar=1,nvar_bicg
+        do ivar=1,ngrp
            call make_virtual_fine_dp(precond_bicg(:,irad,ivar),ilevel)
         enddo
      endif
@@ -223,9 +209,9 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !==============================================
   ! Update preconditionner M=1/diag(A) boundaries
   !==============================================
-  do irad=1,nvar_bicg
+  do irad=1,ngrp
      if(block_diagonal_precond_bicg) then
-        do i=1,nvar_bicg
+        do i=1,ngrp
            call make_virtual_fine_dp(precond_bicg(:,irad,i),ilevel)
         enddo
      else
@@ -236,8 +222,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 !!$  write(*,*) 'debug matrix - vect'
 !!$  do i=1,nb_ind
 !!$     this = liste_ind(i)
-!!$     do irad=1,nvar_bicg
-!!$        write(*,'(3(3(ES11.3),2x),5x,ES11.3)') (coeff_glob_left(this,irad,jrad,1),jrad=1,nvar_bicg),(mat_residual_glob(this,irad,jrad),jrad=1,nvar_bicg),(coeff_glob_right(this,irad,jrad,1),jrad=1,nvar_bicg),residual_glob(this,irad)
+!!$     do irad=1,ngrp
+!!$        write(*,'(3(3(ES11.3),2x),5x,ES11.3)') (coeff_glob_left(this,irad,jrad,1),jrad=1,ngrp),(mat_residual_glob(this,irad,jrad),jrad=1,ngrp),(coeff_glob_right(this,irad,jrad,1),jrad=1,ngrp),residual_glob(this,irad)
 !!$     enddo
 !!$     write(*,*)
 !!$  enddo
@@ -250,14 +236,14 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !==================================================================
   call cmp_matrix_vector_product(ilevel,1)
   if(bicg_to_cg)then
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         do i=1,nb_ind
            this = liste_ind(i)
            var_bicg(this,irad,2) = var_bicg(this,irad,1)
         enddo
      enddo
   endif
-  do irad=1,nvar_bicg
+  do irad=1,ngrp
      call make_virtual_fine_dp(var_bicg(:,irad,1),ilevel)
      call make_virtual_fine_dp(var_bicg(:,irad,2),ilevel)
   enddo
@@ -266,7 +252,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      !=========================================================================
      ! BiCGSTAB: Compute rbar_0 = r1 and store it into var_bicg(1:ncell,irad,9)
      !=========================================================================
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         do i=1,nb_ind
            this = liste_ind(i)
            var_bicg(this,irad,9) = var_bicg(this,irad,1)
@@ -284,7 +270,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   ! All     : Set v0 = 0 and store it into var_bicg(1:ncell,irad,3)
   ! BiCGSTAB: Set p0 = 0 and store it into var_bicg(1:ncell,irad,2)
   !================================================================
-  do irad=1,nvar_bicg
+  do irad=1,ngrp
      do i=1,nb_ind
         this = liste_ind(i)
         if(.not.bicg_to_cg) then 
@@ -303,12 +289,12 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   ! Compute z_0 = K^{-1} r and store it into var_bicg(i,irad,6)
   !============================================================
   if(bicg_to_cg)then!neilneil
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         do i=1,nb_ind
            this = liste_ind(i)
            if(block_diagonal_precond_bicg) then
               var_bicg(this,irad,6)=zero
-              do jrad=1,nvar_bicg
+              do jrad=1,ngrp
                  var_bicg(this,irad,6) = var_bicg(this,irad,6) + precond_bicg(this,irad,jrad) * var_bicg(this,jrad,1)
               enddo
            else
@@ -366,7 +352,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      endif
 
      call make_boundary_diffusion_tot(ilevel)
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         call make_virtual_fine_dp(var_bicg(:,irad,2),ilevel)
      enddo
 
@@ -374,13 +360,13 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         !====================================================================
         ! BiCGSTAB: Compute y = K^{-1} p and store it into var_bicg(i,irad,5)
         !====================================================================
-        do irad=1,nvar_bicg
+        do irad=1,ngrp
            do i=1,nb_ind
               this = liste_ind(i)
               
               if(block_diagonal_precond_bicg) then
                  var_bicg(this,irad,5)=zero
-                 do jrad=1,nvar_bicg
+                 do jrad=1,ngrp
                     var_bicg(this,irad,5) = var_bicg(this,irad,5) + precond_bicg(this,irad,jrad) * var_bicg(this,jrad,2)
                  enddo
               else
@@ -390,7 +376,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         enddo
         ! Update boundaries
         call make_boundary_diffusion_tot(ilevel)
-        do irad=1,nvar_bicg
+        do irad=1,ngrp
            call make_virtual_fine_dp(var_bicg(:,irad,5),ilevel)
         enddo
      endif
@@ -401,7 +387,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      !===============================================================
      call cmp_matrix_vector_product(ilevel,2)
 
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         call make_virtual_fine_dp(var_bicg(:,irad,3),ilevel)
      enddo
 
@@ -431,13 +417,13 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      ! BiCGSTAB: Compute z = K^{-1} s and store it into var_bicg(i,irad,6)
      ! BiCG2CG : Compute z = K^{-1} r and store it into var_bicg(i,irad,6)
      !====================================================================
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         do i=1,nb_ind
            this = liste_ind(i)
 
            if(block_diagonal_precond_bicg) then
               var_bicg(this,irad,6)=zero
-              do jrad=1,nvar_bicg
+              do jrad=1,ngrp
                  var_bicg(this,irad,6) = var_bicg(this,irad,6) + precond_bicg(this,irad,jrad) * var_bicg(this,jrad,i_s)
               enddo
            else
@@ -450,7 +436,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
         ! Update boundaries
         call make_boundary_diffusion_tot(ilevel)
-        do irad=1,nvar_bicg
+        do irad=1,ngrp
            call make_virtual_fine_dp(var_bicg(:,irad,6),ilevel)
         enddo
 
@@ -462,13 +448,13 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         !=====================================================================================
         ! BiCGSTAB: Compute K^{-1} t to compute omega_bicg and store it in var_bicg(i,irad,10)
         !=====================================================================================
-        do irad=1,nvar_bicg
+        do irad=1,ngrp
            do i=1,nb_ind
               this = liste_ind(i)
 
               if(block_diagonal_precond_bicg) then
                  var_bicg(this,irad,10)=zero
-                 do jrad=1,nvar_bicg
+                 do jrad=1,ngrp
                     var_bicg(this,irad,10) = var_bicg(this,irad,10) + precond_bicg(this,irad,jrad) * var_bicg(this,jrad,8)
                  enddo
               else
@@ -499,7 +485,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      ! Compute maximum variations
      !===========================
      max_loc=zero
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         do i=1,nb_ind
            this = liste_ind(i)
            if(uold(this,nhydro+irad).ne.zero)then
@@ -517,7 +503,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      ! BiCGSTAB: Recurrence on x = x + alpha*y + omega_bicg*z
      ! BiCG2CG : Recurrence on x = x + alpha*p
      !=======================================================
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         call cX_plus_Y_to_Z (alpha_bicg,var_bicg(:,irad,i_y),unew(:,nhydro+irad),unew(:,nhydro+irad))
         if(.not.bicg_to_cg) call cX_plus_Y_to_Z (omega_bicg,var_bicg(:,irad,6),unew(:,nhydro+irad),unew(:,nhydro+irad))
      enddo
@@ -566,7 +552,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
      rho = uold(liste_ind(i),1)
      Told= uold(liste_ind(i),nvar) * Tr_floor
-     Cv = unew(liste_ind(i),nvar+1)
+     !Cv = unew(liste_ind(i),nvar+1)
 
      ambi_heating=zero
      ohm_heating=zero
@@ -628,7 +614,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !====================
   if(static) then
      do i=1,nb_ind
-        do irad = 1,nvar_bicg
+        do irad = 1,ngrp
            uold(liste_ind(i),nhydro+irad) = unew(liste_ind(i),nhydro+irad)*P_cal
         enddo
      enddo
@@ -646,8 +632,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   endif
 
   ! Update boundaries
-  do irad=1,nvar_trad
-     call make_virtual_fine_dp(uold(1,ind_trad(irad)),ilevel)
+  do irad=1,ngrp
+     call make_virtual_fine_dp(uold(1,nhydro+irad),ilevel)
   enddo
   call make_virtual_fine_dp(uold(1,5),ilevel)
 
@@ -682,7 +668,7 @@ contains
 
   subroutine dot_product_tot(fact1,fact2,dot_pdt,local_sum) ! dot_pdt = sum(fact1*fact2)
     implicit none
-    real(dp),dimension(1:ncoarse+twotondim*ngridmax,1:nvar_bicg),intent(IN)::fact1,fact2
+    real(dp),dimension(1:ncoarse+twotondim*ngridmax,1:ngrp),intent(IN)::fact1,fact2
     real(dp),intent(OUT)::dot_pdt
     complex*16,intent(OUT)::local_sum
 
@@ -696,7 +682,7 @@ contains
     local_sum = cmplx(zero,zero)
     global_sum = cmplx(zero,zero)
 
-    do irad=1,nvar_bicg
+    do irad=1,ngrp
        do i=1,nb_ind
           this = liste_ind(i)
           !call DDPDD (cmplx(fact1(this,irad)*fact2(this,irad), zero,dp), local_sum, 1, itype)
@@ -719,11 +705,11 @@ contains
 
   subroutine cX_plus_Y_to_Z_tot (cste,vectX,vectY,vectZ) ! vectZ = cste*vectX+vectY
     implicit none
-    real(dp),dimension(1:ncoarse+twotondim*ngridmax,1:nvar_bicg),intent(IN)::vectX,vectY
+    real(dp),dimension(1:ncoarse+twotondim*ngridmax,1:ngrp),intent(IN)::vectX,vectY
     real(dp),intent(IN)::cste
-    real(dp),dimension(1:ncoarse+twotondim*ngridmax,1:nvar_bicg),intent(OUT)::vectZ
+    real(dp),dimension(1:ncoarse+twotondim*ngridmax,1:ngrp),intent(OUT)::vectZ
 
-    do irad=1,nvar_bicg
+    do irad=1,ngrp
        do i=1,nb_ind
           vectZ(liste_ind(i),irad) = vectY(liste_ind(i),irad) + cste*vectX(liste_ind(i),irad) 
        end do
@@ -732,7 +718,7 @@ contains
   end subroutine cX_plus_Y_to_Z_tot
 
 
-end subroutine diffusion_cg
+end subroutine rad_diffusion_bicg
 
 !###########################################################
 !###########################################################
@@ -759,7 +745,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
   integer ,dimension(1:nvector,0:2*ndim),save::  igridn
   integer ,dimension(1:nvector),save ::          ind_cell , ind_grid
 
-!!$  real(dp),dimension(1:nvector  ,1:  nvar_bicg),save:: C_g,C_d
+!!$  real(dp),dimension(1:nvector  ,1:  ngrp),save:: C_g,C_d
 
   integer :: i,idim,ind,igrid,ngrid,ncache,iskip,igrp,nx_loc
   integer :: supG,sub,supD
@@ -771,13 +757,13 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
   integer, parameter                        :: nwork = 256
   integer                                   :: info2
   integer                                   :: lda,lwork
-  integer, dimension(      nvar_bicg)       :: ipiv
-  integer, dimension(nwork*nvar_bicg)       :: work
-  real(dp),dimension(1:nvar_bicg,1:nvar_bicg) ::inv
+  integer, dimension(      ngrp)       :: ipiv
+  integer, dimension(nwork*ngrp)       :: work
+  real(dp),dimension(1:ngrp,1:ngrp) ::inv
 #endif
 
-  real(dp),dimension(nvar_bicg,nvar_bicg)::coeff_left,coeff_right,mat_residual
-  real(dp),dimension(nvar_bicg          )::residual
+  real(dp),dimension(ngrp,ngrp)::coeff_left,coeff_right,mat_residual
+  real(dp),dimension(ngrp          )::residual
   
   ! Mesh size at level ilevel
   dx=half**ilevel
@@ -921,23 +907,23 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
            if(son(ind_cell(i)) == 0 )then
 #if NGRP>1
               if(block_diagonal_precond_bicg) then
-                 inv = precond_bicg(ind_cell(i),1:nvar_bicg,1:nvar_bicg)
-                 lda = nvar_bicg ; lwork = nwork*nvar_bicg
+                 inv = precond_bicg(ind_cell(i),1:ngrp,1:ngrp)
+                 lda = ngrp ; lwork = nwork*ngrp
                  
-                 ! Invert the (nvar_bicg x nvar_bicg) matrix using LAPACK routines                      
+                 ! Invert the (ngrp x ngrp) matrix using LAPACK routines                      
                  !
                  ! DGETRF computes an LU factorization of a general M-by-N matrix A                     
                  ! using partial pivoting with row interchanges                                         
-                 call dgetrf(nvar_bicg,nvar_bicg,inv,lda,ipiv,info2)
+                 call dgetrf(ngrp,ngrp,inv,lda,ipiv,info2)
                  
                  ! DGETRI computes the inverse of a matrix using the LU factorization                   
                  ! computed by DGETRF                                                                   
-                 call dgetri(nvar_bicg,inv,lda,ipiv,work,lwork,info2)
+                 call dgetri(ngrp,inv,lda,ipiv,work,lwork,info2)
                  
-                 precond_bicg(ind_cell(i),1:nvar_bicg,1:nvar_bicg)=inv
+                 precond_bicg(ind_cell(i),1:ngrp,1:ngrp)=inv
               else
 #endif
-                 do irad=1,nvar_bicg
+                 do irad=1,ngrp
                     var_bicg(ind_cell(i),irad,4) = one/precond_bicg(ind_cell(i),irad,irad)
                  enddo
 #if NGRP>1
@@ -971,7 +957,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
   use amr_parameters, only : ndim
   use hydro_commons
   use fld_parameters
-  use hydro_parameters,only:nvar_bicg
+  use hydro_parameters,only:ngrp
   use const
   implicit none
 
@@ -983,8 +969,8 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
   integer ,dimension(1:nvector,0:2*ndim),save::  igridn
   integer ,dimension(1:nvector),save ::          ind_cell , ind_grid
 
-  real(dp),dimension(1:nvector  ,1:  nvar_bicg),save:: residu
-  real(dp),dimension(1:nvector  ,1:  nvar_bicg),save:: phi_g,phi_c,phi_d,val_g,val_d
+  real(dp),dimension(1:nvector  ,1:  ngrp),save:: residu
+  real(dp),dimension(1:nvector  ,1:  ngrp),save:: phi_g,phi_c,phi_d,val_g,val_d
 
   integer :: i,idim,ind,igrid,ngrid,ncache,iskip,nx_loc
   integer :: supG,sub,supD
@@ -1104,25 +1090,25 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
               case (1) ! residu = b - Ix
                  
-                 do irad = 1,nvar_bicg
+                 do irad = 1,ngrp
                     residu(i,irad) = residual_glob(ind_res,irad)
-                    do jrad = 1,nvar_bicg
+                    do jrad = 1,ngrp
                        residu(i,irad) = residu(i,irad) - mat_residual_glob(ind_res,irad,jrad)*uold(ind_cell(i),ind_bicg(jrad))
                     enddo
                  enddo
 
               case (2) ! residu = Ix
 
-                 residu(i,1:nvar_bicg)=zero
-                 do irad=1,nvar_bicg
-                    do jrad=1,nvar_bicg
+                 residu(i,1:ngrp)=zero
+                 do irad=1,ngrp
+                    do jrad=1,ngrp
                        residu(i,irad)=residu(i,irad)+mat_residual_glob(ind_res,irad,jrad)*var_bicg(ind_cell(i),jrad,i_y)
                     enddo
                  enddo
 
 !neil
 !!$                 do idim=1,ndim
-!!$                    do irad = 1,nvar_bicg
+!!$                    do irad = 1,ngrp
 !!$                       var_bicg(ind_cell(i),irad,11+(idim-1)*2) = var_rad_subset(1,idim,nrad+2+irad)
 !!$                       var_bicg(ind_cell(i),irad,12+(idim-1)*2) = var_rad_subset(3,idim,nrad+2+irad)
 !!$                    enddo
@@ -1131,9 +1117,9 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
               case (6) ! residu = Ix
 
-                 residu(i,1:nvar_bicg)=zero
-                 do irad=1,nvar_bicg
-                    do jrad=1,nvar_bicg
+                 residu(i,1:ngrp)=zero
+                 do irad=1,ngrp
+                    do jrad=1,ngrp
                        residu(i,irad)=residu(i,irad)+mat_residual_glob(ind_res,irad,jrad)*var_bicg(ind_cell(i),jrad,6)
                     enddo
                  enddo
@@ -1149,7 +1135,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
            case(1)
               do i=1,ngrid
                  if(son(ind_cell(i)) == 0 )then
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        val_g(i,irad) = uold(cell_left (i,idim),nhydro+irad)
                        val_d(i,irad) = uold(cell_right(i,idim),nhydro+irad)
                     enddo
@@ -1159,7 +1145,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
            case(2)
               do i=1,ngrid
                  if(son(ind_cell(i)) == 0 )then
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        val_g(i,irad) = var_bicg(cell_left (i,idim),irad,i_y)
                        val_d(i,irad) = var_bicg(cell_right(i,idim),irad,i_y)
                     enddo
@@ -1169,7 +1155,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
            case(4)
               do i=1,ngrid
                  if(son(ind_cell(i)) == 0 )then
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        val_g(i,irad) = unew(cell_left (i,idim),nhydro+irad)
                        val_d(i,irad) = unew(cell_right(i,idim),nhydro+irad)
                     enddo
@@ -1179,7 +1165,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
            case(6)
               do i=1,ngrid
                  if(son(ind_cell(i)) == 0 )then
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        val_g(i,irad) = var_bicg(cell_left (i,idim),irad,6)
                        val_d(i,irad) = var_bicg(cell_right(i,idim),irad,6)
                     enddo
@@ -1194,7 +1180,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                  select case (nbor_ilevel(i,2*idim-1)) ! Gather main characteristics of left neighbour
 
                  case (1)
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        if (compute==2  .or. compute==6) then
                           val_g(i,irad) = zero
                        else
@@ -1203,11 +1189,11 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                        phi_g (i,irad) = uold(cell_left(i,idim),nhydro+irad)/P_cal
                     enddo
                  case (0)
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        phi_g (i,irad)       = uold(cell_left(i,idim),nhydro+irad)
                     enddo
                  case (-1)
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        if (compute==2  .or. compute==6) then
                           val_g(i,irad) = zero
                        else
@@ -1219,7 +1205,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
                  select case (nbor_ilevel(i,2*idim)) ! Gather main characteristics of right neighbour
                  case (1)
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        if (compute==2  .or. compute==6) then
                           val_d(i,irad) = zero
                        else
@@ -1228,11 +1214,11 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                        phi_d (i,irad) = uold(cell_right(i,idim),nhydro+irad)/P_cal
                     enddo
                  case (0)
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        phi_d (i,irad)  = uold(cell_right(i,idim),nhydro+irad)
                     enddo
                  case (-1)
-                    do irad=1,nvar_bicg
+                    do irad=1,ngrp
                        if (compute==2  .or. compute==6) then
                           val_d(i,irad) = zero
                        else
@@ -1257,13 +1243,13 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                     endif
 
                     if( nbor_ilevel(i,2*idim-1) == -1)then
-                       do irad=1,nvar_bicg
+                       do irad=1,ngrp
                           phi_c(i,irad) = uold(ind_cell(i),firstindex_er+irad)
                        enddo
                     end if
 
                     if( nbor_ilevel(i,2*idim)   == -1 )then
-                       do irad=1,nvar_bicg
+                       do irad=1,ngrp
                           phi_c(i,irad) = uold(ind_cell(i),firstindex_er+irad)
                        enddo
                     end if
@@ -1287,8 +1273,8 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                     
                  case (1) ! compute b-Ax from b-Ix by adding intern flux
 
-                    do irad=1,nvar_bicg
-                       do jrad=1,nvar_bicg
+                    do irad=1,ngrp
+                       do jrad=1,ngrp
                           residu(i,irad) = residu(i,irad) + coeff_glob_left(ind_res,irad,jrad,idim)*val_g(i,jrad) + coeff_glob_right(ind_res,irad,jrad,idim)*val_d(i,jrad)
                        enddo
                        residu(i,irad) = residu(i,irad) - (coeff_glob_left(ind_res,irad,irad,idim)+coeff_glob_right(ind_res,irad,irad,idim))* uold(ind_cell(i),nhydro+irad)
@@ -1296,8 +1282,8 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
                  case (2) ! compute Ap from Ip by adding intern flux
 
-                    do irad=1,nvar_bicg
-                       do jrad=1,nvar_bicg
+                    do irad=1,ngrp
+                       do jrad=1,ngrp
                           residu(i,irad) = residu(i,irad) - (coeff_glob_left(ind_res,irad,jrad,idim)*val_g(i,jrad) + coeff_glob_right(ind_res,irad,jrad,idim)*val_d(i,jrad))*alpha_imp
                        enddo
                        residu(i,irad) = residu(i,irad) + (coeff_glob_left(ind_res,irad,irad,idim)+coeff_glob_right(ind_res,irad,irad,idim))* var_bicg(ind_cell(i),irad,i_y)*alpha_imp
@@ -1305,8 +1291,8 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
 
                  case (6) ! compute Ap* from Ip by adding intern flux
 
-                    do irad=1,nvar_bicg
-                       do jrad=1,nvar_bicg
+                    do irad=1,ngrp
+                       do jrad=1,ngrp
                           residu(i,irad) = residu(i,irad) - (coeff_glob_left(ind_res,irad,jrad,idim)*val_g(i,jrad) + coeff_glob_right(ind_res,irad,jrad,idim)*val_d(i,jrad))*alpha_imp
                        enddo
                        residu(i,irad) = residu(i,irad) + (coeff_glob_left(ind_res,irad,irad,idim)+coeff_glob_right(ind_res,irad,irad,idim))* var_bicg(ind_cell(i),irad,6)*alpha_imp
@@ -1326,7 +1312,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
         case (1)
            do i=1,ngrid
               if(son(ind_cell(i)) == 0 )then
-                 do irad=1,nvar_bicg
+                 do irad=1,ngrp
                     var_bicg(ind_cell(i),irad,1) = residu(i,irad)
                  enddo
               end if
@@ -1335,7 +1321,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
         case (2)
            do i=1,ngrid
               if(son(ind_cell(i)) == 0 )then
-                 do irad=1,nvar_bicg
+                 do irad=1,ngrp
                     var_bicg(ind_cell(i),irad,3) = residu(i,irad)
                  enddo
               end if
@@ -1344,7 +1330,7 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
         case (6)
            do i=1,ngrid
               if(son(ind_cell(i)) == 0 )then
-                 do irad=1,nvar_bicg
+                 do irad=1,ngrp
                     var_bicg(ind_cell(i),irad,8) = residu(i,irad)
                  enddo
               end if
@@ -1431,24 +1417,24 @@ subroutine cmp_energy(Etype)
         Tp_loc = cmp_temp(this)
         Cv = eps/Tp_loc
 
-        unew(this,nvar+1) = Cv
+        !unew(this,nvar+1) = Cv
         uold(this,nvar  ) = Tp_loc
 
-        do irad=1,nvar_trad
-           uold(this,ind_trad(irad))=uold(this,ind_trad(irad))/norm_trad(irad)
-           if(is_radiative_energy(irad)) uold(this,ind_trad(irad)) = max(uold(this,ind_trad(irad)),eray_min/scale_E0)
-           unew(this,ind_trad(irad))=uold(this,ind_trad(irad))
+        do irad=1,ngrp
+           uold(this,nhydro+irad)=uold(this,nhydro+irad)/norm_trad(irad)
+           if(is_radiative_energy(irad)) uold(this,nhydro+irad) = max(uold(this,nhydro+irad),eray_min/scale_E0)
+           unew(this,nhydro+irad)=uold(this,nhydro+irad)
         enddo
 
      elseif(Etype==2)then
 
-        unew(this,nvar)=unew(this,nvar)*unew(this,nvar+1)
+        !unew(this,nvar)=unew(this,nvar)*unew(this,nvar+1)
 
-        do irad=1,nvar_trad
-           if(is_radiative_energy(irad)) unew(this,ind_trad(irad)) = max(unew(this,ind_trad(irad)),eray_min/scale_E0)
-           unew(this,ind_trad(irad))=unew(this,ind_trad(irad))*norm_trad(irad)
- !          unew(this,ind_trad(irad))=uold(this,ind_trad(irad))*norm_trad(irad)
-           uold(this,ind_trad(irad))=unew(this,ind_trad(irad))
+        do irad=1,ngrp
+           if(is_radiative_energy(irad)) unew(this,nhydro+irad) = max(unew(this,nhydro+irad),eray_min/scale_E0)
+           unew(this,nhydro+irad)=unew(this,nhydro+irad)*norm_trad(irad)
+ !          unew(this,nhydro+irad)=uold(this,nhydro+irad)*norm_trad(irad)
+           uold(this,nhydro+irad)=unew(this,nhydro+irad)
         enddo
 
         eps = unew(this,nvar)
@@ -1556,8 +1542,8 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   implicit none
   integer,intent(in)::i
   real(dp),intent(in)::vol_loc
-  real(dp),dimension(nvar_bicg,nvar_bicg),intent(out)::mat_residual
-  real(dp),dimension(nvar_bicg          ),intent(out)::residual
+  real(dp),dimension(ngrp,ngrp),intent(out)::mat_residual
+  real(dp),dimension(ngrp          ),intent(out)::residual
 
   real(dp)::rho,Told_norm,Told,cv,lhs,rhs,planck_ana,radiation_source,deriv_radiation_source,cal_Teg,Trold
   integer::igrp,igroup
@@ -1567,7 +1553,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   rho       = uold(i,1          )
   Told_norm = uold(i,ind_trad(1))
   Told      = Told_norm * Tr_floor
-  Cv        = unew(i,nvar+1)
+  !Cv        = unew(i,nvar+1)
 
   ambi_heating=zero
   ohm_heating=zero
@@ -1623,11 +1609,11 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   integer,intent(in)::i,idim,cell_left,cell_right
   integer,dimension(2*ndim),intent(in)::nbor_ilevel
   real(dp),intent(in)::dx_loc
-  real(dp),dimension(nvar_bicg,nvar_bicg),intent(out)::coeff_left,coeff_right
+  real(dp),dimension(ngrp,ngrp),intent(out)::coeff_left,coeff_right
 
   real(dp)::rho,Told,cal_Teg,cmp_temp,rosseland_ana,lambda,lambda_fld,R,nu_surf,surf_loc
   integer::igroup,irad
-  real(dp),dimension(nvar_bicg)::C_g,C_d,phi_g,phi_c,phi_d,nu_g,nu_c,nu_d
+  real(dp),dimension(ngrp)::C_g,C_d,phi_g,phi_c,phi_d,nu_g,nu_c,nu_d
 
   surf_loc = dx_loc**(ndim-1)
 
@@ -1641,7 +1627,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
         C_g(:) = zero
      endif
 
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         phi_g (irad) = uold(cell_left,nhydro+irad)/P_cal
      enddo
 
@@ -1654,7 +1640,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
 
   case (0)
 
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         phi_g (irad)       = uold(cell_left,nhydro+irad)
         C_g   (irad)       = one
      enddo
@@ -1665,7 +1651,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   case (-1)
 
      C_g(:) = 1.5_dp
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         phi_g (irad) = uold(cell_left,nhydro+irad)/P_cal
      enddo
 
@@ -1688,7 +1674,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
         C_d(:) = zero
      endif
 
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         phi_d (irad) = uold(cell_right,nhydro+irad)/P_cal
      enddo
 
@@ -1701,7 +1687,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
 
   case (0)
 
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         phi_d (irad)  = uold(cell_right,nhydro+irad)
         C_d   (irad)  = one
      enddo
@@ -1712,7 +1698,7 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   case (-1)
 
      C_d(:) = 1.5_dp
-     do irad=1,nvar_bicg
+     do irad=1,ngrp
         phi_d (irad) = uold(cell_right,nhydro+irad)/P_cal
      enddo
 
