@@ -2,7 +2,7 @@
 subroutine read_fld_params(namelist_unit,nml_ok)
    use amr_commons, only:myid
    use fld_parameters
-   use constants,   only:hplanck,eV2erg
+   use constants,   only:hplanck,eV2erg,a_r
    implicit none
    integer,intent(in)::namelist_unit
    logical,intent(inout)::nml_ok
@@ -37,10 +37,14 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    real(dp)::fstep
    real(dp),dimension(1:ngrp)::nu_min_ev ! minimum freq of given group in eV
    real(dp),dimension(1:ngrp)::nu_max_ev ! maximum freq of given group in eV
+   ! local variables for unit conversion
+   real(dp)::scale_E0
+   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
    namelist/radiation_params/fld_limiter,numin,numax &
         & ,freqs_in_Hz,read_groups,split_groups_log,extra_end_group &
-        & ,sublimation_kuiper,rosseland_params
+        & ,sublimation_kuiper,rosseland_params &
+        & ,Tr_floor,min_optical_depth
 
    ! Go to the beginning of the file
    rewind(namelist_unit)
@@ -67,6 +71,11 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    i_fld_limiter=i_fld_limiter_nolim
    if(fld_limiter=='levermore') i_fld_limiter=i_fld_limiter_levermore
    if(fld_limiter=='minerbo')  i_fld_limiter=i_fld_limiter_minerbo
+
+   ! Calculate P_cal from Tr_floor
+   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+   scale_E0 = a_r*(Tr_floor**4)
+   P_cal = scale_E0 / (scale_d * scale_v**2)
 
    !--------------------------------------------------------
    ! Create frequency groups (sets nu_min_hz and nu_max_hz)

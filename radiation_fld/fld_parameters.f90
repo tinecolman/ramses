@@ -30,4 +30,17 @@ module fld_parameters
    real(dp),dimension(1:3)::rosseland_params=1.0     ! Rosseland opacity coefficient's parameters
 
 
+   ! Parameters for Bi-Conjugate Gradient method
+#if NGRP == 1
+   logical, parameter :: bicg_to_cg = .true.   ! When there is only 1 group, switch to CG
+#else
+   logical, parameter :: bicg_to_cg = .false.
+#endif
+
+   !
+   real(dp)::Tr_floor=10.0 ! namelist, Background radiation field temperature - WARNING: it affects the pressure_fix in set_uold.
+   real(dp)::P_cal
+   real(dp)::min_optical_depth=1.d-6        ! set the minimum optical depth in the cell (it may accelerate convergence in optically thin regions)
+
+
 end module fld_parameters
