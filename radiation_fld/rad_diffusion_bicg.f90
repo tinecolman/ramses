@@ -38,15 +38,15 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !=========================================================
   integer,intent(IN)::ilevel,Nsub
   complex*16 :: final_sum
-  real(dp)::error,error_ini,epsilon
-  real(dp)::Cv,told,rho,dt_exp,wdtB,wdtE,Tr,Trold,cal_Teg
+  real(dp)::error,error_ini
+  real(dp)::Cv,told,rho,wdtB,wdtE,Tr,Trold,cal_Teg
   real(dp)::r2,rhs_norm1,r3
   real(dp)::temp,density,planck_ana,rosseland_ana
   integer::i,ind,iter,iskip,itermax,icpu,igroup,igrp,irad,jrad,ivar
-  integer::this,nleaf_tot
+  integer::this,nleaf_tot,icell
   real(dp)::radiation_source,deriv_radiation_source,rhs,lhs
 
-  real(dp)::rho_bicg_new,rho_bicg_old,alpha_bicg,omega_bicg,beta_bicg
+  real(dp)::rho_bicg_new,rho_bicg_old,alpha_bicg,omega_bicg,beta_bicg,e_diff
 
   real(dp)::max_loc
 #ifndef WITHOUTMPI
@@ -91,7 +91,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !===================================================================
   ! Begin of subcycles....
   !===================================================================
-  dt_exp = dtnew(ilevel)
   dt_imp = dtnew(ilevel)
 
   if (nb_ind == 0)then
@@ -111,6 +110,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      return
   end if
 
+  ! TC: Set stuff to 0
   do i=1,nb_ind
      this = liste_ind(i)
 
@@ -125,22 +125,20 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      kappaR_bicg(this,:)=0
   end do
 
-  ! Set constants
-  epsilon = epsilon_diff
-
   !===================================================================
   ! Compute gas temperature stored in uold(i,nvar) and in unew(i,nvar)
   !===================================================================
-  call cmp_energy(1)
+  ! TC: update uold and unew
+  !call cmp_energy(1)
+   do i=1,nb_ind
+      icell = liste_ind(i)
+      do irad=1,ngrp
+         uold(icell,nhydro+irad)=uold(icell,nhydro+irad)/P_cal
+         uold(icell,nhydro+irad)=max(uold(icell,nhydro+irad),eray_min/scale_E0)
+         unew(icell,nhydro+irad)=uold(icell,nhydro+irad)
+      enddo
+   end do
 
-  if(debug_energy)then
-  write(*,*) 'After cmp_energy(1) - uold(5-9)-unew(5-9)'
-  do i=1,nb_ind
-     this = liste_ind(i)
-     write(*,'(12(ES15.6))') uold(this,5),uold(this,nvar),uold(this,9),uold(this,10),unew(this,5),unew(this,nvar),unew(this,9),unew(this,10)
-  enddo
-  read(*,*)
-  endif
 
   do i=1,nb_ind
      this = liste_ind(i)
@@ -200,18 +198,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         call make_virtual_fine_dp(var_bicg(:,irad,4),ilevel)
      endif
   enddo
-
-!!$  write(*,*) 'debug matrix - vect'
-!!$  do i=1,nb_ind
-!!$     this = liste_ind(i)
-!!$     do irad=1,ngrp
-!!$        write(*,'(3(3(ES11.3),2x),5x,ES11.3)') (coeff_glob_left(this,irad,jrad,1),jrad=1,ngrp),(mat_residual_glob(this,irad,jrad),jrad=1,ngrp),(coeff_glob_right(this,irad,jrad,1),jrad=1,ngrp),residual_glob(this,irad)
-!!$     enddo
-!!$     write(*,*)
-!!$  enddo
-!!$  read(*,*)
-
-
 
   !==================================================================
   ! Compute r1 = b1 - A1x1 and store it into var_bicg(1:ncell,irad,1)
@@ -295,11 +281,9 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   error_ini=sqrt(rhs_norm1)
   error=error_ini
 
-  max_loc=2.*epsilon
+  max_loc=2.*epsilon_diff
 
-!  do while(error_ini.ne.zero .and. error/error_ini>epsilon .and.iter<itermax .and. error_ini .gt. 1.0e-12_dp)
-!  do while(error/error_ini>epsilon .and.iter<itermax .and. error_cg_loc .gt. epsilon)! .and. error_ini/norm_er .gt. 1.0d-15)
-  do while((max_loc>epsilon .or. error/error_ini>epsilon).and.iter<itermax)
+  do while((max_loc>epsilon_diff .or. error/error_ini>epsilon_diff).and.iter<itermax)
 
      iter=iter+1
 
@@ -550,16 +534,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
   end do
 
-  if(debug_energy)then
-  write(*,*) 'After iterations - uold(5-9)-unew(5-9)'
-  do i=1,nb_ind
-     this = liste_ind(i)
-     write(*,'(12(ES15.6))') uold(this,5),uold(this,nvar),uold(this,9),uold(this,10),unew(this,5),unew(this,nvar),unew(this,9),unew(this,10)
-  enddo
-  read(*,*)
-  endif
-
-!  if(myid==1 .and. (mod(nstep,ncontrol)==0)) then
   if(myid==1) then
      if(bicg_to_cg) then 
         if(error_ini.ne.zero) then
@@ -593,17 +567,19 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         enddo
      enddo
   else
-     call cmp_energy(2)
+     !call cmp_energy(2)
+      do i=1,nb_ind
+         icell = liste_ind(i)
+         e_diff = 0
+         do irad=1,ngrp
+            unew(icell,nhydro+irad) = max(unew(icell,nhydro+irad),eray_min/scale_E0)
+            unew(icell,nhydro+irad) = unew(icell,nhydro+irad) * P_cal
+            e_diff = e_diff + (unew(icell,nhydro+irad) - uold(icell,nhydro+irad)) ! gather energy diff
+            uold(icell,nhydro+irad) = unew(icell,nhydro+irad)
+         enddo
+         uold(icell,neul) = uold(icell,neul) + e_diff !update total energy with new radiative energy
+      end do
   end if
-
-  if(debug_energy)then
-  write(*,*) 'after cmp_energy 2'
-  do i=1,nb_ind
-     this = liste_ind(i)
-     write(*,'(12(ES15.6))') uold(this,5),uold(this,nvar),uold(this,9),uold(this,10),unew(this,5),unew(this,nvar),unew(this,9),unew(this,10)
-  enddo
-  read(*,*)
-  endif
 
   ! Update boundaries
   do irad=1,ngrp
@@ -1322,135 +1298,42 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
   return
 
 end subroutine cmp_matrix_vector_product
-
 !################################################################
 !################################################################
 !################################################################ 
 !################################################################
-
-subroutine cmp_energy(Etype)
-  use hydro_commons
-  use fld_parameters
-  use fld_commons
-  use const
-  implicit none
-  integer,intent(in) :: Etype ! Etype=1 : beginning ; Etype=2 : end
-  integer ::i,idim,this,ivar,igroup,irad
-  real(dp)::usquare,Cv,eps,ekin,emag,rho,erad_loc
-  real(dp)::tp_loc,cmp_temp
-  
-  real(dp)::sum_dust
-#if NDUST>0  
-  integer::idust
-#endif
-  do i=1,nb_ind
-     this = liste_ind(i)
-     rho   = uold(this,1)
-
-     ! Compute total kinetic energy
-     usquare=zero
-     do idim=1,ndim
-        usquare=usquare+(uold(this,idim+1)/uold(this,1))**2
-     end do
-     ekin  = rho*usquare*half
-
-     ! Compute total magnetic energy
-     emag = zero
-     do ivar=1,3
-        emag = emag + ((uold(this,5+ivar)+uold(this,nvar+ivar))**2)/8d0
-     end do
-
-     if(Etype==1)then
-        ! Compute total non-thermal+radiative energy
-        erad_loc = zero
-        do igroup=1,nener
-           erad_loc = erad_loc + uold(this,8+igroup)
-        enddo
-        
-        eps = uold(this,5)-ekin-emag-erad_loc
-        !if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
-        
-        Tp_loc = cmp_temp(this)
-        Cv = eps/Tp_loc
-
-        !unew(this,nvar+1) = Cv
-        uold(this,nvar  ) = Tp_loc
-
-        do irad=1,ngrp
-           uold(this,nhydro+irad)=uold(this,nhydro+irad)/P_cal
-           uold(this,nhydro+irad) = max(uold(this,nhydro+irad),eray_min/scale_E0)
-           unew(this,nhydro+irad)=uold(this,nhydro+irad)
-        enddo
-
-     elseif(Etype==2)then
-
-        !unew(this,nvar)=unew(this,nvar)*unew(this,nvar+1)
-
-        do irad=1,ngrp
-           unew(this,nhydro+irad) = max(unew(this,nhydro+irad),eray_min/scale_E0)
-           unew(this,nhydro+irad)=unew(this,nhydro+irad)*P_cal
- !          unew(this,nhydro+irad)=uold(this,nhydro+irad)*P_cal
-           uold(this,nhydro+irad)=unew(this,nhydro+irad)
-        enddo
-
-        eps = unew(this,nvar)
-        uold(this,5) = eps + ekin + emag
-        do igroup=1,nener
-           uold(this,5) = uold(this,5) + uold(this,8+igroup)
-        enddo
-
-     end if
-  end do
-
-
-
-end subroutine cmp_energy
-
-!################################################################
-!################################################################
-!################################################################ 
-!################################################################
-function cmp_temp(this)
+function cmp_temp(icell)
    use hydro_commons
    implicit none
-   integer,intent(in) ::this
+   integer,intent(in) ::icell
    real(dp)::cmp_temp,eps,rho
 
-   rho   = uold(this,1)
-   !!$  Cv    = rho*kB/(mu_gas*mH*(gamma-one))/scale_v**2
+   rho   = uold(icell,1)
 
    ! Compute internal energy from total energy
-   call compute_internal_energy(uold(this,:),eps)
+   call compute_internal_energy(uold(icell,:),eps)
 
    ! Compute gas temperature in Kelvin
    call internal_energy_to_temperature(rho,eps,cmp_temp)
-
-  !if(energy_fix)eps = uold(this,nvar) ! use energy fix for collapse
-
 
 end function cmp_temp
 !################################################################
 !################################################################
 !################################################################ 
 !################################################################
-function nu_surf(Er1,Er2,ind1,ind2,dx)
+function nu_surf(Er1,Er2,dx)
   use hydro_commons
   use const
   implicit none
-  integer ::ind1,ind2
-  real(dp),INTENT(IN)::Er2,Er1,dx
+  real(dp),intent(in)::Er2,Er1,dx
   real(dp)::nu_surf,nu_harmo,nu_ari
 
   nu_ari=(Er2+Er1)*half
-
   nu_harmo=max(Er2*Er1/nu_ari,four/(three*dx))
   nu_surf = nu_ari
-
   nu_surf=min(nu_harmo,nu_ari)
 
-  return 
 end function nu_surf
-
 !###########################################################
 !###########################################################
 !###########################################################
@@ -1650,8 +1533,8 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
 
   do igroup=1,ngrp
      nu_c (igroup) = kappaR_bicg(i,igroup)
-     C_g(igroup) = C_g(igroup) * nu_surf(nu_g(igroup),nu_c(igroup), cell_left ,i,dx_loc)
-     C_d(igroup) = C_d(igroup) * nu_surf(nu_d(igroup),nu_c(igroup), cell_right,i,dx_loc)
+     C_g(igroup) = C_g(igroup) * nu_surf(nu_g(igroup),nu_c(igroup),dx_loc)
+     C_d(igroup) = C_d(igroup) * nu_surf(nu_d(igroup),nu_c(igroup),dx_loc)
 
      phi_c(igroup) = uold(i,nhydro+igroup)
 
