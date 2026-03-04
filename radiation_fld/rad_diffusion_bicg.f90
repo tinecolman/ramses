@@ -109,20 +109,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      end do
   end do
 
-  do irad=1,nvar_bicg
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
-        do icpu=1,ncpu
-           do i=1,reception(icpu,ilevel)%ngrid
-              rad_flux(reception(icpu,ilevel)%igrid(i)+iskip,irad)=zero
-           end do
-           do i=1,reception(icpu,ilevel-1)%ngrid
-              rad_flux(reception(icpu,ilevel-1)%igrid(i)+iskip,irad)=zero
-           end do
-        end do
-     end do
-  enddo
-
   if(debug_energy)then
   write(*,*) 'At the beginning of uplmde - uold(5-9)-unew(5-9)'
   do i=1,nb_ind
@@ -571,11 +557,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      call clean_stop
   end if
 
-  !====================================
-  ! Copie des flux
-  !====================================
-  call cmp_matrix_vector_product(ilevel,4)
-
   niter=niter+iter
 
   !====================================
@@ -667,10 +648,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   ! Update boundaries
   do irad=1,nvar_trad
      call make_virtual_fine_dp(uold(1,ind_trad(irad)),ilevel)
-  enddo
-  do irad=1,nvar_bicg
-     if(ilevel .gt. levelmin)call make_virtual_reverse_dp(rad_flux(1,irad),ilevel-1)
-     call make_virtual_reverse_dp(rad_flux(1,irad),ilevel)
   enddo
   call make_virtual_fine_dp(uold(1,5),ilevel)
 
@@ -985,7 +962,6 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
   ! compute = 1 : residual           	  return B - Ax
   ! compute = 2 : Product                 return  A.p
   ! compute = 3 : Preconditionner         return diag(A) or block_diag(A)
-  ! compute = 4 : Compute flux in rad_flux
   !
   ! For BICG
   ! compute = 6 : product                 return  A.p
@@ -1144,9 +1120,6 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                     enddo
                  enddo
 
-              case (4) ! reinitialize rad_flux for this level
-                 rad_flux(ind_cell(i),:) = zero
-
 !neil
 !!$                 do idim=1,ndim
 !!$                    do irad = 1,nvar_bicg
@@ -1286,16 +1259,12 @@ subroutine cmp_matrix_vector_product(ilevel,compute)
                     if( nbor_ilevel(i,2*idim-1) == -1)then
                        do irad=1,nvar_bicg
                           phi_c(i,irad) = uold(ind_cell(i),firstindex_er+irad)
-                          rad_flux(cell_left(i,idim),irad)  = rad_flux(cell_left(i,idim),irad)  + &
-                               & coeff_glob_left(ind_res,irad,irad,idim)*( alpha_imp * (unew(ind_cell(i),nhydro+irad) - val_g(i,irad)) + (one-alpha_imp)*(phi_c(i,irad) - phi_g(i,irad))) 
                        enddo
                     end if
 
                     if( nbor_ilevel(i,2*idim)   == -1 )then
                        do irad=1,nvar_bicg
                           phi_c(i,irad) = uold(ind_cell(i),firstindex_er+irad)
-                          rad_flux(cell_right(i,idim),irad) = rad_flux(cell_right(i,idim),irad) + &
-                               & coeff_glob_right(ind_res,irad,irad,idim)*( alpha_imp * (unew(ind_cell(i),nhydro+irad) - val_d(i,irad)) + (one-alpha_imp)*(phi_c(i,irad) - phi_d(i,irad)))
                        enddo
                     end if
 
