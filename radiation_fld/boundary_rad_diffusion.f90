@@ -1,9 +1,9 @@
 subroutine make_boundary_diffusion_tot(ilevel)
-   use amr_parameters, only:dp
-   use amr_commons,    only:boundary,son,ncoarse,nbor,xg
-   use hydro_commons,  only:uold,unew
+   use amr_commons
+   use hydro_parameters, only:nhydro,nvar_all,smallr
+   use hydro_commons,    only:uold,unew
    use fld_parameters
-   use fld_commons,    only:kappaR_bicg,var_bicg
+   use fld_commons,      only:kappaR_bicg,var_bicg
    implicit none
    integer,intent(IN)::ilevel
    ! -------------------------------------------------------------------
