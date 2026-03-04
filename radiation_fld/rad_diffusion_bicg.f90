@@ -41,7 +41,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   real(dp)::error,error_ini,epsilon
   real(dp)::Cv,told,rho,dt_exp,wdtB,wdtE,Tr,Trold,cal_Teg
   real(dp)::r2,rhs_norm1,r3
-  real(dp)::temp,density,planck_ana,rosseland_ana
+  real(dp)::temp,density,rosseland_ana
   integer::i,ind,iter,iskip,itermax,icpu,igroup,igrp,irad,jrad,ivar
   integer::this,nleaf_tot
   real(dp)::radiation_source,deriv_radiation_source,rhs,lhs
@@ -560,10 +560,9 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      rhs=zero
      lhs=zero
      do igrp=1,ngrp
-        Trold = cal_Teg(uold(liste_ind(i),firstindex_er+igrp)*scale_E0,igrp)
 
-        wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp,in_sink(liste_ind(i)))/scale_kappa
-        wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp,in_sink(liste_ind(i)))/scale_kappa
+        wdtB = C_cal*dt_imp*rosseland_ana(rho*scale_d,Told,igrp)/scale_kappa
+        wdtE = C_cal*dt_imp*rosseland_ana(rho*scale_d,Told,igrp)/scale_kappa
 
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
              & + P_cal*wdtE*unew(liste_ind(i),firstindex_er+igrp)
@@ -1545,7 +1544,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   real(dp),dimension(ngrp,ngrp),intent(out)::mat_residual
   real(dp),dimension(ngrp          ),intent(out)::residual
 
-  real(dp)::rho,Told_norm,Told,cv,lhs,rhs,planck_ana,radiation_source,deriv_radiation_source,cal_Teg,Trold
+  real(dp)::rho,Told_norm,Told,cv,lhs,rhs,rosseland_ana,radiation_source,deriv_radiation_source,cal_Teg
   integer::igrp,igroup
   real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
   real(dp)::ambi_heating,ohm_heating,nimhd_heating,protostellar_heating
@@ -1563,11 +1562,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
   rhs=zero
   do igrp=1,ngrp
      ! Store radiation_source, deriv_radiation_source and planck opacity to save cpu time
-     Trold=cal_Teg(uold(i,firstindex_er+igrp)*scale_E0,igrp)
      source(igrp)=radiation_source(Told,igrp)
      deriv(igrp)=deriv_radiation_source(Told,igrp)
-     wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Told ,igrp,in_sink(i))/scale_kappa
-     wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,Trold,igrp,in_sink(i))/scale_kappa
+     wdtB(igrp) = C_cal*dt_imp*rosseland_ana(rho*scale_d,Told,igrp)/scale_kappa
+     wdtE(igrp) = C_cal*dt_imp*rosseland_ana(rho*scale_d,Told,igrp)/scale_kappa
      lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
      rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
   enddo
