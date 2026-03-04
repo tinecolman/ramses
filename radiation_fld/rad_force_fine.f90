@@ -122,35 +122,18 @@ subroutine rad_force_fine(ilevel)
                enddo
             enddo
            
-            ! Compute internal energy from total energy
             d = uold(ind_cell(i),1)
-            eps = uold(ind_cell(i),5)
-            eps = eps - 0.5d0*uold(ind_cell(i),2)**2/d
-#if NDIM>1 || SOLVERmhd
-            eps = eps - 0.5d0*uold(ind_cell(i),3)**2/d
-#endif
-#if NDIM>2 || SOLVERmhd
-            eps = eps - 0.5d0*uold(ind_cell(i),4)**2/d
-#endif
-#ifdef SOLVERmhd
-            eps = eps - 0.125d0*(uold(ind_cell(i), 6)+uold(ind_cell(i), nvar+1))**2
-            eps = eps - 0.125d0*(uold(ind_cell(i), 7)+uold(ind_cell(i), nvar+2))**2
-            eps = eps - 0.125d0*(uold(ind_cell(i), 8)+uold(ind_cell(i), nvar+3))**2
-#endif
-#if NENER>0
-            do igroup=1,nener
-               eps = eps - uold(ind_cell(i),nhydro+igroup)
-            end do
-#endif
 
-            ! Compute gas temperature in cgs
+            ! Compute internal energy from total energy
+            call internal_energy_from_uold(uold(ind_cell(i),1:nvar_all),eps)
+
+            ! Compute gas temperature in Kelvin
             call internal_energy_to_temperature(d,eps,Tp_loc)
            
             ! Compute radiative pressure in all groups
             frad(ind_cell(i),1:ndim)=0.0d0
             do igroup=1,ngrp
-               Tr_loc = cal_Teg(uold(ind_cell(i),nhydro+igroup)*scale_d*scale_v**2,igroup)              
-               kappa_R = rosseland_ana(d*scale_d,Tp_loc,Tr_loc,igroup)/scale_kappa
+               kappa_R = rosseland_ana(d*scale_d,Tp_loc,igroup)/scale_kappa
                gradEr_norm2 = (sum(gradEr(1:ndim,igroup)**2))
                gradEr_norm  = (gradEr_norm2)**0.5
                R =   max(1.d-10,gradEr_norm/(max(uold(ind_cell(i),nhydro+igroup),eray_min_cu)*kappa_R))

@@ -57,3 +57,39 @@ subroutine internal_energy_to_temperature(rho_temp,Enint_temp,Teos)
   Teos = Enint/(rho*kB/(mu_gas*mH*(gamma-1.0d0)))
 
 end subroutine internal_energy_to_temperature
+!#####################################################################
+!#####################################################################
+!#####################################################################
+!#####################################################################
+subroutine compute_internal_energy(uu,eps)
+   use hydro_commons, only:uold
+   ! conservative hydro variables in the cell
+   real(dp),dimension(1:nvar_all),intent(in):: uu
+   ! volumetric internal energy
+   real(dp),intent(out)::eps
+   !-----------------------------------------------------------
+   ! Compute internal energy from conservative hydro variables
+   !-----------------------------------------------------------
+   real(dp)::d
+
+   d = uu(1)
+   eps = uu(neul)
+   eps = eps - 0.5d0*uu(2)**2/d
+#if NDIM>1 || SOLVERmhd
+   eps = eps - 0.5d0*uu(3)**2/d
+#endif
+#if NDIM>2 || SOLVERmhd
+   eps = eps - 0.5d0*uu(4)**2/d
+#endif
+#ifdef SOLVERmhd
+   eps = eps - 0.125d0*(uu(6)+uu(nvar+1))**2
+   eps = eps - 0.125d0*(uu(7)+uu(nvar+2))**2
+   eps = eps - 0.125d0*(uu(8)+uu(nvar+3))**2
+#endif
+#if NENER>0
+   do igroup=1,nener
+      eps = eps - uu(nhydro+igroup)
+   end do
+#endif
+
+end subroutine internal_energy_from_uold
