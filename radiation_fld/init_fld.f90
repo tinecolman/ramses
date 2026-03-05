@@ -15,11 +15,14 @@ subroutine init_fld
 
    ! allocate global arrays
    ncell=ncoarse+twotondim*ngridmax  
+
    allocate(frad(1:ncell,1:ndim))
    frad=0.0d0
 
+     allocate(kappaR_bicg(1:ncell,1:ngrp))
+  allocate(var_bicg(1:ncell,1:ngrp,1:10+2*ndim))
    allocate(precond_bicg(1:ncell,1:ngrp,1:ngrp))
- precond_bicg=0.0d0
+  kappar_bicg=0.0d0;var_bicg=0.0d0;precond_bicg=0.0d0
 
   if(store_matrix) then
      allocate(mat_residual_glob(1:ncell,1:ngrp,1:ngrp),residual_glob(1:ncell,1:ngrp))
