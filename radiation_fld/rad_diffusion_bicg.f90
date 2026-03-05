@@ -1309,10 +1309,6 @@ subroutine cmp_energy(Etype)
   real(dp)::usquare,Cv,eps,ekin,emag,rho,erad_loc
   real(dp)::tp_loc,cmp_temp
   
-  real(dp)::sum_dust
-#if NDUST>0  
-  integer::idust
-#endif
   do i=1,nb_ind
      this = liste_ind(i)
      rho   = uold(this,1)
@@ -1655,7 +1651,6 @@ end subroutine gather_neighbor_characteristics
 !################################################################ 
 !################################################################
 function nu_surf(Er1,Er2,dx)
-  !use hydro_commons
   use const
   implicit none
   real(dp),intent(in)::Er2,Er1,dx
