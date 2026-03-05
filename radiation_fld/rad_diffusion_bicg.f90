@@ -141,7 +141,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    do i=1,nb_ind
       this = liste_ind(i)
       density = scale_d * max(uold(this,1),smallr)
-      temp = cmp_temp(this)*Tr_floor
+      temp = temperature_array(this)*Tr_floor
 
       do igroup=1,ngrp
          kappaR_bicg(this,igroup)= rosseland_ana(density,temp,igroup) / scale_kappa
@@ -152,6 +152,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    end do
 
    ! Update boundaries
+   call make_virtual_fine_dp(temperature_array(1),ilevel)
+   call make_virtual_fine_dp(cv_array(1),ilevel)
    do igrp=1,ngrp
       call make_virtual_fine_dp(kappaR_bicg(1,igrp),ilevel)
    enddo
@@ -162,15 +164,16 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
       call make_virtual_fine_dp(uold(1,nhydro+irad),ilevel)
       call make_virtual_fine_dp(unew(1,nhydro+irad),ilevel)
 
-     !do ivar=1,10+2*ndim
-     !   call make_virtual_fine_dp(var_bicg(:,irad,ivar),ilevel)
-     !enddo
+     ! TC: is this needed? The things are just zero everywhere?
+     do ivar=1,10+2*ndim
+        call make_virtual_fine_dp(var_bicg(:,irad,ivar),ilevel)
+     enddo
 
-     !if(block_diagonal_precond_bicg) then
-     !   do ivar=1,ngrp
-     !      call make_virtual_fine_dp(precond_bicg(:,irad,ivar),ilevel)
-     !   enddo
-     !endif
+     if(block_diagonal_precond_bicg) then
+        do ivar=1,ngrp
+           call make_virtual_fine_dp(precond_bicg(:,irad,ivar),ilevel)
+        enddo
+     endif
   enddo
 
   call make_boundary_diffusion_tot(ilevel)
@@ -178,7 +181,9 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !===========================================
   ! Compute the matrix and vector coefficients (A and b in the A x = b equation)
   !===========================================
-  call cmp_matrix_and_vector_coeff_fld(ilevel)
+  call cmp_matrix_and_vector_coeff_fld(ilevel)  ! TC:
+
+  ! TC: from here we do not access uold or unew, but work with BICG arrays (I think)
 
   !==============================================
   ! Update preconditionner M=1/diag(A) boundaries
@@ -266,6 +271,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      enddo
   endif !neilneil
 
+  ! TC: end of not touching uold and unew
+
   !====================
   ! MAIN ITERATION LOOP
   !====================   
@@ -311,7 +318,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         call cX_plus_Y_to_Z_tot (-omega_bicg*beta_bicg,var_bicg(:,:,3),var_bicg(:,:,2),var_bicg(:,:,2))
      endif
 
-     call make_boundary_diffusion_tot(ilevel)
+     call make_boundary_diffusion_tot(ilevel)   ! TC: touch uold and unew, why? They have not been changed in the meantime?
      do irad=1,ngrp
         call make_virtual_fine_dp(var_bicg(:,irad,2),ilevel)
      enddo
@@ -335,7 +342,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
            end do
         enddo
         ! Update boundaries
-        call make_boundary_diffusion_tot(ilevel)
+        call make_boundary_diffusion_tot(ilevel)   ! TC: touch uold and unew
         do irad=1,ngrp
            call make_virtual_fine_dp(var_bicg(:,irad,5),ilevel)
         enddo
@@ -1335,21 +1342,22 @@ subroutine cmp_energy(Etype)
         eps = uold(this,neul)-ekin-emag-erad_loc
         
         ! Compute temperature
-        Tp_loc = cmp_temp(this)
+        call internal_energy_to_temperature(rho,eps,Tp_loc)
 
         ! Compute heat capacity (Eint = Cv T)
         Cv = eps/Tp_loc
 
         ! Use unew(this,nvar+1) as temporary storage for Cv
-        ! TODO fix
-        unew(this,nvar+1) = Cv
+        !unew(this,nvar+1) = Cv
+        cv_array(this) = Cv
 
         ! Store the temperature at the place of the internal energy, to feed to solver
         ! TODO: find solution if this variable is not allocated
-        uold(this,nvar  ) = Tp_loc
+        !uold(this,nvar  ) = Tp_loc
+        temperature_array(this) = Tp_loc
 
         ! normalize for better numerical behaviour of solver
-        uold(this,nvar) = uold(this,nvar)/Tr_floor
+        temperature_array(this) = temperature_array(this)/Tr_floor
         do irad=1,ngrp
            uold(this,nhydro+irad)=uold(this,nhydro+irad)/P_cal
         enddo
@@ -1360,7 +1368,7 @@ subroutine cmp_energy(Etype)
         enddo
 
         ! update unew
-        unew(this,nvar)=uold(this,nvar)
+        !unew(this,nvar)=uold(this,nvar)
         do irad=1,ngrp
            unew(this,nhydro+irad)=uold(this,nhydro+irad)
         enddo
@@ -1373,22 +1381,21 @@ subroutine cmp_energy(Etype)
         enddo
 
         ! inverse normalisation
-        unew(this,nvar)=unew(this,ind_trad(irad))*Tr_floor
+        temperature_array(this)=temperature_array(this)*Tr_floor
         do irad=1,ngrp
            unew(this,nhydro+irad)=unew(this,nhydro+irad)*P_cal
         enddo
 
         ! convert temperature back to internal energy: Eint = T*Cv
-        unew(this,nvar)=unew(this,nvar)*unew(this,nvar+1)
+        eps=temperature_array(this)*cv_array(this)
 
         ! update uold
-        uold(this,nvar)=unew(this,nvar)
+        !uold(this,nvar)=unew(this,nvar)
         do irad=1,ngrp
            uold(this,nhydro+irad)=unew(this,nhydro+irad)
         enddo
 
         ! update total energy (Eint and Erad have changed)
-        eps = unew(this,nvar)
         uold(this,neul) = eps + ekin + emag
         do igroup=1,nener
            uold(this,neul) = uold(this,neul) + uold(this,nhydro+igroup)
@@ -1396,8 +1403,6 @@ subroutine cmp_energy(Etype)
 
      end if
   end do
-
-
 
 end subroutine cmp_energy
 !################################################################
@@ -1419,23 +1424,6 @@ function cmp_temp(icell)
    call internal_energy_to_temperature(rho,eps,cmp_temp)
 
 end function cmp_temp
-!################################################################
-!################################################################
-!################################################################ 
-!################################################################
-function nu_surf(Er1,Er2,dx)
-  use hydro_commons
-  use const
-  implicit none
-  real(dp),intent(in)::Er2,Er1,dx
-  real(dp)::nu_surf,nu_harmo,nu_ari
-
-  nu_ari=(Er2+Er1)*half
-  nu_harmo=max(Er2*Er1/nu_ari,four/(three*dx))
-  nu_surf = nu_ari
-  nu_surf=min(nu_harmo,nu_ari)
-
-end function nu_surf
 !###########################################################
 !###########################################################
 !###########################################################
@@ -1469,11 +1457,10 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
    C_cal = c_cgs/scale_v
 
    ! Compute temperature in Kelvin
-   rho = uold(i,1)
-   call compute_internal_energy(uold(i,1:nvar_all),eps)
-   call internal_energy_to_temperature(rho,eps,Told_norm)
+   rho       = uold(i,1)
+   Told_norm = temperature_array(i)
    Told      = Told_norm * Tr_floor
-   Cv        = eps/Told
+   Cv        = cv_array(i)
 
    ! ?
    lhs=zero
@@ -1556,100 +1543,9 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   ! TC: phi_g = radiative energy from nener group
   ! Gather main characteristics of left neighbour (fill C_g, phi_g, nu_g)
 
-  select case (nbor_ilevel(2*idim-1))
-
-  case (1)
-
-     if (robin  > zero) then
-        C_g(:) = one/robin
-     else
-        C_g(:) = zero
-     endif
-
-     do irad=1,ngrp
-        phi_g (irad) = uold(cell_left,nhydro+irad)/P_cal
-     enddo
-
-     Told = cmp_temp(cell_left)
-     rho  = scale_d * max(uold(cell_left,1),smallr)
-     do igroup=1,ngrp
-        nu_g(igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
-        if(nu_g(igroup)*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/dx_loc
-     enddo
-
-  case (0)
-     do irad=1,ngrp
-        phi_g (irad) = uold(cell_left,nhydro+irad)
-        C_g   (irad) = one
-     enddo
-     do igroup=1,ngrp
-        nu_g  (igroup)       = kappaR_bicg(cell_left,igroup)
-     enddo
-
-  case (-1)
-
-     C_g(:) = 1.5_dp
-     do irad=1,ngrp
-        phi_g (irad) = uold(cell_left,nhydro+irad)/P_cal
-     enddo
-
-     Told = cmp_temp(cell_left)
-     rho  = scale_d * max(uold(cell_left,1),smallr)
-     do igroup=1,ngrp
-        nu_g  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
-        if(nu_g(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_g(igroup)=min_optical_depth/(2.0d0*dx_loc)
-     enddo
-
-  end select
-
-! Gather main characteristics of right neighbour
-
-  select case (nbor_ilevel(2*idim))
-
-  case (1)
-
-     if (robin  > zero) then
-        C_d(:) = one/robin
-     else
-        C_d(:) = zero
-     endif
-
-     do irad=1,ngrp
-        phi_d (irad) = uold(cell_right,nhydro+irad)/P_cal
-     enddo
-
-     Told = cmp_temp(cell_right)
-     rho  = scale_d * max(uold(cell_right,1),smallr)
-     do igroup=1,ngrp
-        nu_d  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
-        if(nu_d(igroup)*dx_loc .lt. min_optical_depth) nu_d(igroup)=min_optical_depth/dx_loc
-     enddo
-
-  case (0)
-
-     do irad=1,ngrp
-        phi_d (irad)  = uold(cell_right,nhydro+irad)
-        C_d   (irad)  = one
-     enddo
-     do igroup=1,ngrp
-        nu_d  (igroup)  = kappaR_bicg(cell_right,igroup)
-     enddo
-
-  case (-1)
-
-     C_d(:) = 1.5_dp
-     do irad=1,ngrp
-        phi_d (irad) = uold(cell_right,nhydro+irad)/P_cal
-     enddo
-
-     Told = cmp_temp(cell_right)
-     rho  = scale_d * max(uold(cell_right,1),smallr)
-     do igroup=1,ngrp
-        nu_d  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
-        if(nu_d(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_d(igroup)=min_optical_depth/(2.0d0*dx_loc)
-     enddo
-
-  end select
+   ! Gather main characteristics of left and right neighbour in dimension idim
+   call gather_neighbor_characteristics(cell_left,  nbor_ilevel(2*idim-1), C_g, phi_g, nu_g, dx_loc)
+   call gather_neighbor_characteristics(cell_right, nbor_ilevel(2*idim),   C_d, phi_d, nu_d, dx_loc)
 
   ! ...
 
@@ -1684,3 +1580,90 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   enddo
 
 end subroutine compute_coeff_left_right_in_cell
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+subroutine gather_neighbor_characteristics(cell_nbor, nbor_lvl, C_nbor, phi_nbor, nu_nbor, dx_loc)
+   use hydro_commons
+   use fld_parameters
+   use fld_commons
+   use const
+   implicit none
+   integer,intent(in)::cell_nbor,nbor_lvl
+   real(dp),intent(in)::dx_loc
+   real(dp),dimension(ngrp),intent(out)::C_nbor, phi_nbor, nu_nbor
+   !-----------------------------------
+   ! Gather main characteristics of a left or right neighbor, depending on the level of the neighbor
+   ! Called by compute_coeff_left_right_in_cell
+   !-------------------
+   real(dp)::rho,Told,Trold,cal_Teg,cmp_temp,rosseland_ana
+   integer::igroup,irad
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
+   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
+   select case (nbor_lvl)
+
+   case (1)
+
+      if (robin  > zero) then
+         C_nbor(:) = one/robin
+      else
+         C_nbor(:) = zero
+      endif
+
+      do irad=1,ngrp
+         phi_nbor (irad) = uold(cell_nbor,nhydro+irad)/P_cal
+      enddo
+
+      Told = temperature_array(cell_nbor)  !TC: shouldn't there be a Tr_floor here?
+      rho  = scale_d * max(uold(cell_nbor,1),smallr)
+      do igroup=1,ngrp
+         nu_nbor(igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
+         if(nu_nbor(igroup)*dx_loc .lt. min_optical_depth) nu_nbor(igroup)=min_optical_depth/dx_loc
+      enddo
+
+   case (0)
+
+      do irad=1,ngrp
+         phi_nbor (irad)  = uold(cell_nbor,nhydro+irad)
+         C_nbor   (irad)  = one
+      enddo
+      do igroup=1,ngrp
+         nu_nbor  (igroup)  = kappaR_bicg(cell_nbor,igroup)
+      enddo
+
+   case (-1)
+
+      C_nbor(:) = 1.5_dp
+      do irad=1,ngrp
+         phi_nbor (irad) = uold(cell_nbor,nhydro+irad)/P_cal
+      enddo
+
+      Told = temperature_array(cell_nbor)
+      rho  = scale_d * max(uold(cell_nbor,1),smallr)
+      do igroup=1,ngrp
+         nu_nbor  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
+         if(nu_nbor(igroup)*2.0d0*dx_loc .lt. min_optical_depth) nu_nbor(igroup)=min_optical_depth/(2.0d0*dx_loc)
+      enddo
+
+   end select
+
+end subroutine gather_neighbor_characteristics
+!################################################################
+!################################################################
+!################################################################ 
+!################################################################
+function nu_surf(Er1,Er2,dx)
+  !use hydro_commons
+  use const
+  implicit none
+  real(dp),intent(in)::Er2,Er1,dx
+  real(dp)::nu_surf,nu_harmo,nu_ari
+
+  nu_ari=(Er2+Er1)*half
+  nu_harmo=max(Er2*Er1/nu_ari,four/(three*dx))
+  nu_surf = nu_ari
+  nu_surf=min(nu_harmo,nu_ari)
+
+end function nu_surf

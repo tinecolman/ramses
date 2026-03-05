@@ -12,6 +12,8 @@ module fld_commons
   real(dp),dimension(:,:,:  ),allocatable :: mat_residual_glob
   real(dp),dimension(:,:    ),allocatable :: residual_glob
 
+  real(dp),dimension(:),allocatable :: temperature_array
+  real(dp),dimension(:),allocatable :: cv_array
 
   real(dp)   ::dt_imp                            ! Implicit timestep               
   integer,allocatable,dimension(:)::liste_ind

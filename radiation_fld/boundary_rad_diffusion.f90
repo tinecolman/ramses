@@ -3,7 +3,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
    use hydro_parameters, only:nhydro,nvar_all,smallr
    use hydro_commons,    only:uold,unew
    use fld_parameters
-   use fld_commons,      only:kappaR_bicg,var_bicg
+   use fld_commons
    implicit none
    integer,intent(IN)::ilevel
    ! -------------------------------------------------------------------
@@ -97,6 +97,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
                         kappaR_bicg(ind_cell(i),igroup) = kappaR_bicg(ind_cell_ref(i),igroup)
                      enddo
 
+                     temperature_array(ind_cell(i)) = temperature_array(ind_cell_ref(i)) !TC: this is probably not up to date?
                      ! TC: why needed? Shouldn't this be handled by hydro boundary?
                      do igroup=1,ngrp
                         unew(ind_cell(i),nhydro+igroup) = unew(ind_cell_ref(i),nhydro+igroup)
@@ -146,7 +147,7 @@ subroutine make_boundary_diffusion_tot(ilevel)
                         if( kappaR_bicg(ind_cell(i),igroup)*dx_loc .lt. min_optical_depth)  kappaR_bicg(ind_cell(i),igroup)=min_optical_depth/dx_loc
                      enddo
 
-                     ! TC: why needed?, Why /P_cal (norm_trad in ism)?
+                     temperature_array(ind_cell(i)) = t2 / Tr_floor
                      do igroup=1,ngrp
                         uold(ind_cell(i),nhydro+igroup) = uu(i,nhydro+igroup) / P_cal
                         unew(ind_cell(i),nhydro+igroup) = uold(ind_cell(i),nhydro+igroup)

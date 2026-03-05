@@ -31,5 +31,10 @@ subroutine init_fld
   mat_residual_glob=0.0d0;residual_glob=0.0d0
   coeff_glob_left=0.0d0;coeff_glob_right=0.0d0
 
+   ! arrays fro
+   allocate(temperature_array(1:ncell))  ! contain temperature for solver
+   allocate(cv_array(1:ncell))           ! contain CV for solver
+   temperature_array=0d0
+   cv_array=0d0
 
 end subroutine init_fld
