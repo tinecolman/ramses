@@ -141,7 +141,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    do i=1,nb_ind
       this = liste_ind(i)
       density = scale_d * max(uold(this,1),smallr)
-      temp = temperature_array(this)*Tr_floor
+      temp = temperature_array_old(this)*Tr_floor
 
       do igroup=1,ngrp
          kappaR_bicg(this,igroup)= rosseland_ana(density,temp,igroup) / scale_kappa
@@ -152,7 +152,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    end do
 
    ! Update boundaries
-   call make_virtual_fine_dp(temperature_array(1),ilevel)
+   call make_virtual_fine_dp(temperature_array_old(1),ilevel)
+   call make_virtual_fine_dp(temperature_array_new(1),ilevel)
    call make_virtual_fine_dp(cv_array(1),ilevel)
    do igrp=1,ngrp
       call make_virtual_fine_dp(kappaR_bicg(1,igrp),ilevel)
@@ -517,7 +518,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   do i=1,nb_ind
 
      rho = uold(liste_ind(i),1)
-     Told= uold(liste_ind(i),nvar) * Tr_floor
+     Told= temperature_array_old(liste_ind(i)) * Tr_floor
      Cv = cv_array(liste_ind(i))
      
      rhs=zero
@@ -532,7 +533,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         lhs=lhs+P_cal*wdtB*deriv_radiation_source(Told,igrp)/scale_E0
      enddo
 
-     unew(liste_ind(i),nvar) = (cv*Told+rhs)/(cv+lhs) / Tr_floor
+     temperature_array_new(liste_ind(i)) = (cv*Told+rhs)/(cv+lhs) / Tr_floor
 
   end do
 
@@ -1347,10 +1348,10 @@ subroutine cmp_energy(Etype)
         ! Store the temperature at the place of the internal energy, to feed to solver
         ! TODO: find solution if this variable is not allocated
         !uold(this,nvar  ) = Tp_loc
-        temperature_array(this) = Tp_loc
+        temperature_array_old(this) = Tp_loc
 
         ! normalize for better numerical behaviour of solver
-        temperature_array(this) = temperature_array(this)/Tr_floor
+        temperature_array_old(this) = temperature_array_old(this)/Tr_floor
         do irad=1,ngrp
            uold(this,nhydro+irad)=uold(this,nhydro+irad)/P_cal
         enddo
@@ -1361,7 +1362,7 @@ subroutine cmp_energy(Etype)
         enddo
 
         ! update unew
-        !unew(this,nvar)=uold(this,nvar)
+        temperature_array_new(this)=temperature_array_old(this)
         do irad=1,ngrp
            unew(this,nhydro+irad)=uold(this,nhydro+irad)
         enddo
@@ -1374,16 +1375,16 @@ subroutine cmp_energy(Etype)
         enddo
 
         ! inverse normalisation
-        temperature_array(this)=temperature_array(this)*Tr_floor
+        temperature_array_new(this)=temperature_array_new(this)*Tr_floor
         do irad=1,ngrp
            unew(this,nhydro+irad)=unew(this,nhydro+irad)*P_cal
         enddo
 
         ! convert temperature back to internal energy: Eint = T*Cv
-        eps=temperature_array(this)*cv_array(this)
+        eps=temperature_array_new(this)*cv_array(this)
 
         ! update uold
-        !uold(this,nvar)=unew(this,nvar)
+        temperature_array_old(this)=temperature_array_new(this)
         do irad=1,ngrp
            uold(this,nhydro+irad)=unew(this,nhydro+irad)
         enddo
@@ -1451,7 +1452,7 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
 
    ! Compute temperature in Kelvin
    rho       = uold(i,1)
-   Told_norm = temperature_array(i)
+   Told_norm = temperature_array_old(i)
    Told      = Told_norm * Tr_floor
    Cv        = cv_array(i)
 
@@ -1609,7 +1610,7 @@ subroutine gather_neighbor_characteristics(cell_nbor, nbor_lvl, C_nbor, phi_nbor
          phi_nbor (irad) = uold(cell_nbor,nhydro+irad)/P_cal
       enddo
 
-      Told = temperature_array(cell_nbor)  !TC: shouldn't there be a Tr_floor here?
+      Told = cmp_temp(cell_nbor)  !TC: shouldn't there be a Tr_floor here?
       rho  = scale_d * max(uold(cell_nbor,1),smallr)
       do igroup=1,ngrp
          nu_nbor(igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa
@@ -1633,7 +1634,7 @@ subroutine gather_neighbor_characteristics(cell_nbor, nbor_lvl, C_nbor, phi_nbor
          phi_nbor (irad) = uold(cell_nbor,nhydro+irad)/P_cal
       enddo
 
-      Told = temperature_array(cell_nbor)
+      Told = cmp_temp(cell_nbor)
       rho  = scale_d * max(uold(cell_nbor,1),smallr)
       do igroup=1,ngrp
          nu_nbor  (igroup) = rosseland_ana(rho,Told,igroup) / scale_kappa

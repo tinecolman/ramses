@@ -97,7 +97,8 @@ subroutine make_boundary_diffusion_tot(ilevel)
                         kappaR_bicg(ind_cell(i),igroup) = kappaR_bicg(ind_cell_ref(i),igroup)
                      enddo
 
-                     temperature_array(ind_cell(i)) = temperature_array(ind_cell_ref(i)) !TC: this is probably not up to date?
+                     temperature_array_new(ind_cell(i)) = temperature_array_new(ind_cell_ref(i)) !TC: this is probably not up to date?
+                     temperature_array_old(ind_cell(i)) = temperature_array_old(ind_cell_ref(i)) !TC: this is probably not up to date?
                      ! TC: why needed? Shouldn't this be handled by hydro boundary?
                      do igroup=1,ngrp
                         unew(ind_cell(i),nhydro+igroup) = unew(ind_cell_ref(i),nhydro+igroup)
@@ -147,7 +148,8 @@ subroutine make_boundary_diffusion_tot(ilevel)
                         if( kappaR_bicg(ind_cell(i),igroup)*dx_loc .lt. min_optical_depth)  kappaR_bicg(ind_cell(i),igroup)=min_optical_depth/dx_loc
                      enddo
 
-                     temperature_array(ind_cell(i)) = t2 / Tr_floor
+                     temperature_array_old(ind_cell(i)) = t2 / Tr_floor
+                     temperature_array_new(ind_cell(i)) = temperature_array_old(ind_cell(i))
                      do igroup=1,ngrp
                         uold(ind_cell(i),nhydro+igroup) = uu(i,nhydro+igroup) / P_cal
                         unew(ind_cell(i),nhydro+igroup) = uold(ind_cell(i),nhydro+igroup)
