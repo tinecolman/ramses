@@ -518,7 +518,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
      rho = uold(liste_ind(i),1)
      Told= uold(liste_ind(i),nvar) * Tr_floor
-     Cv = unew(liste_ind(i),nvar+1)
+     Cv = cv_array(liste_ind(i))
      
      rhs=zero
      lhs=zero
@@ -1342,9 +1342,6 @@ subroutine cmp_energy(Etype)
 
         ! Compute heat capacity (Eint = Cv T)
         Cv = eps/Tp_loc
-
-        ! Use unew(this,nvar+1) as temporary storage for Cv
-        !unew(this,nvar+1) = Cv
         cv_array(this) = Cv
 
         ! Store the temperature at the place of the internal energy, to feed to solver
