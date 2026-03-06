@@ -157,14 +157,13 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    call make_virtual_fine_dp(cv_array(1),ilevel)
    do igrp=1,ngrp
       call make_virtual_fine_dp(kappaR_bicg(1,igrp),ilevel)
+      call make_virtual_fine_dp(uold(1,nhydro+igrp),ilevel)
+      call make_virtual_fine_dp(unew(1,nhydro+igrp),ilevel)
    enddo
 
    call make_virtual_fine_dp(uold(1,neul),ilevel)
    call make_virtual_fine_dp(unew(1,neul),ilevel)
    do irad=1,ngrp
-      call make_virtual_fine_dp(uold(1,nhydro+irad),ilevel)
-      call make_virtual_fine_dp(unew(1,nhydro+irad),ilevel)
-
      ! TC: is this needed? The things are just zero everywhere?
      do ivar=1,10+2*ndim
         call make_virtual_fine_dp(var_bicg(:,irad,ivar),ilevel)
