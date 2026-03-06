@@ -205,7 +205,7 @@ ifeq ($(RT),1)
    VPATH += ../rt:
 endif
 ifeq ($(FLD),1)
-   VPATH += ../radiation_fld:
+   VPATH += ../fld:
 endif
 ifeq ($(USE_TURB),1)
    VPATH += ../turb:
