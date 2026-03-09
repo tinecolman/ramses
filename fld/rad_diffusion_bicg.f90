@@ -11,12 +11,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   !=========================================================
   ! Iterative solver with Stabilised Bi-Conjugate Gradient method
   ! to solve A x = b
-  !
-  ! Here, for FLD
-  !   x = new radiative energy (for each group)
-  !   A = diffusion operator
-  !   b = old state+ source terms
-
   !  i   : cell index
   !  irad: radiative variable index (from 1 to ngrp if FLD, from 1 to (1+ndim)*ngrp if M1)
   !
@@ -69,6 +63,22 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
    C_cal = c_cgs/scale_v
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
+
+  if(bicg_to_cg)then
+     block_diagonal_precond_bicg=.false.
+     i_rho  = 6
+     i_beta = 6
+     i_y    = 2
+     i_pAp  = 2
+     i_s    = 1
+  else
+     block_diagonal_precond_bicg=.true.
+     i_rho  = 9
+     i_beta = 1
+     i_y    = 5
+     i_pAp  = 9
+     i_s    = 7
+  endif
 
   if(verbose)write(*,111)
   if(numbtot(1,ilevel)==0)return
@@ -128,6 +138,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      do irad=1,ngrp
         unew(this,nhydro+irad)=0
      enddo
+     temperature_array_new(this) = 0
      kappaR_bicg(this,:)=0
   end do
 
@@ -511,6 +522,12 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   end if
 
   !====================================
+  ! Copie des flux
+  !====================================
+  !call cmp_matrix_vector_product(ilevel,4)
+  !niter=niter+iter
+
+  !====================================
   ! Update gas temperature
   !====================================
   !TC: todo: update Etot instead?
@@ -569,21 +586,11 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
         enddo
      enddo
   else
-      call cmp_energy(2)
-      !!!do i=1,nb_ind
-      !!!   icell = liste_ind(i)
-      !!!   e_diff = 0
-      !!!   do irad=1,ngrp
-      !!!      unew(icell,nhydro+irad) = max(unew(icell,nhydro+irad),eray_min/scale_E0)
-      !!!      unew(icell,nhydro+irad) = unew(icell,nhydro+irad) * P_cal
-      !!!      e_diff = e_diff + (unew(icell,nhydro+irad) - uold(icell,nhydro+irad)) ! gather energy diff
-      !!!      uold(icell,nhydro+irad) = unew(icell,nhydro+irad)
-      !!!   enddo
-      !!!   uold(icell,neul) = uold(icell,neul) + e_diff !update total energy with new radiative energy
-      !!!end do
+     call cmp_energy(2)
   end if
 
   ! Update boundaries
+  call make_virtual_fine_dp(temperature_array_old(1),ilevel)
   do irad=1,ngrp
      call make_virtual_fine_dp(uold(1,nhydro+irad),ilevel)
   enddo
@@ -1463,36 +1470,15 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
       source(igrp)=radiation_source(Told,igrp)
       deriv(igrp)=deriv_radiation_source(Told,igrp)
       wdtB(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
-      !wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
+      wdtE(igrp) = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
       lhs=lhs+P_cal*wdtB(igrp)*deriv(igrp)/scale_E0
       rhs=rhs-P_cal*wdtB(igrp)*(source(igrp)/scale_E0-Told*deriv(igrp)/scale_E0)
    enddo
 
-   !-----------------------------------------------------------------------
-   ! Assemble the cell-local matrix block and RHS.
-   !
-   ! Diagonal term:
-   !   (1 + Δt c κ_P,g) * V
-   !
-   ! Off-diagonal coupling terms:
-   !   Appear due to elimination of internal energy, and couple
-   !   radiation groups through the common gas temperature.
-   !
-   ! residual(g) contains:
-   !   - E_g^n
-   !   - linearized emission source
-   !   - contribution from eliminated internal energy equation
-   !
-   ! Final linear system per cell:
-   !
-   !   mat_residual · E^(n+1) = residual
-   !
-   !-----------------------------------------------------------------------
    mat_residual(:,:) = zero
    residual    (:  ) = zero
    do igroup=1,ngrp
-      !mat_residual(igroup,igroup) = (one+wdtE(igroup))*vol_loc
-      mat_residual(igroup,igroup) = (one+wdtB(igroup))*vol_loc
+      mat_residual(igroup,igroup) = (one+wdtE(igroup))*vol_loc
 
       ! Terms of coupling radiative groups
       do igrp=1,ngrp
