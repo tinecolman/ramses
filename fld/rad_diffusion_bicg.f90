@@ -1578,8 +1578,9 @@ subroutine gather_neighbor_characteristics(cell_nbor, nbor_lvl, C_nbor, phi_nbor
    !-------------------
    real(dp)::rho,Told,Trold,cal_Teg,cmp_temp,rosseland_ana
    integer::igroup,irad
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+   scale_kappa=1d0/scale_l
 
    select case (nbor_lvl)
 
