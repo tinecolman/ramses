@@ -4,6 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import visu_ramses
 
+ngr     = 4
+ar      = 7.56591469318689378e-015
+MH = 1.6600000e-24      #g                # hydrogen mass
+KB = 1.3806200e-16  #cm^2 g s^-2 K^-1      # Boltzman constant
+
 fig = plt.figure()
 ratio = 0.8
 sizex = 12.0
@@ -21,8 +26,6 @@ scale_d = data["data"]["unit_d"]
 scale_l = data["data"]["unit_l"]
 scale_t = data["data"]["unit_t"]
 time    = data["data"]["time"]*scale_t
-ngr     = 4
-ar      = 7.56591469318689378e-015
 scale_v = scale_l/scale_t
 
 order   = data["data"]["x"].argsort()
@@ -32,11 +35,9 @@ rho     = data["data"]["density"][order]*scale_d
 u       = data["data"]["velocity_x"][order]*scale_v
 p       = data["data"]["pressure"][order]*scale_d*scale_v**2
 
-cs = np.sqrt(p/rho)
-cs2 = p/rho
-MH = 1.6737236e-24 #g                      # hydrogen mass
-KB = 1.38064852e-16 #cm^2 g s^-2 K^-1      # Boltzman constant
-T = cs2 * 2.37 * MH /KB
+mu_gas = 1.0
+gamma = 1.4
+T = p/(rho*KB/(mu_gas*MH))
 
 #T       = data["data"]["temperature"][order]
 #non_thermal_pressure_01
