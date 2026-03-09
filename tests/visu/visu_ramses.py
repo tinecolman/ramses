@@ -608,7 +608,7 @@ def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e
            key == "pressure" or \
            key == "total_energy" or \
            key == "temperature" or \
-           key.startswith("radiative_energy"):
+           key.startswith("non_thermal_energy"):
             solution = np.log10(np.abs(keyData))
         elif key in vars_to_correct:
             solution = np.where(np.abs(keyData)<threshold*norms[key],0.0,np.abs(keyData))
