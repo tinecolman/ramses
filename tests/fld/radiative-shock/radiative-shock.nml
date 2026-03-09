@@ -65,6 +65,7 @@ p_bound=2.309d-3
 &RADIATION_PARAMS
 grey_rad_transfer=.false.
 rosseland_params=3.1d-10,0.0,0.0
+planck_params=3.1d-10,0.0,0.0
 epsilon_diff=1.d-12
 fld_limiter='minerbo'
 split_groups_log=.false.
