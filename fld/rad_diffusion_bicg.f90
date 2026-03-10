@@ -64,22 +64,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
-  if(bicg_to_cg)then
-     block_diagonal_precond_bicg=.false.
-     i_rho  = 6
-     i_beta = 6
-     i_y    = 2
-     i_pAp  = 2
-     i_s    = 1
-  else
-     block_diagonal_precond_bicg=.true.
-     i_rho  = 9
-     i_beta = 1
-     i_y    = 5
-     i_pAp  = 9
-     i_s    = 7
-  endif
-
   if(verbose)write(*,111)
   if(numbtot(1,ilevel)==0)return
 
