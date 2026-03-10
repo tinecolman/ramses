@@ -94,6 +94,7 @@ end function deriv_radiation_source
 !! inside a given group.
 !<
 function artheta4(Tray,igrp)
+  use const
   use amr_parameters, only:dp
   use fld_parameters, only : nu_min_hz,nu_max_hz,eray_min
   use constants, only:pi,hplanck,kB,c_cgs
@@ -103,7 +104,7 @@ function artheta4(Tray,igrp)
   integer , intent(in) :: igrp
   real(dp)             :: constant,xmin,xmax,xsimin,xsimax,xi,artheta4,BPlanck
 
-  constant = (8d0*pi*kb**4)/(c_cgs*hplanck)**3
+  constant = (eight*pi*kb**4)/(c_cgs*hplanck)**3
 
   xmin = hplanck*nu_min_hz(igrp)/(kb*Tray)
   xmax = hplanck*nu_max_hz(igrp)/(kb*Tray)
@@ -111,7 +112,7 @@ function artheta4(Tray,igrp)
   xsimin = xi(xmin) ; xsimax = xi(xmax)
 
   if(xsimin==xsimax)then
-     artheta4 = max(BPlanck(0.5d0*(nu_min_hz(igrp)+nu_max_hz(igrp)),Tray)*(nu_max_hz(igrp)-nu_min_hz(igrp)),eray_min)
+     artheta4 = max(BPlanck(half*(nu_min_hz(igrp)+nu_max_hz(igrp)),Tray)*(nu_max_hz(igrp)-nu_min_hz(igrp)),eray_min)
   else
      artheta4 = max(constant*(Tray**4)*(xsimax-xsimin),eray_min)
   endif
@@ -131,8 +132,8 @@ end function artheta4
 !<
 function xi(nu)
   use amr_parameters, only:dp
-  use coeff_xi
   use const
+  use coeff_xi
   implicit none
 
   real(dp),intent(in) :: nu
@@ -141,7 +142,7 @@ function xi(nu)
   if(nu >= limhigh)then
      xi = c6
   elseif(nu <= limlow)then
-     xi = 0d0
+     xi = zero
   else
      xi = exp(-c7*nu) * ( c0 + c1*nu + c2*(nu**2) + c3*(nu**3) + c4*(nu**4) + c5*(nu**5) ) + c6
   endif
@@ -176,7 +177,7 @@ function deriv_artheta4(Tray,igrp)
   real(dp)             :: xi,deriv_xi,deriv_artheta4,nu,dnu,Div_BPlanck
   real(dp)             :: constant,xmin,xmax,xsimin,xsimax,v1,v2,v3
 
-  constant = (8d0*pi*kb**4)/(c_cgs*hplanck)**3
+  constant = (eight*pi*kb**4)/(c_cgs*hplanck)**3
 
   xmin = hplanck*nu_min_hz(igrp)/(kb*Tray)
   xmax = hplanck*nu_max_hz(igrp)/(kb*Tray)
@@ -410,6 +411,7 @@ function BPlanck(nu,T)
 
   use amr_parameters, only : dp
   use coeff_xi      , only : limhigh
+  use const
   use constants, only:pi,hplanck,kB,c_cgs
 
   implicit none
@@ -418,9 +420,9 @@ function BPlanck(nu,T)
   real(dp)             :: BPlanck
 
   if((hplanck*nu/(kb*T)) > limhigh)then
-     BPlanck = (8d0*pi*hplanck*nu**3)/c_cgs**3 * exp(-hplanck*nu/(kb*T))
+     BPlanck = (eight*pi*hplanck*nu**3)/c_cgs**3 * exp(-hplanck*nu/(kb*T))
   else
-     BPlanck = (8d0*pi*hplanck*nu**3)/c_cgs**3 / ( exp(hplanck*nu/(kb*T)) - 1d0 )
+     BPlanck = (eight*pi*hplanck*nu**3)/c_cgs**3 / ( exp(hplanck*nu/(kb*T)) - one )
   endif
 
 end function BPlanck
