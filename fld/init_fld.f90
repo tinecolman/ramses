@@ -14,27 +14,36 @@ subroutine init_fld
    call tabulate_art4
 
    ! allocate global arrays
-   ncell=ncoarse+twotondim*ngridmax  
+   ncell=ncoarse+twotondim*ngridmax
 
    allocate(frad(1:ncell,1:ndim))
    frad=0.0d0
 
-     allocate(kappaR_bicg(1:ncell,1:ngrp))
-  allocate(var_bicg(1:ncell,1:ngrp,1:10+2*ndim))
+   ! Variables for BICG scheme
+   ! 1 : r
+   ! 2 : p
+   ! 3 : r*
+   ! 4 : M-1
+   ! 5 : 
+   ! 6 : z and Ap
+   ! 7 : p*
+   ! 8 : p*A
+   ! 9 : z*
+   allocate(kappaR_bicg(1:ncell,1:ngrp))
+   ! if FLD: matrix of size ngrpxngrp (because matrix only on Eg)
+   allocate(var_bicg(1:ncell,1:ngrp,1:10+2*ndim))
    allocate(precond_bicg(1:ncell,1:ngrp,1:ngrp))
-  kappar_bicg=0.0d0;var_bicg=0.0d0;precond_bicg=0.0d0
+   if(store_matrix) then
+      allocate(mat_residual_glob(1:ncell,1:ngrp,1:ngrp),residual_glob(1:ncell,1:ngrp))
+      allocate(coeff_glob_left(1:ncell,1:ngrp,1:ngrp,1:ndim),coeff_glob_right(1:ncell,1:ngrp,1:ngrp,1:ndim))
+   else
+      allocate(mat_residual_glob(1,1:ngrp,1:ngrp),residual_glob(1,1:ngrp))
+      allocate(coeff_glob_left(1,1:ngrp,1:ngrp,1:ndim),coeff_glob_right(1,1:ngrp,1:ngrp,1:ndim))
+   endif
+   kappar_bicg=0.0d0;var_bicg=0.0d0;precond_bicg=0.0d0
+   mat_residual_glob=0.0d0;residual_glob=0.0d0
+   coeff_glob_left=0.0d0;coeff_glob_right=0.0d0
 
-  if(store_matrix) then
-     allocate(mat_residual_glob(1:ncell,1:ngrp,1:ngrp),residual_glob(1:ncell,1:ngrp))
-     allocate(coeff_glob_left(1:ncell,1:ngrp,1:ngrp,1:ndim),coeff_glob_right(1:ncell,1:ngrp,1:ngrp,1:ndim))
-  else
-     allocate(mat_residual_glob(1,1:ngrp,1:ngrp),residual_glob(1,1:ngrp))
-     allocate(coeff_glob_left(1,1:ngrp,1:ngrp,1:ndim),coeff_glob_right(1,1:ngrp,1:ngrp,1:ndim))
-  endif
-  mat_residual_glob=0.0d0;residual_glob=0.0d0
-  coeff_glob_left=0.0d0;coeff_glob_right=0.0d0
-
-   ! arrays fro
    allocate(temperature_array_old(1:ncell))  ! contain temperature for solver
    allocate(temperature_array_new(1:ncell))  ! contain temperature for solver
    allocate(cv_array(1:ncell))           ! contain CV for solver

@@ -1,4 +1,3 @@
-
 subroutine read_fld_params(namelist_unit,nml_ok)
    use amr_commons, only:myid
    use fld_parameters
@@ -212,6 +211,5 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    endif
  
    998 format('igrp, numin, numax = ',i4,2(2x,es12.4))
- 
- 
+
 end subroutine read_fld_params
