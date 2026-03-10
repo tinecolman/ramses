@@ -6,9 +6,9 @@ subroutine rad_force_fine(ilevel)
    use fld_commons,    only:frad
    use mpi_mod
    implicit none
-   integer::ilevel
+   integer,intent(in)::ilevel
    !--------------------------------------------------------------------------
-   ! Calculate the radiative force
+   ! This routine calculates the radiative force
    !--------------------------------------------------------------------------
    integer::i,j,k,ivar,ind,iskip,nx_loc
    real(dp)::scale,d,u
@@ -20,26 +20,26 @@ subroutine rad_force_fine(ilevel)
    real(dp),dimension(1:nvector,1:ndim,1:ngrp),save::Erg,Erd
    real(dp),dimension(1:nvector,1:ndim)::dx_g,dx_d
    real(dp)::rosseland_ana
-   real(dp)::Tp_loc,Tr_loc,cal_Teg,eray_min_cu
+   real(dp)::d_loc,Tp_loc,cal_Teg,eray_min_cu
 
    integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2,igroup
    integer  ,dimension(1:3,1:2,1:8)::iii,jjj
    real(dp)::dx_loc,usquare,emag,erad_loc,ekin,eps
    real(dp)::kappa_R,gradEr_norm,gradEr_norm2,R,lambda,lambda_fld,chi
    real(dp) ,dimension(1:ndim,1:ngrp)::gradEr
-
    real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
-   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
-   eray_min_cu = eray_min/(scale_d*scale_v**2)
 
    if(numbtot(1,ilevel)==0)return
    if(verbose)write(*,111)ilevel
 
+   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+   scale_kappa=1d0/scale_l
+   eray_min_cu = eray_min/(scale_d*scale_v**2)
+
    dx=0.5d0**ilevel
    nx_loc=icoarse_max-icoarse_min+1
    scale=boxlen/dble(nx_loc)
-   dx_loc=dx*scale
+   dx_loc=dx*scale ! Warning: scale factor already done in dx
 
    iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
    iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
@@ -121,8 +121,9 @@ subroutine rad_force_fine(ilevel)
                   gradEr(j,igroup) = (Erd(i,j,igroup)-Erg(i,j,igroup))/(dx_g(i,j)+dx_d(i,j))
                enddo
             enddo
-           
+
             d = uold(ind_cell(i),1)
+            d_loc = uold(ind_cell(i),1)*scale_d
 
             ! Compute internal energy from total energy
             call compute_internal_energy(uold(ind_cell(i),1:nvar_all),eps)
@@ -133,7 +134,7 @@ subroutine rad_force_fine(ilevel)
             ! Compute radiative pressure in all groups
             frad(ind_cell(i),1:ndim)=0.0d0
             do igroup=1,ngrp
-               kappa_R = rosseland_ana(d*scale_d,Tp_loc,igroup)/scale_kappa
+               kappa_R = rosseland_ana(d_loc,Tp_loc,igroup)/scale_kappa
                gradEr_norm2 = (sum(gradEr(1:ndim,igroup)**2))
                gradEr_norm  = (gradEr_norm2)**0.5
                R =   max(1.d-10,gradEr_norm/(max(uold(ind_cell(i),nhydro+igroup),eray_min_cu)*kappa_R))
@@ -152,24 +153,3 @@ subroutine rad_force_fine(ilevel)
 111 format('   Entering rad_force_fine for level ',i2)
 
 end subroutine rad_force_fine
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-function lambda_fld(R)
-  use fld_parameters
-  use const
-  implicit none
-  real(dp)::R,lambda_fld
-
-  lambda_fld = one/three
-  if(i_fld_limiter==i_fld_limiter_levermore) lambda_fld =(2.0d0+r)/(6.0d0+2.0d0*R+R**2)! (one/tanh(R)-one/R) / R
-  if(i_fld_limiter==i_fld_limiter_minerbo) then 
-     if(R .le. three/two) then
-        lambda_fld = two/(three+sqrt(9d0+12.0_dp*R*R))
-     else
-        lambda_fld = one/(one + R + sqrt(one+two*R))
-     end if
-  end if
-  return 
-end function lambda_fld
