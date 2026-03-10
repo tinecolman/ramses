@@ -17,7 +17,7 @@ subroutine read_hydro_params(nml_ok)
   integer ,dimension(1:MAXBOUND)::bound_type
   real(dp)::e_bound
   logical :: dummy
-#if NENER>0
+#if NENER>0 || USE_FLD==1
   integer::irad
 #endif
 
@@ -43,7 +43,7 @@ subroutine read_hydro_params(nml_ok)
 #if NVAR>NHYDRO+NENER
        & ,var_region &
 #endif
-#if NENER>0
+#if NENER>0 || USE_FLD==1
        & ,prad_region,Erad_region &
 #endif
        & ,omega_b
@@ -51,7 +51,7 @@ subroutine read_hydro_params(nml_ok)
   ! Hydro parameters
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
        & ,niter_riemann,slope_type,difmag &
-#if NENER>0
+#if NENER>0 || USE_FLD==1
        & ,gamma_rad &
 #endif
 #ifdef SOLVERmhd
@@ -71,7 +71,7 @@ subroutine read_hydro_params(nml_ok)
        & ,err_grad_A,err_grad_B,err_grad_C,err_grad_B2 &
        & ,floor_A,floor_B,floor_C,floor_B2,interpol_mag_type &
 #endif
-#if NENER>0
+#if NENER>0 || USE_FLD==1
        & ,err_grad_prad,err_grad_Erad &
        & ,floor_prad,floor_Erad &
 #endif
@@ -81,7 +81,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/boundary_params/nboundary,bound_type &
        & ,ibound_min,ibound_max,jbound_min,jbound_max &
        & ,kbound_min,kbound_max &
-#if NENER>0
+#if NENER>0 || USE_FLD==1
        & ,prad_bound,Erad_bound &
 #endif
 #ifdef SOLVERmhd

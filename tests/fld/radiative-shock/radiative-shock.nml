@@ -33,6 +33,7 @@ p_region=2.309d-3
 noutput=2
 foutput=1000
 tout=0.0,3.0d-1
+io_nener_energies=.true.
 /
 
 &HYDRO_PARAMS
@@ -46,7 +47,7 @@ pressure_fix=.true.
 
 &REFINE_PARAMS
 err_grad_d=0.2
-err_grad_e=0.2
+err_grad_Erad=0.2
 interpol_var=0
 interpol_type=1
 /
