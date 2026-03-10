@@ -88,62 +88,6 @@ end function deriv_radiation_source
 !###########################################################
 !###########################################################
 
-!  Subroutine TABULATE_ART4
-!
-!> Tabulates the artheta4 function to find group interface
-!! values for Eray in the comoving frame matter/radiation
-!! coupling terms.
-!<
-subroutine tabulate_art4
-
-  use amr_parameters,   only: dp
-  use hydro_parameters, only: ngrp
-  use fld_parameters,   only: Ninv_art4,inverse_art4_T,inverse_art4_E,dEr_inv_art4
-  implicit none
-
-  integer  :: i,igrp,j
-  real(dp) :: T,T1,T2,artheta4,cal_Teg_slow,dTinv_art4
-
-  allocate(inverse_art4_T(ngrp+1,Ninv_art4),inverse_art4_E(2,ngrp,Ninv_art4),dEr_inv_art4(ngrp))
-
-  T1 = log10(1.0_dp) ; T2 = log10(1.0e+07_dp)
-
-  dTinv_art4 = (T2 - T1)/real(Ninv_art4-1,dp)
-
-  ! First pass: log-regular in temperature
-  do i = 1,Ninv_art4
-     T = real(i-1,dp)*dTinv_art4 + T1
-     do igrp = 1,ngrp
-        inverse_art4_T(igrp,i) = log10(artheta4(10.0_dp**(T),igrp))
-     enddo
-     inverse_art4_T(ngrp+1,i) = T
-  enddo
-
-  ! Second pass: re-sample curves with regular dEr
-  do igrp = 1,ngrp
-     dEr_inv_art4(igrp) = (inverse_art4_T(igrp,Ninv_art4) - inverse_art4_T(igrp,1))/real(Ninv_art4-1,dp)
-     do i = 1,Ninv_art4
-        inverse_art4_E(1,igrp,i) = real(i-1,dp)*dEr_inv_art4(igrp)+inverse_art4_T(igrp,1)
-     enddo
-  enddo
-  ! Warning: do NOT merge this loop with the previous one (does not work with ifort -O3)
-  do igrp=1,ngrp
-     do i = 1,Ninv_art4
-        inverse_art4_E(2,igrp,i) = cal_Teg_slow(inverse_art4_E(1,igrp,i),igrp)
-     enddo
-  enddo
-
-  !deallocate(inverse_art4_T)
-
-  return
-
-end subroutine tabulate_art4
-
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-
 !  Function ARTHETA4
 !
 !> Computes the energy of a Planck black body distribution
@@ -175,7 +119,39 @@ function artheta4(Tray,igrp)
   return
 
 end function artheta4
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
 
+!  Function XI
+!
+!> Used by artheta4() to compute the energy of a Planckian
+!! distribution between two frequencies.
+!<
+function xi(nu)
+  use amr_parameters, only:dp
+  use coeff_xi
+  use const
+  implicit none
+
+  real(dp),intent(in) :: nu
+  real(dp)            :: xi
+
+  if(nu >= limhigh)then
+     xi = c6
+  elseif(nu <= limlow)then
+     xi = 0d0
+  else
+     xi = exp(-c7*nu) * ( c0 + c1*nu + c2*(nu**2) + c3*(nu**3) + c4*(nu**4) + c5*(nu**5) ) + c6
+  endif
+
+  if(xi < zero)then
+     write(*,*)'negative xi!',xi,nu
+     read(*,*)
+  endif
+
+end function xi
 
 !###########################################################
 !###########################################################
@@ -260,67 +236,6 @@ end function deriv_xi
 !###########################################################
 !###########################################################
 
-!  Function XI
-!
-!> Used by artheta4() to compute the energy of a Planckian
-!! distribution between two frequencies.
-!<
-function xi(nu)
-  use amr_parameters, only:dp
-  use coeff_xi
-  use const
-  implicit none
-
-  real(dp),intent(in) :: nu
-  real(dp)            :: xi
-
-  if(nu >= limhigh)then
-     xi = c6
-  elseif(nu <= limlow)then
-     xi = 0d0
-  else
-     xi = exp(-c7*nu) * ( c0 + c1*nu + c2*(nu**2) + c3*(nu**3) + c4*(nu**4) + c5*(nu**5) ) + c6
-  endif
-
-  if(xi < zero)then
-     write(*,*)'negative xi!',xi,nu
-     read(*,*)
-  endif
-
-end function xi
-
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-
-!  Function BPLANCK
-!
-!> Computes the Planck Black Body distribution function.
-!<
-function BPlanck(nu,T)
-
-  use amr_parameters, only : dp
-  use coeff_xi      , only : limhigh
-  use constants, only:pi,hplanck,kB,c_cgs
-
-  implicit none
-
-  real(dp), intent(in) :: nu,T
-  real(dp)             :: BPlanck
-
-  if((hplanck*nu/(kb*T)) > limhigh)then
-     BPlanck = (8d0*pi*hplanck*nu**3)/c_cgs**3 * exp(-hplanck*nu/(kb*T))
-  else
-     BPlanck = (8d0*pi*hplanck*nu**3)/c_cgs**3 / ( exp(hplanck*nu/(kb*T)) - 1d0 )
-  endif
-
-end function BPlanck
-!###########################################################
-!###########################################################
-!###########################################################
-!###########################################################
-
 !  Function CAL_TEG
 !
 !> Computes the temperature of a black body which would
@@ -357,6 +272,7 @@ function cal_Teg(Eg,igrp)
   cal_Teg = 10.0_dp**(cal_Teg)
 
 end function cal_Teg
+
 !###########################################################
 !###########################################################
 !###########################################################
@@ -424,6 +340,90 @@ function cal_Teg_slow(Eg,igrp)
   !write(*,*) 'Teg_slow: i,cal_Teg_slow',i,cal_Teg_slow,Eg,inverse_art4_T(igrp,i)
 
 end function cal_Teg_slow
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
+!  Subroutine TABULATE_ART4
+!
+!> Tabulates the artheta4 function to find group interface
+!! values for Eray in the comoving frame matter/radiation
+!! coupling terms.
+!<
+subroutine tabulate_art4
+
+  use amr_parameters,   only: dp
+  use hydro_parameters, only: ngrp
+  use fld_parameters,   only: Ninv_art4,inverse_art4_T,inverse_art4_E,dEr_inv_art4
+  implicit none
+
+  integer  :: i,igrp,j
+  real(dp) :: T,T1,T2,artheta4,cal_Teg_slow,dTinv_art4
+
+  allocate(inverse_art4_T(ngrp+1,Ninv_art4),inverse_art4_E(2,ngrp,Ninv_art4),dEr_inv_art4(ngrp))
+
+  T1 = log10(1.0_dp) ; T2 = log10(1.0e+07_dp)
+
+  dTinv_art4 = (T2 - T1)/real(Ninv_art4-1,dp)
+
+  ! First pass: log-regular in temperature
+  do i = 1,Ninv_art4
+     T = real(i-1,dp)*dTinv_art4 + T1
+     do igrp = 1,ngrp
+        inverse_art4_T(igrp,i) = log10(artheta4(10.0_dp**(T),igrp))
+     enddo
+     inverse_art4_T(ngrp+1,i) = T
+  enddo
+
+  ! Second pass: re-sample curves with regular dEr
+  do igrp = 1,ngrp
+     dEr_inv_art4(igrp) = (inverse_art4_T(igrp,Ninv_art4) - inverse_art4_T(igrp,1))/real(Ninv_art4-1,dp)
+     do i = 1,Ninv_art4
+        inverse_art4_E(1,igrp,i) = real(i-1,dp)*dEr_inv_art4(igrp)+inverse_art4_T(igrp,1)
+     enddo
+  enddo
+  ! Warning: do NOT merge this loop with the previous one (does not work with ifort -O3)
+  do igrp=1,ngrp
+     do i = 1,Ninv_art4
+        inverse_art4_E(2,igrp,i) = cal_Teg_slow(inverse_art4_E(1,igrp,i),igrp)
+     enddo
+  enddo
+
+  !deallocate(inverse_art4_T)
+
+  return
+
+end subroutine tabulate_art4
+
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+
+!  Function BPLANCK
+!
+!> Computes the Planck Black Body distribution function.
+!<
+function BPlanck(nu,T)
+
+  use amr_parameters, only : dp
+  use coeff_xi      , only : limhigh
+  use constants, only:pi,hplanck,kB,c_cgs
+
+  implicit none
+
+  real(dp), intent(in) :: nu,T
+  real(dp)             :: BPlanck
+
+  if((hplanck*nu/(kb*T)) > limhigh)then
+     BPlanck = (8d0*pi*hplanck*nu**3)/c_cgs**3 * exp(-hplanck*nu/(kb*T))
+  else
+     BPlanck = (8d0*pi*hplanck*nu**3)/c_cgs**3 / ( exp(hplanck*nu/(kb*T)) - 1d0 )
+  endif
+
+end function BPlanck
 
 !###########################################################
 !###########################################################
