@@ -4,13 +4,14 @@ subroutine make_boundary_diffusion_tot(ilevel)
    use hydro_commons,    only:uold,unew
    use fld_parameters
    use fld_commons
+   use const
    implicit none
    integer,intent(IN)::ilevel
    ! -------------------------------------------------------------------
    ! This routine set up boundary conditions for fine levels.
    ! -------------------------------------------------------------------
    integer::ibound,boundary_dir,idim,inbor=1
-   integer::i,ncache,igroup,igrid,ngrid,ind
+   integer::i,ncache,irad,igrid,ngrid,ind
    integer::iskip,iskip_ref,nx_loc,ix,iy,iz
    integer,dimension(1:8)::ind_ref
    integer,dimension(1:nvector),save::ind_grid,ind_grid_ref
@@ -32,11 +33,11 @@ subroutine make_boundary_diffusion_tot(ilevel)
    scale_kappa=1d0/scale_l
 
    ! Mesh size at level ilevel
-   dx=0.5D0**ilevel
+   dx=half**ilevel
 
    ! Rescaling factors
    nx_loc=(icoarse_max-icoarse_min+1)
-   skip_loc=(/0.0d0,0.0d0,0.0d0/)
+   skip_loc=(/zero,zero,zero/)
    if(ndim>0)skip_loc(1)=dble(icoarse_min)
    if(ndim>1)skip_loc(2)=dble(jcoarse_min)
    if(ndim>2)skip_loc(3)=dble(kcoarse_min)
@@ -48,9 +49,9 @@ subroutine make_boundary_diffusion_tot(ilevel)
       iz=(ind-1)/4
       iy=(ind-1-4*iz)/2
       ix=(ind-1-2*iy-4*iz)
-      if(ndim>0)xc(ind,1)=(dble(ix)-0.5D0)*dx
-      if(ndim>1)xc(ind,2)=(dble(iy)-0.5D0)*dx
-      if(ndim>2)xc(ind,3)=(dble(iz)-0.5D0)*dx
+      if(ndim>0)xc(ind,1)=(dble(ix)-half)*dx
+      if(ndim>1)xc(ind,2)=(dble(iy)-half)*dx
+      if(ndim>2)xc(ind,3)=(dble(iz)-half)*dx
    end do
 
    ! Loop over boundaries
@@ -89,29 +90,25 @@ subroutine make_boundary_diffusion_tot(ilevel)
             ! Zero flux boundary conditions
             if((boundary_type(ibound)/10).ne.2)then
 
-               ! scatter reference variables to boundary region
+               ! Gather reference variables and  scatter to boundary region
                do i=1,ngrid
-                  if(son(ind_cell(i)) == 0)then !TC: why only for son? In boundary_potential this check isn't there
+                  if(son(ind_cell(i)) == 0)then
 
-                     do igroup=1,ngrp
-                        kappaR_bicg(ind_cell(i),igroup) = kappaR_bicg(ind_cell_ref(i),igroup)
+                     do irad=1,ngrp
+                        kappaR_bicg(ind_cell(i),irad) = kappaR_bicg(ind_cell_ref(i),irad)
                      enddo
 
-                     temperature_array_new(ind_cell(i)) = temperature_array_new(ind_cell_ref(i)) !TC: this is probably not up to date?
-                     temperature_array_old(ind_cell(i)) = temperature_array_old(ind_cell_ref(i)) !TC: this is probably not up to date?
-                     ! TC: why needed? Shouldn't this be handled by hydro boundary?
-                     do igroup=1,ngrp
-                        unew(ind_cell(i),nhydro+igroup) = unew(ind_cell_ref(i),nhydro+igroup)
-                        uold(ind_cell(i),nhydro+igroup) = uold(ind_cell_ref(i),nhydro+igroup)
+                     temperature_array_new(ind_cell(i)) = temperature_array_new(ind_cell_ref(i))
+                     temperature_array_old(ind_cell(i)) = temperature_array_old(ind_cell_ref(i))
+                     do irad=1,ngrp
+                        unew(ind_cell(i),nhydro+irad) = unew(ind_cell_ref(i),nhydro+irad)
+                        uold(ind_cell(i),nhydro+irad) = uold(ind_cell_ref(i),nhydro+irad)
                      enddo
 
-                     do igroup = 1,ngrp
-                        if(bicg_to_cg)then
-                           var_bicg(ind_cell(i),igroup, 2) = var_bicg(ind_cell_ref(i),igroup, 2)
-                        else
-                           var_bicg(ind_cell(i),igroup, 6) = var_bicg(ind_cell_ref(i),igroup, 6)
-                        endif
-                        var_bicg(ind_cell(i),igroup, 5) = var_bicg(ind_cell_ref(i),igroup, 5)
+                     do irad = 1,ngrp
+                        if(bicg_to_cg) var_bicg(ind_cell(i),irad, 2) = var_bicg(ind_cell_ref(i),irad, 2)
+                        var_bicg(ind_cell(i),irad, 5) = var_bicg(ind_cell_ref(i),irad, 5)
+                        if(.not.bicg_to_cg) var_bicg(ind_cell(i),irad, 6) = var_bicg(ind_cell_ref(i),irad, 6)
                      enddo
 
                   end if
@@ -143,26 +140,22 @@ subroutine make_boundary_diffusion_tot(ilevel)
 
                      ! Compute Rosseland opacity
                      dd=max(uu(i,1),smallr)
-                     do igroup=1,ngrp
-                        kappaR_bicg(ind_cell(i),igroup)= rosseland_ana(dd*scale_d,t2,igroup)/scale_kappa
-                        if( kappaR_bicg(ind_cell(i),igroup)*dx_loc .lt. min_optical_depth)  kappaR_bicg(ind_cell(i),igroup)=min_optical_depth/dx_loc
+                     do irad=1,ngrp
+                        kappaR_bicg(ind_cell(i),irad)= rosseland_ana(dd*scale_d,t2,irad)/scale_kappa
+                        if( kappaR_bicg(ind_cell(i),irad)*dx_loc .lt. min_optical_depth)  kappaR_bicg(ind_cell(i),irad)=min_optical_depth/dx_loc
                      enddo
 
                      temperature_array_old(ind_cell(i)) = t2 / Tr_floor
                      temperature_array_new(ind_cell(i)) = temperature_array_old(ind_cell(i))
-                     do igroup=1,ngrp
-                        uold(ind_cell(i),nhydro+igroup) = uu(i,nhydro+igroup) / P_cal
-                        unew(ind_cell(i),nhydro+igroup) = uold(ind_cell(i),nhydro+igroup)
+                     do irad=1,ngrp
+                        uold(ind_cell(i),nhydro+irad) = uu(i,nhydro+irad) / P_cal
+                        unew(ind_cell(i),nhydro+irad) = uold(ind_cell(i),nhydro+irad)
                      enddo
 
-                     ! TC: why set to 0?
-                     do igroup=1,ngrp
-                        if(bicg_to_cg)then
-                           var_bicg(ind_cell(i),igroup, 2) = 0
-                        else
-                           var_bicg(ind_cell(i),igroup, 6) = 0
-                        endif
-                        var_bicg(ind_cell(i),igroup, 5) = 0
+                     do irad=1,ngrp
+                        if(bicg_to_cg) var_bicg(ind_cell(i),irad, 2) = zero
+                        var_bicg(ind_cell(i),irad, 5) = zero
+                        if(.not.bicg_to_cg) var_bicg(ind_cell(i),irad, 6) = zero
                      enddo
 
                   end if
