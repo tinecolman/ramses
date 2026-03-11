@@ -11,6 +11,7 @@ module fld_parameters
    real(dp),parameter::Tray_min=0.5d0 ! Minimum temperature in the radiative energy
    real(dp),parameter::eray_min=(a_r)*Tray_min**4 ! minimum rad energy inside frequency group
    real(dp),parameter::deray_min=(4.0d0*a_r)*Tray_min**3 ! minimum rad energy derivative inside frequency group
+   real(dp)::eray_min_cu
    !real(dp):: small_er=1.0d-30       ! minimum rad energy inside frequency group in code units
 
    ! Tabulated black body radiative energy 

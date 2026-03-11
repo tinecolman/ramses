@@ -513,14 +513,6 @@ recursive subroutine amr_step(ilevel,icount)
 #ifdef FLD
   ! Radiation diffusion step
   if(fld)then
-     ! TC: why needed?
-     if(static_gas)then
-        call upload_fine(ilevel)
-        do ivar=1,nvar_all
-           call make_virtual_fine_dp(uold(1,ivar),ilevel)
-        end do
-        if(simple_boundary)call make_boundary_hydro(ilevel)
-     end if
                                call timer('fld - diffusion','start')
      call rad_diffusion_bicg(ilevel,icount)
   end if

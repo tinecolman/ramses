@@ -1292,7 +1292,7 @@ function lambda_fld(R)
   if(i_fld_limiter==i_fld_limiter_levermore) lambda_fld =(2.0d0+r)/(6.0d0+2.0d0*R+R**2)! (one/tanh(R)-one/R) / R
   if(i_fld_limiter==i_fld_limiter_minerbo) then 
      if(R .le. three/two) then
-        lambda_fld = two/(three+sqrt(9.0_dp+12.0_dp*R*R))
+        lambda_fld = two/(three+sqrt(nine+12.0_dp*R*R))
      else
         lambda_fld = one/(one + R + sqrt(one+two*R))
      end if

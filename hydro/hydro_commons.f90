@@ -20,6 +20,7 @@ module const
   real(dp)::three = 3
   real(dp)::four = 4
   real(dp)::eight = 8
+  real(dp)::nine = 9
   real(dp)::two3rd = 2/3d0
   real(dp)::half = 1/2d0
   real(dp)::third = 1/3d0

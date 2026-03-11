@@ -32,9 +32,6 @@ subroutine rad_force_fine(ilevel)
    if(numbtot(1,ilevel)==0)return
    if(verbose)write(*,111)ilevel
 
-   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   eray_min_cu = eray_min/(scale_d*scale_v**2)
-
    dx=0.5d0**ilevel
    nx_loc=icoarse_max-icoarse_min+1
    scale=boxlen/dble(nx_loc)
