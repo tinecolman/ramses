@@ -14,9 +14,9 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    ! The code uses group boundaries in Hz for calculations, nu_min_hz and nu_max_hz,
    ! which are set the end of this routine.
    ! Input options
-   !   If NGRP=1:
+   !   If FLD_NGRP=1:
    !     * single group with numin and numax read from namelist
-   !   If NGRP>1:
+   !   If FLD_NGRP>1:
    !     * reads a list of group boundaries from a file 'groups.dat'
    !     * splits the groups automatically between numin and numax, either 
    !       logarithmically or lineraly using the keyword 'split_groups_log'.
@@ -66,7 +66,7 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    endif
 
    if(grey_rad_transfer.and.(ngrp.gt.1))then
-      if(myid==1)write(*,*)'Error in FLD namelist: grey_rad_transfer while with NGRP>1'
+      if(myid==1)write(*,*)'Error in FLD namelist: grey_rad_transfer while with FLD_NGRP>1'
       nml_ok=.false.
    endif
 

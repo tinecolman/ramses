@@ -32,7 +32,7 @@ module fld_parameters
 
 
    ! Parameters for Bi-Conjugate Gradient method
-#if NGRP == 1
+#if FLD_NGRP == 1
    logical, parameter :: bicg_to_cg = .true.   ! When there is only 1 group, switch to CG
 #else
    logical, parameter :: bicg_to_cg = .false.

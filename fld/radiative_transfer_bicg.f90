@@ -682,7 +682,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
   integer :: supG,sub,supD
   real(dp)::dx,dx_loc,surf_loc,vol_loc,scale
 
-#if NGRP>1
+#if FLD_NGRP>1
   ! variables used by the LAPACK inversion routines
   integer, parameter                :: nwork = 256
   integer                           :: info2
@@ -839,7 +839,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
         ! Compute preconditionning matrix                                                               
         do i=1,ngrid
            if(son(ind_cell(i))==0)then
-#if NGRP>1
+#if FLD_NGRP>1
               if(block_diagonal_precond_bicg) then
                  inv = precond_bicg(ind_cell(i),1:ngrp,1:ngrp)
                  lda = ngrp ; lwork = nwork*ngrp
@@ -860,7 +860,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
                  do irad=1,ngrp
                     var_bicg(ind_cell(i),irad,4) = one/precond_bicg(ind_cell(i),irad,irad)
                  enddo
-#if NGRP>1
+#if FLD_NGRP>1
               endif
 #endif
            end if
