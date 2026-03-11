@@ -1,7 +1,7 @@
 subroutine read_fld_params(namelist_unit,nml_ok)
    use amr_commons, only:myid
    use fld_parameters
-   use constants,   only:hplanck,eV2erg,a_r
+   use constants,   only:hplanck,eV2erg,a_r,c_cgs
    implicit none
    integer,intent(in)::namelist_unit
    logical,intent(inout)::nml_ok
@@ -79,6 +79,7 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
    scale_E0 = a_r*(Tr_floor**4)
    P_cal = scale_E0 / (scale_d * scale_v**2)
+   C_cal = c_cgs / scale_v
 
    ! 
   if(bicg_to_cg)then

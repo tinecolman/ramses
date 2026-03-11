@@ -43,10 +43,10 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   real(dp)::r2,rhs_norm1,r3
   real(dp)::temp,density,planck_ana,rosseland_ana
   integer::i,ind,iter,iskip,itermax,icpu,igroup,igrp,irad,jrad,ivar
-  integer::this,nleaf_tot,icell
-  real(dp)::radiation_source,deriv_radiation_source,rhs,lhs,cmp_temp
+  integer::this,nleaf_tot
+  real(dp)::radiation_source,deriv_radiation_source,rhs,lhs
 
-  real(dp)::rho_bicg_new,rho_bicg_old,alpha_bicg,omega_bicg,beta_bicg,e_diff
+  real(dp)::rho_bicg_new,rho_bicg_old,alpha_bicg,omega_bicg,beta_bicg
 
   real(dp)::max_loc
 #ifndef WITHOUTMPI
@@ -57,10 +57,9 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   logical::exist_leaf_cell=.true.,debug_energy=.false.
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
    scale_kappa=1d0/scale_l
-   C_cal = c_cgs/scale_v
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
@@ -74,9 +73,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   scale=boxlen/dble(nx_loc)
   dx_loc=dx*scale
 
-  ! TC: gather leaf cells
+  ! Gather leaf cells
   allocate(liste_ind (1:twotondim*active(ilevel)%ngrid))
-
   nb_ind = 0
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
@@ -114,16 +112,13 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   do i=1,nb_ind
      this = liste_ind(i)
 
-     var_bicg(this,:,:)=0
-     if(block_diagonal_precond_bicg)then
-        precond_bicg(this,:,:)=0
-     endif
+     var_bicg(this,:,:)=zero
+     if(block_diagonal_precond_bicg) precond_bicg(this,:,:)=zero
 
      do irad=1,ngrp
-        unew(this,nhydro+irad)=0
+        unew(this,nhydro+irad)=zero
      enddo
-     temperature_array_new(this) = 0
-     kappaR_bicg(this,:)=0
+     kappaR_bicg(this,:)=zero
   end do
 
   !===================================================================
@@ -174,9 +169,10 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   call make_boundary_diffusion_tot(ilevel)
 
   !===========================================
-  ! Compute the matrix and vector coefficients (A and b in the A x = b equation)
+  ! Compute the matrix and vector coefficients
   !===========================================
-  call cmp_matrix_and_vector_coeff_fld(ilevel)  ! TC:
+
+  call cmp_matrix_and_vector_coeff_fld(ilevel)
 
   ! TC: from here we do not access uold or unew, but work with BICG arrays (I think)
 
@@ -235,9 +231,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   do irad=1,ngrp
      do i=1,nb_ind
         this = liste_ind(i)
-        if(.not.bicg_to_cg) then 
-         var_bicg(this,irad,2) = zero
-        endif
+        if(.not.bicg_to_cg) var_bicg(this,irad,2) = zero
         var_bicg(this,irad,3) = zero
      enddo
   enddo
@@ -526,7 +520,6 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
      do igrp=1,ngrp
         wdtB = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
         wdtE = C_cal*dt_imp*planck_ana(rho*scale_d,Told,igrp)/scale_kappa
-
         rhs=rhs-P_cal*wdtB*(radiation_source(Told,igrp)/scale_E0-Told*deriv_radiation_source(Told,igrp)/scale_E0) &
              & + P_cal*wdtE*unew(liste_ind(i),nhydro+igrp)
 
@@ -574,7 +567,7 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   end if
 
   ! Update boundaries
-  call make_virtual_fine_dp(temperature_array_old(1),ilevel)
+  !call make_virtual_fine_dp(temperature_array_old(1),ilevel)
   do irad=1,ngrp
      call make_virtual_fine_dp(uold(1,nhydro+irad),ilevel)
   enddo
@@ -679,10 +672,6 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
   integer,intent(in)::ilevel
   !------------------------------------------------
   ! This routine computes the matrix A and vector b (equation A x = b)
-  ! Here, for FLD:
-  !   A = 
-  ! TC: A and b being what?
-  ! TC: only for leaf cells?
   !------------------------------------------------
   integer :: igroup,irad
 
@@ -717,6 +706,8 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
   surf_loc = dx_loc**(ndim-1)
   vol_loc  = dx_loc**ndim
 
+  ! **************************** LOOP OVER CELLS ********************************** !
+
   ! Loop over myid grids by vector sweeps
   ncache = active(ilevel)%ngrid
   do igrid=1,ncache,nvector
@@ -745,7 +736,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
         end do
 
         ! Determine the two2ndim direct neighbor grids (-1,0,1)
-        ! Can't you use one of the nbor_utils?
+        ! TC: Can't you use one of the nbor_utils?
         do idim = 1,ndim
 
            if (modulo((ind-1)/2**(idim-1),2)==0)then
@@ -770,25 +761,31 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
               if(son(ind_cell(i)) == 0 )then ! leaf cells only
 
                  if(igridn(i,supG)>0)then
+
                     cell_left(i,idim) = igridn(i,supG)+ sub
                     if(son(cell_left(i,idim))>0)then ! Left nbor more refined than me
                        nbor_ilevel(i,2*idim-1) = 1
                     else                             ! Left nbor as refined as me
                        nbor_ilevel(i,2*idim-1) = 0
                     end if
+
                  else                                ! Left nbor less refined than me
+
                     nbor_ilevel(i,2*idim-1) = -1
                     cell_left(i,idim)    = big_left(i,idim)
                  end if
 
                  if(igridn(i,supD)>0)then
+
                     cell_right(i,idim) = igridn(i,supD)+ sub
                     if(son(cell_right(i,idim))>0)then ! Right nbor more refined than me
                        nbor_ilevel(i,2*idim) = 1
                     else                              ! Right nbor as refined as me
                        nbor_ilevel(i,2*idim) = 0
                     end if
+
                  else                                 ! Right nbor less refined than me
+
                     nbor_ilevel(i,2*idim) = -1
                     cell_right(i,idim) = big_right(i,idim)
                  end if
@@ -805,9 +802,7 @@ subroutine cmp_matrix_and_vector_coeff_fld(ilevel)
 
               do igroup=1,ngrp
                  do igrp=1,ngrp
-                    if(store_matrix) then
-                     mat_residual_glob(ind_cell(i),igroup,igrp) = mat_residual(igroup,igrp)
-                    endif
+                    if(store_matrix) mat_residual_glob(ind_cell(i),igroup,igrp) = mat_residual(igroup,igrp)
                     if(block_diagonal_precond_bicg.or.igroup==igrp) then
                        precond_bicg(ind_cell(i),igroup,igrp) = mat_residual(igroup,igrp)
                     endif
@@ -1298,7 +1293,7 @@ function lambda_fld(R)
   if(i_fld_limiter==i_fld_limiter_levermore) lambda_fld =(2.0d0+r)/(6.0d0+2.0d0*R+R**2)! (one/tanh(R)-one/R) / R
   if(i_fld_limiter==i_fld_limiter_minerbo) then 
      if(R .le. three/two) then
-        lambda_fld = two/(three+sqrt(9d0+12.0_dp*R*R))
+        lambda_fld = two/(three+sqrt(9.0_dp+12.0_dp*R*R))
      else
         lambda_fld = one/(one + R + sqrt(one+two*R))
      end if
@@ -1336,7 +1331,7 @@ subroutine cmp_energy(Etype)
      ! Compute total magnetic energy
      emag = zero
      do ivar=1,3
-        emag = emag + ((uold(this,neul+ivar)+uold(this,nvar+ivar))**2)/8d0
+        emag = emag + ((uold(this,neul+ivar)+uold(this,nvar+ivar))**2)/eight
      end do
 
      if(Etype==1)then ! -- Before solver --
@@ -1358,8 +1353,6 @@ subroutine cmp_energy(Etype)
         cv_array(this) = Cv
 
         ! Store the temperature at the place of the internal energy, to feed to solver
-        ! TODO: find solution if this variable is not allocated
-        !uold(this,nvar  ) = Tp_loc
         temperature_array_old(this) = Tp_loc
 
         ! normalize for better numerical behaviour of solver
@@ -1430,6 +1423,22 @@ function cmp_temp(icell)
    call internal_energy_to_temperature(rho,eps,cmp_temp)
 
 end function cmp_temp
+!################################################################
+!################################################################
+!################################################################ 
+!################################################################
+function nu_surf(Er1,Er2,dx)
+  use const
+  implicit none
+  real(dp),intent(in)::Er2,Er1,dx
+  real(dp)::nu_surf,nu_harmo,nu_ari
+
+  nu_ari=(Er2+Er1)*half
+  nu_harmo=max(Er2*Er1/nu_ari,four/(three*dx))
+  nu_surf = nu_ari
+  nu_surf=min(nu_harmo,nu_ari)
+
+end function nu_surf
 !###########################################################
 !###########################################################
 !###########################################################
@@ -1441,26 +1450,18 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
    use const
    use constants, only: eV2erg,c_cgs
    implicit none
-   integer,intent(in)::i            ! cell index
-   real(dp),intent(in)::vol_loc     ! cell volume
-   real(dp),dimension(ngrp,ngrp),intent(out)::mat_residual  ! ?
-   real(dp),dimension(ngrp),intent(out)::residual           ! ?
-   !-----------------------------
-   ! This routine builds the cell-local implicit radiation-gas coupling block by:
-   ! 1. Linearizing the Planck emission term
-   ! 2. Eliminating gas temperature from the system
-   ! 3. Producing a radiation-only system
-   ! It analytically removes the gas variable from the coupled system.
-   ! So the final matrix only solves for radiation energy groups.
-   !---------------------------
-   real(dp)::rho,Told_norm,Told,cv,lhs,rhs,rosseland_ana,planck_ana,radiation_source,deriv_radiation_source,cal_Teg,eps
+   integer,intent(in)::i
+   real(dp),intent(in)::vol_loc
+   real(dp),dimension(ngrp,ngrp),intent(out)::mat_residual
+   real(dp),dimension(ngrp),intent(out)::residual
+
+   real(dp)::rho,Told_norm,Told,cv,lhs,rhs,planck_ana,radiation_source,deriv_radiation_source,cal_Teg
    integer::igrp,igroup
    real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
 
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
    scale_kappa=1d0/scale_l
-   C_cal = c_cgs/scale_v
 
    ! Compute temperature in Kelvin
    rho       = uold(i,1)
@@ -1468,7 +1469,6 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
    Told      = Told_norm * Tr_floor
    Cv        = cv_array(i)
 
-   ! ?
    lhs=zero
    rhs=zero
    do igrp=1,ngrp
@@ -1506,24 +1506,15 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
   use fld_parameters
   use fld_commons
   use const
-  use constants, only:c_cgs
-  
   implicit none
   integer,intent(in)::i,idim,cell_left,cell_right
   integer,dimension(2*ndim),intent(in)::nbor_ilevel
   real(dp),intent(in)::dx_loc
   real(dp),dimension(ngrp,ngrp),intent(out)::coeff_left,coeff_right
-
-  real(dp)::rho,Told,cal_Teg,cmp_temp,rosseland_ana,lambda,lambda_fld,R,nu_surf,surf_loc
-  integer::igroup,irad
+  ! 
+  real(dp)::lambda,lambda_fld,R,nu_surf,surf_loc
+  integer::igroup
   real(dp),dimension(ngrp)::C_g,C_d,phi_g,phi_c,phi_d,nu_g,nu_c,nu_d
-
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa,C_cal
-   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
-   C_cal = c_cgs/scale_v
-
-  surf_loc = dx_loc**(ndim-1)
 
   ! TC: phi_g = radiative energy from nener group
   ! Gather main characteristics of left neighbour (fill C_g, phi_g, nu_g)
@@ -1532,8 +1523,9 @@ subroutine compute_coeff_left_right_in_cell(i,idim,cell_left,cell_right,nbor_ile
    call gather_neighbor_characteristics(cell_left,  nbor_ilevel(2*idim-1), C_g, phi_g, nu_g, dx_loc)
    call gather_neighbor_characteristics(cell_right, nbor_ilevel(2*idim),   C_d, phi_d, nu_d, dx_loc)
 
-  ! ...
+   surf_loc = dx_loc**(ndim-1)
 
+   !
   do igroup=1,ngrp
      nu_c (igroup) = kappaR_bicg(i,igroup)
      C_g(igroup) = C_g(igroup) * nu_surf(nu_g(igroup),nu_c(igroup),dx_loc)
@@ -1636,19 +1628,3 @@ subroutine gather_neighbor_characteristics(cell_nbor, nbor_lvl, C_nbor, phi_nbor
    end select
 
 end subroutine gather_neighbor_characteristics
-!################################################################
-!################################################################
-!################################################################ 
-!################################################################
-function nu_surf(Er1,Er2,dx)
-  use const
-  implicit none
-  real(dp),intent(in)::Er2,Er1,dx
-  real(dp)::nu_surf,nu_harmo,nu_ari
-
-  nu_ari=(Er2+Er1)*half
-  nu_harmo=max(Er2*Er1/nu_ari,four/(three*dx))
-  nu_surf = nu_ari
-  nu_surf=min(nu_harmo,nu_ari)
-
-end function nu_surf
