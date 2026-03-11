@@ -80,7 +80,7 @@ subroutine read_fld_params(namelist_unit,nml_ok)
    scale_E0 = a_r*(Tr_floor**4)
    P_cal = scale_E0 / (scale_d * scale_v**2)
    C_cal = c_cgs / scale_v
-
+   scale_kappa=1d0/scale_l
    ! 
   if(bicg_to_cg)then
      block_diagonal_precond_bicg=.false.

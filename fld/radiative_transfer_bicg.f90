@@ -57,9 +57,8 @@ subroutine rad_diffusion_bicg (ilevel,Nsub)
   logical::exist_leaf_cell=.true.,debug_energy=.false.
   integer::nx_loc
   real(dp)::scale,dx,dx_loc
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
 
   if(myid==1 .and. (mod(nstep,ncontrol)==0)) write(*,*) 'entering radiative transfer for level ',ilevel
 
@@ -1458,10 +1457,9 @@ subroutine compute_residual_in_cell(i,vol_loc,residual,mat_residual)
    real(dp)::rho,Told_norm,Told,cv,lhs,rhs,planck_ana,radiation_source,deriv_radiation_source,cal_Teg
    integer::igrp,igroup
    real(dp),dimension(ngrp)::wdtB,wdtE,source,deriv
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
 
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
 
    ! Compute temperature in Kelvin
    rho       = uold(i,1)
@@ -1576,9 +1574,8 @@ subroutine gather_neighbor_characteristics(cell_nbor, nbor_lvl, C_nbor, phi_nbor
    !-------------------
    real(dp)::rho,Told,Trold,cal_Teg,cmp_temp,rosseland_ana
    integer::igroup,irad
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
 
    select case (nbor_lvl)
 

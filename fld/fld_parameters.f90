@@ -40,7 +40,7 @@ module fld_parameters
 
    !
    real(dp)::Tr_floor=10.0 ! namelist, Background radiation field temperature - WARNING: it affects the pressure_fix in set_uold.
-   real(dp)::scale_E0,P_cal,C_cal
+   real(dp)::scale_E0,P_cal,C_cal,scale_kappa
    real(dp)::min_optical_depth=1.d-6        ! set the minimum optical depth in the cell (it may accelerate convergence in optically thin regions)
 
    logical::store_matrix=.true.

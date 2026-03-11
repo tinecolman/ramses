@@ -2,7 +2,7 @@ subroutine rad_force_fine(ilevel)
    use amr_commons
    use hydro_commons
    use constants,      only: c_cgs,kB,mH
-   use fld_parameters, only: eray_min
+   use fld_parameters, only: eray_min,scale_kappa
    use fld_commons,    only:frad
    use mpi_mod
    implicit none
@@ -27,13 +27,12 @@ subroutine rad_force_fine(ilevel)
    real(dp)::dx_loc,usquare,emag,erad_loc,ekin,eps
    real(dp)::kappa_R,gradEr_norm,gradEr_norm2,R,lambda,lambda_fld,chi
    real(dp) ,dimension(1:ndim,1:ngrp)::gradEr
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
 
    if(numbtot(1,ilevel)==0)return
    if(verbose)write(*,111)ilevel
 
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
    eray_min_cu = eray_min/(scale_d*scale_v**2)
 
    dx=0.5d0**ilevel

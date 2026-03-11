@@ -24,13 +24,12 @@ subroutine make_boundary_diffusion_tot(ilevel)
    real(dp),dimension(1:nvector,1:ndim),save::xx
    real(dp),dimension(1:nvector,1:nvar_all),save::uu
    real(dp)::dd,t2,eps
-   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l,scale_kappa
+   real(dp)::scale_nH,scale_T2,scale_t,scale_v,scale_d,scale_l
 
    If(.not. simple_boundary)return
    if(verbose)write(*,111)ilevel
 
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-   scale_kappa=1d0/scale_l
 
    ! Mesh size at level ilevel
    dx=half**ilevel
