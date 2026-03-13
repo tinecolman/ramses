@@ -77,7 +77,7 @@ def load_snapshot(nout):
     son   = np.zeros([info["ngridmax"],twotondim],dtype=np.int32)
     var   = np.zeros([info["ngridmax"],twotondim,nvar_read],dtype=np.float64)
     xyz   = np.zeros([info["ngridmax"],twotondim,info["ndim"]],dtype=np.float64)
-    ref   = np.zeros([info["ngridmax"],twotondim],dtype=np.bool)
+    ref   = np.zeros([info["ngridmax"],twotondim],dtype=bool)
 
     partinfofile = infile+"/header_"+infile.split("_")[-1]+".txt"
     info["particle_count"] = {}
@@ -562,7 +562,7 @@ def check_solution(data,test_name,tolerance=None,threshold=2.0e-14,norm_min=1.0e
             else:
                 error = abs(this_sol-this_ref)/min(abs(this_sol),abs(this_ref))
         else:
-            error = np.Inf
+            error = np.inf
 
         if error > tol:
             ok = False
