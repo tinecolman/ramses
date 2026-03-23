@@ -32,5 +32,11 @@ __pycache__
 *.tex
 *.pdf
 *.log
+tests/coverage*
+# test initial conditions
+tests/hydro/decaying-turbulence/ic
+tests/poisson/cosmo/cosmo_128
+tests/star/SNFB/cosmo_128
+tests/star/sfvirialtrue-sfmodel0/dwarf_galaxy
 # IDEs files
 .vscode
