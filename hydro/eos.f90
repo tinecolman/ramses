@@ -19,8 +19,8 @@ subroutine barotropic_eos_temperature(nH, temperature)
    CASE ('2nd_collapse')
       ! to convert n to rho: rho = nH/scale_nH*scale_d
       factor1 = sqrt(1 + (nH/polytrope_n(1))**(2*polytrope_index(1)))
-      factor2 = (1 + (nH/polytrope_n(2))**polytrope_index(2))
-      factor3 = (1 + (nH/polytrope_n(3))**polytrope_index(3))
+      factor2 = (1 + (nH/polytrope_n(2)))**polytrope_index(2)
+      factor3 = (1 + (nH/polytrope_n(3)))**polytrope_index(3)
       temperature = T2_eos * factor1 * factor2 * factor3
    CASE ('custom')
       ! WRITE YOUR FAVORITE EOS HERE
