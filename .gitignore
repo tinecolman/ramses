@@ -32,6 +32,7 @@ __pycache__
 *.tex
 *.pdf
 *.log
+tests/*/*/*parameter-study.csv
 tests/coverage*
 # test initial conditions
 tests/hydro/decaying-turbulence/ic
@@ -40,3 +41,10 @@ tests/star/SNFB/cosmo_128
 tests/star/sfvirialtrue-sfmodel0/dwarf_galaxy
 # IDEs files
 .vscode
+
+tests/poisson/jeans
+tests/rt/SPACE-stromgren2d
+tests/nimhd
+tests/mhd/2nd-collapse
+doc/hpc_docs
+tests/mhd/collapse-baro/collapse-baro\ copy.nml
