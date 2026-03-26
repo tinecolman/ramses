@@ -91,6 +91,7 @@ endif
 ifeq ($(OPENMP),1)
    DEFINES += -DOPENMP
 endif
+DEFINES += -DQUADHILBERT
 #############################################################################
 LIBS =
 # Compiler command for regular compilation (mpi or serial)
