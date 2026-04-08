@@ -56,7 +56,7 @@ ifeq ($(SOLVER),mhd)
 endif
 # current is treated as a passive scalar?
 ifeq ($(NIMHD),1)
-   NPSCAL := $(NPSCAL)+4
+   NPSCAL := $(NPSCAL)+1
    SOLVER=mhd
 endif
 NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
