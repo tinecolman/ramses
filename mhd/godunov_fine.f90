@@ -287,6 +287,7 @@ subroutine set_uold(ilevel)
            if(e_cons<e_trunc)then
               uold(ind_cell,neul)=e_prim+e_kin+e_mag
            end if
+           uold(ind_cell,nvar)=e_prim
         end do
      end if
   end do
