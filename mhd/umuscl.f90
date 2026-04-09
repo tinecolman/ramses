@@ -29,7 +29,7 @@
 !  This routine was written by Sebastien Fromang and Patrick Hennebelle
 !  then modified by Jacques Masson, Benoit Commercon and Neil Vaytet for non-ideal MHD
 ! ----------------------------------------------------------------
-subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
+subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid,jcell)
   use amr_parameters
   use const
   use hydro_parameters
@@ -54,6 +54,9 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
   REAL(dp),DIMENSION(1:nvector,1:3,1:3,1:3)::emfx
   REAL(dp),DIMENSION(1:nvector,1:3,1:3,1:3)::emfy
   REAL(dp),DIMENSION(1:nvector,1:3,1:3,1:3)::emfz
+
+  ! Output courant vector in the cell
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jcell
 
   ! Primitive variables
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),save::qin
@@ -89,6 +92,24 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
   integer::i,j,k,l,ivar
   integer::ilo,ihi,jlo,jhi,klo,khi
 
+#if NIMHD==1
+  bmagij=0.d0
+  emfambdiff=0.d0
+  fluxambdiff=0.d0
+  emfohmdiss=0.d0
+  fluxohm=0.d0
+  fluxmd=0.d0
+  fluxad=0.d0
+  
+  bemfx=0.d0
+  bemfy=0.d0
+  bemfz=0.d0
+  jemfx=0.d0
+  jemfy=0.d0
+  jemfz=0.d0
+  jcell=0.0d0
+#endif
+
   ilo=MIN(1,iu1+2); ihi=MAX(1,iu2-2)
   jlo=MIN(1,ju1+2); jhi=MAX(1,ju2-2)
   klo=MIN(1,ku1+2); khi=MAX(1,ku2-2)
@@ -103,7 +124,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
 #ifdef NIMHD
   if(use_nonideal_mhd) then
      ! compute necessary quantities
-     call computejb2(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad)
+     call computejb2(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad,jcell)
   endif
 
   ! AMBIPOLAR DIFFUSION

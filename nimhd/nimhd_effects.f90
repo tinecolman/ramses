@@ -151,7 +151,7 @@ subroutine compute_bmagij(u,q,ngrid,bmagij)
    ! declare local variables
    INTEGER ::i, j, k, l, m
 
-  bmagij=0d0
+   bmagij=0d0
 
    do k=ku1,ku2
       do j=ju1,ju2
@@ -293,7 +293,7 @@ end subroutine compute_bmagijbis
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad)
+subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad,jcell)
 
    USE amr_parameters
    use hydro_commons
@@ -311,6 +311,7 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemfx,jemfy,jemfz
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::bmagij
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::fluxmd,fluxad
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jcell
 
    ! declare local variables
    INTEGER ::i, j, k, l, m
@@ -319,6 +320,7 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bcenter
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::fluxbis,fluxter,fluxquat
    real(dp)::bsquare
+   real(dp)::computdx,computdy,computdz
    real(dp)::computdxbis,computdybis,computdzbis
 
    fluxmd=0d0
@@ -331,6 +333,7 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    jemfx=0d0
    jemfy=0d0
    jemfz=0d0
+   jcell=0d0
 
    ! magnetic field at center of cells
    do k=ku1,ku2
@@ -379,6 +382,17 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! computation of the component of j at center of cell
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   do k=min(1,ku1+1),max(1,ku2-1)
+      do j=min(1,ju1+1),max(1,ju2-1)
+         do i=min(1,iu1+1),max(1,iu2-1)
+            do l=1,ngrid
+              jcell(l,i,j,k,1)=computdy(bmagij,nzz,nyy,l,i,j,k,dy)-computdz(bmagij,nyy,nzz,l,i,j,k,dy)
+              jcell(l,i,j,k,2)=computdz(bmagij,nxx,nzz,l,i,j,k,dy)-computdx(bmagij,nzz,nxx,l,i,j,k,dy)
+              jcell(l,i,j,k,3)=computdx(bmagij,nyy,nxx,l,i,j,k,dy)-computdy(bmagij,nxx,nyy,l,i,j,k,dy)
+            end do
+         end do
+      end do
+   end do
 
 
    ! computation of current on faces
@@ -760,6 +774,46 @@ end subroutine computambip
 ! VECTOR FUNCTION
 
 !###########################################################
+double precision  function computdx(vec,n2,n3,l,i,j,k,dx)
+
+   use amr_parameters,only:dp,nvector
+   use hydro_parameters,only:iu1,iu2,ju1,ju2,ku1,ku2
+
+   implicit none 
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::vec
+   real(dp)::dx
+   integer::n2,n3,l,i,j,k
+
+   computdx=(vec(l,i+1,j,k,n2,n3)-vec(l,i,j,k,n2,n3)) / dx
+
+end function computdx
+
+double precision  function computdy(vec,n2,n3,l,i,j,k,dx)
+
+   use amr_parameters,only:dp,nvector
+   use hydro_parameters,only:iu1,iu2,ju1,ju2,ku1,ku2
+   implicit none 
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::vec
+   real(dp)::dx
+   integer::n2,n3,l,i,j,k
+
+   computdy=(vec(l,i,j+1,k,n2,n3)-vec(l,i,j,k,n2,n3)) / dx
+
+end function computdy
+
+double precision  function computdz(vec,n2,n3,l,i,j,k,dx)
+
+   use amr_parameters,only:dp,nvector
+   use hydro_parameters,only:iu1,iu2,ju1,ju2,ku1,ku2
+   implicit none 
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::vec
+   real(dp)::dx
+   integer::n2,n3,l,i,j,k
+
+   computdz=(vec(l,i,j,k+1,n2,n3)-vec(l,i,j,k,n2,n3)) / dx
+
+end function computdz
+
 double precision function computdxbis(vec,n2,l,i,j,k,dx)
 
    use amr_parameters,only:dp,nvector

@@ -986,6 +986,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),save::uloc
   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:ndim),save::gloc=0.0d0
+  real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),save::jcell=0.d0 
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:nvar,1:ndim),save::flux
   real(dp),dimension(1:nvector,1:3,1:3,1:3),save::emfx=0.0d0,emfy=0.0d0,emfz=0.0d0
   real(dp),dimension(1:nvector,if1:if2,jf1:jf2,kf1:kf2,1:2,1:ndim),save::tmp
@@ -1115,7 +1116,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   !-----------------------------------------------
   ! Compute flux using second-order Godunov method
   !-----------------------------------------------
-  call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache)
+  call mag_unsplit(uloc,gloc,flux,emfx,emfy,emfz,tmp,dx,dx,dx,dtnew(ilevel),ncache,jcell)
   !--------------------------------------
   ! Store the fluxes for later use
   !--------------------------------------
@@ -1362,6 +1363,36 @@ subroutine godfine1(ind_grid,ncache,ilevel)
      end do
      end do
   end do
+
+  !----------------------------------------------------------------
+  ! Warning, this has to be done in a separate loop !
+  ! If merged with the previous loop, unew(nvar-3) and unew(nvar-2)
+  ! are overwritten with fluxes (when idim=2,3)
+  !----------------------------------------------------------------
+
+  ! Compute jcenter even when running ideal MHD
+  ! to dump it in hydro output files
+  do idim=1,ndim
+     do k2=k2min,k2max
+     do j2=j2min,j2max
+     do i2=i2min,i2max
+        ind_son=1+i2+2*j2+4*k2
+        iskip=ncoarse+(ind_son-1)*ngridmax
+        do i=1,ncache
+           ind_cell(i)=iskip+ind_grid(i)
+        end do
+        i3=1+i2
+        j3=1+j2
+        k3=1+k2
+        
+        ! update jcenter
+        do i=1,ncache
+           unew(ind_cell(i),nvar-4+idim)=jcell(i,i3   ,j3   ,k3   ,idim)
+        end do
+     enddo
+     enddo
+     enddo
+  enddo
 
   !---------------------------------------------------------
   ! Conservative update at level ilevel for induction system
