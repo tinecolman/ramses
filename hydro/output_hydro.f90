@@ -202,31 +202,15 @@ subroutine backup_hydro(filename, filename_desc)
 
 #if USE_FLD==1
               ! Write internal energy
-              do i=1,ncache
-                 xdp(i)=uold(ind_grid(i)+iskip,nvar)
-              end do
+              !warning with nions. if RT, nvar is not equal to firstindex_pscal+ivar.
               field_name = 'internal_energy'
+              call gather_conservative_from_uold(ind_grid, iskip, nvar, xdp, ncache)
               call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               
               ! Write temperature
               do i=1,ncache
                  d=max(uold(ind_grid(i)+iskip,1),smallr)
-                 if(energy_fix) then
-                    e=uold(ind_grid(i)+iskip,nvar)
-                 else
-                    u=uold(ind_grid(i)+iskip,2)/d
-                    v=uold(ind_grid(i)+iskip,3)/d
-                    w=uold(ind_grid(i)+iskip,4)/d
-                    A=0.5*(uold(ind_grid(i)+iskip,6)+uold(ind_grid(i)+iskip,nvar+1))
-                    B=0.5*(uold(ind_grid(i)+iskip,7)+uold(ind_grid(i)+iskip,nvar+2))
-                    C=0.5*(uold(ind_grid(i)+iskip,8)+uold(ind_grid(i)+iskip,nvar+3))
-                    e=uold(ind_grid(i)+iskip,5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
-#if NENER>0
-                    do irad=1,nener
-                       e=e-uold(ind_grid(i)+iskip,8+irad)
-                    end do
-#endif
-                 endif
+                 e=uold(ind_grid(i)+iskip,nvar)
                  call temperature_eos(d,e,cmp_temp,ht)
                  xdp(i)=cmp_temp
               end do
