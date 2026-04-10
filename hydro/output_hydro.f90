@@ -146,6 +146,23 @@ subroutine backup_hydro(filename, filename_desc)
               end do
 #endif
 
+#if USE_FLD==1 && NGRP>0
+              ! Write FLD radiative energies, if any
+              do ivar=1,ngrp
+                 write(field_name, '("radiative_energy_", i0.2)') ivar
+                 call gather_conservative_from_uold(ind_grid, iskip, firstindex_er+ivar, xdp, ncache)
+                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+              end do
+!!$#if USE_M_1==1
+!!$              do ivar=1,nfr ! Write radiative flux if any
+!!$                 write(field_name, '("radiative_energy_", i0.2)') firstindex_er+3+ivar
+!!$                 call gather_conservative_from_uold(ind_grid, iskip, firstindex_fr+ivar, xdp, ncache)
+!!$                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
+!!$                 write(ilun)xdp
+!!$              end do
+!!$#endif
+#endif
+
               if(write_conservative) then
                  ! Write total energy as stored in uold
                  field_name = 'total_energy'
@@ -156,28 +173,6 @@ subroutine backup_hydro(filename, filename_desc)
                  call calc_thermal_pressure_from_total_energy(ind_grid, iskip, xdp, ncache)
               end if
               call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-
-#if USE_FLD==1
-#if NGRP>0
-              do ivar=1,ngrp ! Write radiative energy if any
-                 do i=1,ncache
-                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_er+ivar)
-                 end do
-                 write(field_name, '("radiative_energy_", i0.2)') ivar
-                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-              end do
-!!$#if USE_M_1==1
-!!$              do ivar=1,nfr ! Write radiative flux if any
-!!$                 do i=1,ncache
-!!$                    xdp(i)=uold(ind_grid(i)+iskip,firstindex_fr+ivar)
-!!$                 end do
-!!$                 write(field_name, '("radiative_energy_", i0.2)') firstindex_er+3+ivar
-!!$                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-!!$                 write(ilun)xdp
-!!$              end do
-!!$#endif
-#endif
-#endif
 
               ! Write passive scalars if any
 #if USE_FLD==0
