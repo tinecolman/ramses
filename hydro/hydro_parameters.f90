@@ -34,12 +34,15 @@ module hydro_parameters
 #endif
   integer,parameter::inener=nhydro+1
 
-#if USE_FLD==1
+
 #ifndef NGRP
   integer,parameter::ngrp=0   ! Number of radiative energy groups
 #else
   integer,parameter::ngrp=NGRP
 #endif
+  integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
+
+#if USE_FLD==1
 #if USE_M_1==0
   integer,parameter::nrad=ngrp          ! Number of pure radiative variables (= radiative energies)
   integer,parameter::nvar_bicg=nrad     ! Number of variables in BICG (= radiative variables)
@@ -56,7 +59,6 @@ module hydro_parameters
 #else
   integer,parameter::npscal=NPSCAL
 #endif
-  integer,parameter::nent=nener-ngrp      ! Number of non-thermal energies
 #if USE_M_1==0
   integer,parameter::nfr = 0              ! Number of radiative fluxes for M1
 #else

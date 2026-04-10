@@ -131,11 +131,10 @@ subroutine backup_hydro(filename, filename_desc)
               end do
 #endif
 
-              ! Write non-thermal pressures
-              ! (before thermal pressure because we need it to convert between total energy and pressure)
-#if USE_FLD==0
 #if NENER > 0
-              do ivar = nhydro+1, nhydro+nener
+              ! Write non-thermal pressures (but not FLD groups!)
+              ! (before thermal pressure because we need it to convert between total energy and pressure)
+              do ivar = nhydro+1, nhydro+nent
                  if(write_conservative)then
                     write(field_name, '("non_thermal_energy_", i0.2)') ivar-nhydro
                     call gather_conservative_from_uold(ind_grid, iskip, ivar, xdp, ncache)
@@ -146,28 +145,6 @@ subroutine backup_hydro(filename, filename_desc)
                  call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
               end do
 #endif
-#else
-#if NENER>NGRP
-              if(write_conservative) then
-                 do ivar=1,nent
-                    do i=1,ncache
-                       xdp(i)=uold(ind_grid(i)+iskip,8+ivar)
-                    end do
-                    write(field_name, '("non_thermal_energy_", i0.2)') ivar-nhydro
-                    call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-                 end do
-              else
-                 do ivar=1,nent
-                    do i = 1, ncache
-                       xdp(i) = (gamma_rad(ivar-nhydro)-1d0)*uold(ind_grid(i)+iskip, ivar)
-                    end do
-                    write(field_name, '("non_thermal_pressure_", i0.2)') ivar-nhydro
-                    call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-                 end do
-              endif
-#endif
-#endif
-
 
                  ! Write total energy as stored in uold
                  ! OR
