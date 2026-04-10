@@ -146,51 +146,18 @@ subroutine backup_hydro(filename, filename_desc)
               end do
 #endif
 
-                 ! Write total energy as stored in uold
-                 ! OR
-                 ! Write thermal pressure (after all other pressures or energies)
-#if USE_FLD==0
               if(write_conservative) then
                  ! Write total energy as stored in uold
                  field_name = 'total_energy'
                  call gather_conservative_from_uold(ind_grid, iskip, neul, xdp, ncache)
               else
-                 ! Write thermal pressure (after all other pressures or energies)
+                 ! Write thermal pressure (after all other pressures or energies, except FLD energies)
                  field_name = 'pressure'
                  call calc_thermal_pressure_from_total_energy(ind_grid, iskip, xdp, ncache)
               end if
               call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
 
-#else
-              !TODO adjust for non-MHD
-              if(write_conservative) then
-                 do i=1,ncache ! Write total energy
-                    xdp(i)=uold(ind_grid(i)+iskip,5)
-                 enddo
-                 field_name = 'total_energy'
-                 call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-              else
-              do i = 1, ncache ! Write thermal pressure
-                 d = max(uold(ind_grid(i)+iskip, 1), smallr)
-                 u = uold(ind_grid(i)+iskip, 2)/d
-                 v = uold(ind_grid(i)+iskip, 3)/d
-                 w = uold(ind_grid(i)+iskip, 4)/d
-                 A = 0.5*(uold(ind_grid(i)+iskip, 6)+uold(ind_grid(i)+iskip, nvar+1))
-                 B = 0.5*(uold(ind_grid(i)+iskip, 7)+uold(ind_grid(i)+iskip, nvar+2))
-                 C = 0.5*(uold(ind_grid(i)+iskip, 8)+uold(ind_grid(i)+iskip, nvar+3))
-                 e = uold(ind_grid(i)+iskip, 5)-0.5*d*(u**2+v**2+w**2)-0.5*(A**2+B**2+C**2)
-#if NENER > 0
-                 do irad = 1, nener
-                    e = e-uold(ind_grid(i)+iskip, 8+irad)
-                 end do
-#endif
-                 !xdp(i) = (gamma-1d0)*e
-                 call pressure_eos(d,e,p)
-                 xdp(i) = p
-              end do
-              field_name = 'pressure'
-              call generic_dump(field_name, info_var_count, xdp, unit_out, dump_info_flag, unit_info)
-              endif
+#if USE_FLD==1
 #if NGRP>0
               do ivar=1,ngrp ! Write radiative energy if any
                  do i=1,ncache
@@ -418,12 +385,15 @@ subroutine calc_thermal_pressure_from_total_energy(ind_grid, iskip, pressure, nc
    ! which is stored in uold(:,neul)
    !--------------------------------------------------------------------------------------
    integer::i
-   real(dp)::d,energy,pp
+   real(dp)::d,energy
 #if NENER > 0
    integer :: irad
 #endif
 #ifdef SOLVERmhd
    real(dp) :: A, B, C
+#endif
+#if USE_FLD==1
+   real(dp) :: p
 #endif
 
    do i = 1, ncache
@@ -453,12 +423,17 @@ subroutine calc_thermal_pressure_from_total_energy(ind_grid, iskip, pressure, nc
 #endif
 
       ! convert to pressure
+#if USE_FLD==1
       if(eos)then
-         call pressure_eos(d,energy,pp)
-         pressure(i)=pp         
+         ! calculate pressure from EOS
+         call pressure_eos(d,energy,p)
+         pressure(i) = p
       else
          pressure(i) = (gamma-1d0)*energy
       endif
+#else
+      pressure(i) = (gamma-1d0)*energy
+#endif
    end do
 
 end subroutine calc_thermal_pressure_from_total_energy
