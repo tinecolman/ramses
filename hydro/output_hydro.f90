@@ -22,7 +22,7 @@ subroutine backup_hydro(filename, filename_desc)
   character(LEN = 80) :: fileloc
   integer, parameter :: tag = 1121
   logical :: dump_info_flag
-  integer :: info_var_count
+  integer :: info_var_count, nvar_output
   character(len=100) :: field_name
 
 !#if USE_FLD==1
@@ -59,20 +59,17 @@ subroutine backup_hydro(filename, filename_desc)
      dump_info_flag = .false.
   end if
 
-  write(unit_out) ncpu
-#if USE_FLD==0
+  nvar_output = nvar_all
   if(strict_equilibrium>0)then
-     write(unit_out) nvar_all+2
-  else
-     write(unit_out) nvar_all
+     nvar_output=nvar_output+2
   endif
-#else
-  if(strict_equilibrium>0)then
-     write(unit_out) nvar_all+3
-  else
-     write(unit_out) nvar_all+1
-  endif
+#if USE_FLD==1
+     ! add temperature
+     nvar_output=nvar_output+1
 #endif
+
+  write(unit_out) ncpu
+  write(unit_out) nvar_output
   write(unit_out) ndim
   write(unit_out) nlevelmax
   write(unit_out) nboundary
@@ -168,7 +165,7 @@ subroutine backup_hydro(filename, filename_desc)
                  field_name = 'total_energy'
                  call gather_conservative_from_uold(ind_grid, iskip, neul, xdp, ncache)
               else
-                 ! Write thermal pressure (after all other pressures or energies, except FLD energies)
+                 ! Write thermal pressure (after all other pressures or energies)
                  field_name = 'pressure'
                  call calc_thermal_pressure_from_total_energy(ind_grid, iskip, xdp, ncache)
               end if
