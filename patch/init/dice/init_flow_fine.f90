@@ -91,6 +91,8 @@ subroutine init_flow_fine(ilevel)
 
   integer,parameter::tag=1107
 
+!$omp threadprivate(ind_grid,ind_cell,vv)
+
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
@@ -796,6 +798,8 @@ subroutine condinit_loc(ilevel)
   integer,dimension(1:nvector),save::ind_part,ind_grid_part
   real(dp),dimension(1:nvector,1:ndim),save::x0
 
+!$omp threadprivate(ind_grid,ind_cell,ind_part,ind_grid_part,x0)
+  
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
@@ -944,6 +948,9 @@ subroutine init_gas_cic(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
   real(dp),dimension(1:nvector),save::vol_loc
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
+!$omp threadprivate(nbors_father_cells,ok,xx,dd,dg,ig,id,igg,igd,icg,icd,vol)
+!$omp threadprivate(igrid,icell,indp,kg,ethermal,vol_loc)
+  
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -1175,6 +1182,8 @@ subroutine init_gas_ngp(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer ,dimension(1:nvector,1:ndim),save::id,igd,icd
   integer ,dimension(1:nvector),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
+
+!$omp threadprivate(x0,ind_cell,nbors_father_cells,ethermal,ok,vol_loc,x,id,igd,icd,igrid,icell,indp,kg)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel

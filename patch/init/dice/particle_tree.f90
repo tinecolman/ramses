@@ -10,13 +10,22 @@ subroutine init_tree
 #ifndef WITHOUTMPI
   integer::info
 #endif
-  !------------------------------------------------------
-  ! This subroutine build the particle linked list at the
-  ! coarse level for ALL the particles in the box.
-  ! This routine should be used only as initial set up for
-  ! the particle tree.
-  !------------------------------------------------------
-  integer::ipart,idim,i,nxny,ilevel
+  !-----------------------------------------------------------------------
+  ! This subroutine build the particle linked list at the coarse level for
+  ! ALL the particles in the box.
+  ! The particles are first placed in the level 1 grids and then they are
+  ! sorted according to their position down to levelmin. If needed, they
+  ! are communicated to the appropriate MPI domains. This routine should
+  ! be used only as initial set up for the particle tree.
+  !-----------------------------------------------------------------------
+  ! Common arrays updated
+  ! headp <= (modify) head pointer of particle linked list
+  ! tailp <= (modify) tail pointer of particle linked list
+  ! nextp <= (modify) next pointer of particle linked list
+  ! prevp <= (modify) previous pointer of particle linked list
+  ! numbp <= (modify) number of particles in each grid
+  !-----------------------------------------------------------------------
+integer::ipart,idim,i,nxny,ilevel
   integer::npart1,icpu,nx_loc
   logical::error
   real(dp),dimension(1:3)::xbound
@@ -25,6 +34,8 @@ subroutine init_tree
   logical,dimension(1:nvector),save::ok=.true.
   real(dp),dimension(1:3)::skip_loc
   real(dp)::scale
+
+!$omp threadprivate(ix,iy,iz,ind_grid,ind_part,ok)
 
   if(verbose)write(*,*)'  Entering init_tree'
 
@@ -185,6 +196,16 @@ subroutine make_tree_fine(ilevel)
   ! Particles must not move to a distance greater than direct neighbors
   ! boundaries. Otherwise an error message is issued and the code stops.
   !-----------------------------------------------------------------------
+  ! Input parameters
+  ! ilevel        => (input) current level
+  !
+  ! Common arrays updated
+  ! headp <= (modify) head pointer of particle linked list
+  ! tailp <= (modify) tail pointer of particle linked list
+  ! nextp <= (modify) next pointer of particle linked list
+  ! prevp <= (modify) previous pointer of particle linked list
+  ! numbp <= (modify) number of particles in each grid
+  !-----------------------------------------------------------------------
   integer::idim,nx_loc
   real(dp)::dx,scale
   real(dp),dimension(1:3)::xbound
@@ -192,6 +213,8 @@ subroutine make_tree_fine(ilevel)
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,icpu
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
+
+!$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -206,22 +229,70 @@ subroutine make_tree_fine(ilevel)
   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
   scale=boxlen/dble(nx_loc)
 
+  ! Store old linked lists for indexing in parallel
+#ifdef OPENMP
+!$omp parallel private(igrid,npart1,ipart,next_part)
+  do icpu=1,ncpu
+!$omp do schedule(dynamic,10)
+     do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+        end if
+        npart1=numbp(igrid) ! Number of particles in the grid
+        numbp_old(igrid)=npart1
+        if(npart1>0)then
+           headp_old(igrid)=headp(igrid)
+           ipart=headp(igrid)
+           do jpart=1,npart1
+              ! Save next particle  <--- Very important !!!
+              next_part=nextp(ipart)
+              nextp_old(ipart)=next_part
+              ipart=next_part  ! Go to next particle
+           end do
+        end if
+     end do
+!$omp end do nowait
+  end do
+!$omp end parallel
+#endif
+
   ! Loop over cpus
+!$omp parallel private(icpu,igrid,ig,ip,jgrid,npart1,ipart,jpart,next_part)
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
      ig=0
      ip=0
      ! Loop over grids
+!$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+        end if
+#ifdef OPENMP
+        npart1=numbp_old(igrid)  ! Number of particles in the grid
+#else
         npart1=numbp(igrid)  ! Number of particles in the grid
+#endif
         if(npart1>0)then
            ig=ig+1
            ind_grid(ig)=igrid
+#ifdef OPENMP
+           ipart=headp_old(igrid)
+#else
            ipart=headp(igrid)
+#endif
            ! Loop over particles
            do jpart=1,npart1
               ! Save next particle  <--- Very important !!!
+#ifdef OPENMP
+              next_part=nextp_old(ipart)
+#else
               next_part=nextp(ipart)
+#endif
               if(ig==0)then
                  ig=1
                  ind_grid(ig)=igrid
@@ -239,12 +310,13 @@ subroutine make_tree_fine(ilevel)
            end do
            ! End loop over particles
         end if
-        igrid=next(igrid)   ! Go to next grid
      end do
+!$omp end do nowait
      ! End loop over grids
      if(ip>0)call check_tree(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
   end do
   ! End loop over cpus
+!$omp end parallel
 
   ! Periodic boundaries
   if(sink)then
@@ -274,7 +346,25 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   !-----------------------------------------------------------------------
   ! This routine is called by make_tree_fine.
+  ! This routine checks if particles have moved from their parent grid and
+  ! if does, disconnects them from parent grid linked list and connects them
+  ! to the corresponding neighboring grid linked list.
   !-----------------------------------------------------------------------
+  ! Input parameters
+  ! ind_grid      => (input) list of parent grid indices, up to ng
+  ! ind_part      => (input) list of particle indices, up to np
+  ! ind_grid_part => (input) list of grid indices for each particle, up to np
+  ! ng            => (input) number of input grids
+  ! np            => (input) number of input particles
+  ! ilevel        => (input) current level
+  !
+  ! Common arrays updated
+  ! headp <= (modify) head pointer of particle linked list
+  ! tailp <= (modify) tail pointer of particle linked list
+  ! nextp <= (modify) next pointer of particle linked list
+  ! prevp <= (modify) previous pointer of particle linked list
+  ! numbp <= (modify) number of particles in each grid
+  !----------------------------------------------------------------------
   logical::error
   integer::i,j,idim,nx_loc
   real(dp)::dx,xxx,scale
@@ -288,6 +378,9 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer,dimension(1:nvector),save::list1,list2
   logical,dimension(1:nvector),save::ok
   real(dp),dimension(1:3)::skip_loc
+
+!$omp threadprivate(nbors_father_cells,x0,ind_father)
+!$omp threadprivate(ind_son,igrid_son,list1,list2,ok)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -390,14 +483,27 @@ subroutine kill_tree_fine(ilevel)
   integer::ilevel
   !------------------------------------------------------------------------
   ! This routine sorts particle between ilevel grids and their
-  ! ilevel+1 children grids. Particles are disconnected from their parent
-  ! grid linked list and connected to their corresponding child grid linked
-  ! list. If the  child grid does not exist, the particle is left to its
+  ! ilevel+1 children grids. Particles are detached from their parent
+  ! grid linked list and attached to their corresponding child grid linked
+  ! list. If the child grid does not exist, the particle is left to its
   ! original parent grid.
+  ! This routine resets all linked lists at level ilevel+1 before sorting.
+  !------------------------------------------------------------------------
+  ! Input parameters
+  ! ilevel        => (input) current level
+  !
+  ! Common arrays updated
+  ! headp <= (modify) head pointer of particle linked list
+  ! tailp <= (modify) tail pointer of particle linked list
+  ! nextp <= (modify) next pointer of particle linked list
+  ! prevp <= (modify) previous pointer of particle linked list
+  ! numbp <= (modify) number of particles in each grid
   !------------------------------------------------------------------------
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::i,ig,ip,npart1,icpu
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
+
+!$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 
   if(numbtot(1,ilevel)==0)return
   if(ilevel==nlevelmax)return
@@ -405,12 +511,16 @@ subroutine kill_tree_fine(ilevel)
   if(verbose)write(*,111)ilevel
 
   ! Reset all linked lists at level ilevel+1
+!$omp parallel private(i,icpu)
+!$omp do
   do i=1,active(ilevel+1)%ngrid
      headp(active(ilevel+1)%igrid(i))=0
      tailp(active(ilevel+1)%igrid(i))=0
      numbp(active(ilevel+1)%igrid(i))=0
   end do
+!$omp end do nowait
   do icpu=1,ncpu
+!$omp do
      do i=1,reception(icpu,ilevel+1)%ngrid
 #ifdef LIGHT_MPI_COMM
         headp(reception(icpu,ilevel+1)%pcomm%igrid(i))=0
@@ -422,17 +532,25 @@ subroutine kill_tree_fine(ilevel)
         numbp(reception(icpu,ilevel+1)%igrid(i))=0
 #endif
      end do
+!$omp end do nowait
   end do
+!$omp end parallel
 
   ! Sort particles between ilevel and ilevel+1
 
   ! Loop over cpus
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,ipart,jpart,next_part)
   do icpu=1,ncpu
-     igrid=headl(icpu,ilevel)
      ig=0
      ip=0
      ! Loop over grids
+!$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+        end if
         npart1=numbp(igrid)  ! Number of particles in the grid
         if(npart1>0)then
            ig=ig+1
@@ -458,11 +576,12 @@ subroutine kill_tree_fine(ilevel)
            end do
            ! End loop over particles
         end if
-        igrid=next(igrid)   ! Go to next grid
      end do
+!$omp end do nowait
      ! End loop over grids
      if(ip>0)call kill_tree(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
   end do
+!$omp end parallel
   ! End loop over cpus
 
 111 format('   Entering kill_tree_fine for level ',I2)
@@ -481,7 +600,28 @@ subroutine kill_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   !-----------------------------------------------------------------------
   ! This routine is called by subroutine kill_tree_fine.
+  ! This routine first finds the child grid each particle are located in
+  ! based on their position. It then detaches particles from their parent
+  ! grid linked list at ilevel and attaches them to their corresponding
+  ! child grid linked list at ilevel+1. If the child grid does not exist,
+  ! the particle linked list is left unchanged.
   !-----------------------------------------------------------------------
+  ! Input parameters
+  ! ind_grid      => (input) list of parent grid indices, up to ng
+  ! ind_part      => (input) list of particle indices, up to np
+  ! ind_grid_part => (input) list of grid indices for each particle, up to np
+  ! ng            => (input) number of input grids
+  ! np            => (input) number of input particles
+  ! ilevel        => (input) current level
+  !
+  ! Common arrays updated
+  ! headp <= (modify) head pointer of particle linked list
+  ! tailp <= (modify) tail pointer of particle linked list
+  ! nextp <= (modify) next pointer of particle linked list
+  ! prevp <= (modify) previous pointer of particle linked list
+  ! numbp <= (modify) number of particles in each grid
+  !----------------------------------------------------------------------
+
   integer::i,j,idim,nx_loc
   real(dp)::dx,xxx,scale
   ! Grid based arrays
@@ -491,6 +631,8 @@ subroutine kill_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer,dimension(1:nvector),save::list1,list2
   logical,dimension(1:nvector),save::ok
   real(dp),dimension(1:3)::skip_loc
+
+!$omp threadprivate(x0,igrid_son,ind_son,list1,list2,ok)
 
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
@@ -561,14 +703,28 @@ subroutine merge_tree_fine(ilevel)
   use amr_commons
   implicit none
   integer::ilevel
-  !--------------------------------------------------------------------
+  !----------------------------------------------------------------------
   ! This routine disconnects all particles contained in children grids
-  ! and connects them to their parent grid linked list.
-  !---------------------------------------------------------------
+  ! at level ilevel+1 and connects them to their parent grid linked list
+  ! at level ilevel.
+  !----------------------------------------------------------------------
+  ! Input parameters
+  ! ilevel        => (input) current level
+  !
+  ! Common arrays updated
+  ! headp <= (modify) head pointer of particle linked list
+  ! tailp <= (modify) tail pointer of particle linked list
+  ! nextp <= (modify) next pointer of particle linked list
+  ! prevp <= (modify) previous pointer of particle linked list
+  ! numbp <= (modify) number of particles in each grid
+  !----------------------------------------------------------------------
   integer::igrid,iskip,icpu
   integer::i,ind,ncache,ngrid
   integer,dimension(1:nvector),save::ind_grid,ind_cell,ind_grid_son
   logical,dimension(1:nvector),save::ok
+
+!$omp threadprivate(ind_grid,ind_cell,ind_grid_son,ok)
+! No OpenMP needed here, since it is cheap and needs a critical section.
 
   if(numbtot(1,ilevel)==0)return
   if(ilevel==nlevelmax)return
@@ -624,7 +780,6 @@ subroutine merge_tree_fine(ilevel)
                  tailp(ind_grid(i))=tailp(ind_grid_son(i))
                  numbp(ind_grid(i))=numbp(ind_grid_son(i))
               end if
-
            end if
            end if
            end do
@@ -634,7 +789,6 @@ subroutine merge_tree_fine(ilevel)
      ! End loop over grids
   end do
   ! End loop over cpus
-
 111 format('   Entering merge_tree_fine for level ',I2)
 
 end subroutine merge_tree_fine
@@ -650,7 +804,41 @@ subroutine virtual_tree_fine(ilevel)
   implicit none
   integer::ilevel
   !-----------------------------------------------------------------------
-  ! This subroutine move particles across processors boundaries.
+  ! This subroutine checks particles that are located in virtual boundaries
+  ! and moves them to corresponding processor domains. Particles are detached
+  ! from their grids and their informations are gathered in communication
+  ! buffers ('reception') and sent to the corresponding processors through
+  ! MPI communications. After transferring, particles are reconnected to
+  ! their new grids ('emission') linked lists on the receiving processors.
+  !-----------------------------------------------------------------------
+  ! Input parameters
+  ! ilevel        => (input) current level
+  !
+  ! Common arrays updated
+  ! active        <= (modify) active grid structures
+  ! reception     <= (modify) virtual boundary grid structures for sending
+  ! emission      <= (modify) receiving grid structures
+  ! emission_part <= (modify) receiving particle structures
+  ! itmpp         <= (modify) temporary integer array for particles
+  ! partp         <= (modify) parent grid indices for tracer particles
+  ! headp         <= (modify) head pointer of particle linked list
+  ! tailp         <= (modify) tail pointer of particle linked list
+  ! nextp         <= (modify) next pointer of particle linked list
+  ! prevp         <= (modify) previous pointer of particle linked list
+  ! numbp         <= (modify) number of particles in each grid
+  ! headp_free    <= (modify) head pointer of free particle linked list
+  ! tailp_free    <= (modify) tail pointer of free particle linked list
+  ! numbp_free    <= (modify) number of free particle spaces
+  ! xp            <= (modify) particle positions
+  ! vp            <= (modify) particle velocities
+  ! mp            <= (modify) particle masses
+  ! idp           <= (modify) particle ids
+  ! levelp        <= (modify) particle levels
+  ! tp            <= (modify) particle temperatures
+  ! zp            <= (modify) particle metallicities
+  ! up            <= (modify)
+  ! maskp         <= (modify)
+  ! typep         <= (modify) particle type array for storing families and tags
   !-----------------------------------------------------------------------
 #ifndef WITHOUTMPI
 #ifdef LIGHT_MPI_COMM
@@ -669,6 +857,8 @@ subroutine virtual_tree_fine(ilevel)
   ! MC tracer
   real(dp) :: dx, d2min, d2, x1(1:ndim), x2(1:ndim)
   integer :: ipart2, jpart2
+
+!$omp threadprivate(ind_part,ind_com,ind_list)
 #endif
 
   if(numbtot(1,ilevel)==0)return
@@ -758,6 +948,8 @@ subroutine virtual_tree_fine(ilevel)
   end if
 
   ! Gather particle in communication buffer
+!$omp parallel do private(icpu,ip,ipcom,igrid,npart1,ipart,jpart,next_part)
+! we put openmp on icpu loop to avoid issues with ipcom
   do icpu=1,ncpu
      if(reception(icpu,ilevel)%npart>0)then
      ! Gather particles by vector sweeps
@@ -984,6 +1176,8 @@ subroutine virtual_tree_fine(ilevel)
      ! Loop over particles by vector sweeps
      ncache=emission(icpu,ilevel)%npart
 #endif
+!$omp parallel do private(ipart,npart1,ip)
+! put the parallel do here to avoid issues with lighMPI
      do ipart=1,ncache,nvector
         npart1=min(nvector,ncache-ipart+1)
         do ip=1,npart1
@@ -1102,11 +1296,47 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
   use amr_commons
   use dice_commons
   implicit none
+  !-----------------------------------------------------------------------
+  ! This subroutine is called by virtual_tree_fine. It fills the communication
+  ! buffers with informations of particles located at virtual boundaries
+  ! ('reception'). It also removes particles from their parent grid linked
+  ! list and add them to the free particle list.
+  !-----------------------------------------------------------------------
+  ! Input parameters
+  ! ind_part      => (input) indices of particles to be sent
+  ! ind_com       => (input) indices within communication buffer
+  ! ind_list      => (input) indices of parent grids of particles
+  ! np            => (input) number of particles to be filled
+  ! ilevel        => (input) current level
+  ! icpu          => (input) current cpu id
+  !
+  ! Common arrays updated
+  ! reception     <= (modify) virtual boundary grid structures for sending
+  ! headp         <= (modify) head pointer of particle linked list
+  ! tailp         <= (modify) tail pointer of particle linked list
+  ! nextp         <= (modify) next pointer of particle linked list
+  ! prevp         <= (modify) previous pointer of particle linked list
+  ! numbp         <= (modify) number of particles in each grid
+  ! headp_free    <= (modify) head pointer of free particle linked list
+  ! tailp_free    <= (modify) tail pointer of free particle linked list
+  ! numbp_free    <= (modify) number of free particle spaces
+  ! npart         <= (modify) total number of particles
+  ! xp            <= (modify) particle positions
+  ! vp            <= (modify) particle velocities
+  ! mp            <= (modify) particle masses
+  ! idp           <= (modify) particle ids
+  ! levelp        <= (modify) particle levels
+  ! tp            <= (modify) particle temperatures
+  ! zp            <= (modify) particle metallicities
+  ! typep         <= (modify) particle families and tags
+  !-----------------------------------------------------------------------
   integer::np,ilevel,icpu
   integer,dimension(1:nvector)::ind_part,ind_com,ind_list
   integer::current_property
   integer::i,idim
   logical,dimension(1:nvector),save::ok=.true.
+
+!$omp threadprivate(ok)
 
   ! Gather particle level and identity
   do i=1,np
@@ -1232,6 +1462,44 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
   use amr_commons
   use dice_commons
   implicit none
+  !-----------------------------------------------------------------------
+  ! This subroutine is called by virtual_tree_fine. It transfers particle
+  ! informations in the communcation buffers to particle arrays. It also
+  ! attaches particles to their new parent grid linked list.
+  !-----------------------------------------------------------------------
+  ! Input parameters
+  ! ind_com       => (input) indices within communication buffer
+  ! np            => (input) number of particles in communication buffer
+  ! ilevel        => (input) current level
+  ! iactive       => (input) index within active cpu list for communication buffers
+  ! offset_np     => (input) offset in communication buffers
+  ! particle_data_width       => (input) size of double precision particle data being transferred, UNUSED
+  ! particle_data_width_int   => (input) size of integer particle data being transferred, UNUSED
+  !
+  ! Common arrays updated
+  ! emission      <= (modify) receiving grid structures
+  ! emission_part <= (modify) receiving grid structures
+  ! headp         <= (modify) head pointer of particle linked list
+  ! tailp         <= (modify) tail pointer of particle linked list
+  ! nextp         <= (modify) next pointer of particle linked list
+  ! prevp         <= (modify) previous pointer of particle linked list
+  ! numbp         <= (modify) number of particles in each grid
+  ! headp_free    <= (modify) head pointer of free particle linked list
+  ! tailp_free    <= (modify) tail pointer of free particle linked list
+  ! numbp_free    <= (modify) number of free particle spaces
+  ! npart         <= (modify) total number of particles
+  ! xp            <= (modify) particle positions
+  ! vp            <= (modify) particle velocities
+  ! mp            <= (modify) particle masses
+  ! idp           <= (modify) particle ids
+  ! levelp        <= (modify) particle levels
+  ! tp            <= (modify) particle temperatures
+  ! zp            <= (modify) particle metallicities
+  ! ptcl_phi      <= (modify) particle potentials
+  ! typep         <= (modify) particle families and tags
+  ! partp         <= (modify) parent grid for tracer particles
+  !-----------------------------------------------------------------------
+
   integer::np,ilevel
 #ifdef LIGHT_MPI_COMM
   integer::iactive,offset_np,offset_ig,found_cpu,particle_data_width,particle_data_width_int,j,nparts
@@ -1244,6 +1512,8 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
   integer,dimension(1:nvector),save::ind_list,ind_part
   logical,dimension(1:nvector),save::ok=.true.
   integer::current_property
+
+!$omp threadprivate(ind_list,ind_part,ok)
 
 #ifdef LIGHT_MPI_COMM
   offset_ig=0
