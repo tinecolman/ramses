@@ -420,28 +420,23 @@ subroutine multipole_from_current_level(ilevel)
 
 
   ! Initialize unew field to zero
-  do icpu=1,ncpu
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
+!$omp parallel do private(ind,iskip,icpu,idim,j)
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do icpu=1,ncpu
         do idim=1,ndim+1
            do j=1,reception(icpu,ilevel)%ngrid
               unew(reception(icpu,ilevel)%igrid(j)+iskip,idim)=0.0D0
            end do
         end do
      end do
-  end do
-  do ind=1,twotondim
-     iskip=ncoarse+(ind-1)*ngridmax
      do idim=1,ndim+1
         do j=1,active(ilevel)%ngrid
            unew(active(ilevel)%igrid(j)+iskip,idim)=0.0D0
         end do
      end do
-  end do
-  ! Reset unew in physical boundaries
-  do ibound=1,nboundary
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
+     ! Reset unew in physical boundaries
+     do ibound=1,nboundary
         do idim=1,ndim+1
            do j=1,boundary(ibound,ilevel)%ngrid
               unew(boundary(ibound,ilevel)%igrid(j)+iskip,idim)=0.0
@@ -451,12 +446,18 @@ subroutine multipole_from_current_level(ilevel)
   end do
 
   ! Loop over cpus
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part,idim,j)
   do icpu=1,ncpu
      ! Loop over grids
-     igrid=headl(icpu,ilevel)
      ig=0
      ip=0
+!$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+        end if
         npart1=numbp(igrid)  ! Number of particles in the grid
         npart2=0
 
@@ -510,8 +511,8 @@ subroutine multipole_from_current_level(ilevel)
            end do
            ! End loop over particles
         end if
-        igrid=next(igrid)   ! Go to next grid
      end do
+!$omp end do nowait
      ! End loop over grids
 
      if(ip>0)then
@@ -528,6 +529,7 @@ subroutine multipole_from_current_level(ilevel)
      end if
 
   end do
+!$omp end parallel
   ! End loop over cpus
 
   ! Update boundaries
@@ -1148,10 +1150,12 @@ subroutine ngp_amr_gas(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel)
 
   if(hydro)then
      do j=1,np
+!$omp atomic update
         unew(indp(j),1)=unew(indp(j),1)+mp(ind_part(j))
      end do
      do idim=1,ndim
         do j=1,np
+!$omp atomic update
            unew(indp(j),idim+1)=unew(indp(j),idim+1)+mp(ind_part(j))*xp(ind_part(j),idim)
         end do
      end do
