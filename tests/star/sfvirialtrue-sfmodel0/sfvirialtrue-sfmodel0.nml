@@ -139,9 +139,3 @@ ic_mag_scale_H=1.0            ! Toroidal magnetic field scaleheight
 ic_mag_scale_B=0.0            ! Foreground toroidal magnetic field value
 /
 
-! Feedback
-T2_min=0                    ! if feedback can heat the gas to this temperature then deposit it; here deposits at every fine step
-epsilon_kin=1.              ! momentum feedback efficiency
-kin_mass_loading=100.       ! mass loading factor of momentum feedback
-cone_opening=90.            ! opening angle of the cone in which momentum feedback is deposited (180. means full sphere)
-/
