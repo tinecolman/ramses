@@ -28,8 +28,8 @@ initfile(1)='./dwarf_galaxy/'
 boxlen=50                 ! 50 kpc
 levelmin=7                ! 50 kpc / 2^7  = 390 pc resolution
 levelmax=11               ! 50 kpc / 2^11 =  25 pc resolution
-ngridmax=200000
-npartmax=1000000
+ngridtot=400000
+nparttot=1000000
 /
 
 !&POISSON_PARAMS
