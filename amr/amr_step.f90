@@ -191,7 +191,7 @@ recursive subroutine amr_step(ilevel,icount)
      !----------------------------------------------------
      ! Kinetic feedback from giant molecular clouds
      !----------------------------------------------------
-                               call timer('feedback','start')
+                               call timer('feedback - kinetic','start')
      if(hydro.and.star.and.eta_sn>0.and.f_w>0)call kinetic_feedback
 
   endif
@@ -200,10 +200,11 @@ recursive subroutine amr_step(ilevel,icount)
   ! Feedback on sink particles
   !----------------------------------------------------
   if(stellar) then
+                               call timer('sinks - SN feedback','start')
      call make_stellar_from_sinks
-  endif
-  if (sn_feedback_sink) then
-     call make_sn_stellar
+     if (sn_feedback_sink) then
+        call make_sn_stellar
+     endif
   endif
 
   !--------------------
@@ -272,7 +273,7 @@ recursive subroutine amr_step(ilevel,icount)
         ! Add gravity source term with half time step and new force
         call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel),1)
 
-                               call timer('poisson - boundaries','start')
+                               call timer('poisson - ghostzones','start')
         ! Update boundaries
         do ivar=1,nvar_all
            call make_virtual_fine_dp(uold(1,ivar),ilevel)
@@ -290,10 +291,15 @@ recursive subroutine amr_step(ilevel,icount)
 #ifdef RT
   ! Turn on RT in case of rt_stars and first stars just created:
   ! Update photon packages according to star particles and sink particles
-                               call timer('rt - feedback','start')
-  if(rt .and. rt_star) call update_star_RT_feedback(ilevel)
+  if(rt .and. rt_star)then
+                               call timer('rt - star feedback','start')
+     call update_star_RT_feedback(ilevel)
+  endif
 #if NDIM==3
-  if(rt .and. rt_sink) call update_sink_RT_feedback
+  if(rt .and. rt_sink)then
+                               call timer('rt - sink feedback','start')
+     call update_sink_RT_feedback
+  endif
 #endif
 #endif
 
@@ -342,20 +348,28 @@ recursive subroutine amr_step(ilevel,icount)
         dtnew(ilevel+1)=dtnew(ilevel)/dble(nsubcycle(ilevel))
         call update_time(ilevel)
 #if NDIM==3
-        if(sink)call update_sink(ilevel)
+        if(sink) then 
+                               call timer('sinks','start')
+           call update_sink(ilevel)
+        endif
 #endif
      end if
   else
      call update_time(ilevel)
 #if NDIM==3
-     if(sink)call update_sink(ilevel)
+     if(sink) then 
+                               call timer('sinks','start')
+        call update_sink(ilevel)
+     endif
 #endif
   end if
 
   ! Thermal feedback from stars
 #if NDIM==3
-                               call timer('feedback','start')
-  if(hydro.and.star.and.eta_sn>0)call thermal_feedback(ilevel)
+  if(hydro.and.star.and.eta_sn>0)then
+                               call timer('feedback - thermal','start')
+     call thermal_feedback(ilevel)
+  endif
 #endif
 
   ! Density threshold or Bondi accretion onto sink particle
@@ -382,13 +396,14 @@ recursive subroutine amr_step(ilevel,icount)
      ! MC Tracer
      ! Communicate fluxes accross boundaries
      if(MC_tracer)then
-                                call timer('tracer','start')
+                                call timer('tracer - communication','start')
         do ivar=1,twondim
            call make_virtual_reverse_dp(fluxes(1,ivar),ilevel-1)
            call make_virtual_fine_dp(fluxes(1,ivar),ilevel-1)
         end do
      end if
 
+                               call timer('hydro - rev ghostzones','start')
      if(momentum_feedback>0)then
         call make_virtual_reverse_dp(pstarnew(1),ilevel)
      endif
@@ -406,6 +421,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Add non conservative pdV terms to unew
      ! for thermal and/or non-thermal energies
      if(pressure_fix.OR.nener>0)then
+                               call timer('hydro - pdv','start')
         call add_pdv_source_terms(ilevel)
      endif
 
@@ -422,8 +438,8 @@ recursive subroutine amr_step(ilevel,icount)
 
 #if USE_TURB==1
      ! Compute turbulent forcing
-                               call timer('turb','start')
      if (turb .AND. turb_type/=3) then
+                               call timer('turb','start')
         ! Euler step, adding turbulent acceleration
         call synchro_hydro_fine(ilevel,dtnew(ilevel),2)
      end if
@@ -446,7 +462,10 @@ recursive subroutine amr_step(ilevel,icount)
      ! Still need a chemistry call if RT is defined but not
      ! actually doing radiative transfer (i.e. rt==false):
                                call timer('cooling','start')
-     if(hydro .and. (neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos))call cooling_fine(ilevel)
+     if(hydro .and. (neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos))then
+                               call timer('cooling','start')
+        call cooling_fine(ilevel)
+     endif
   endif
   ! Regular updates and book-keeping:
   if(ilevel==levelmin) then
@@ -454,15 +473,13 @@ recursive subroutine amr_step(ilevel,icount)
      if(cosmo) call update_rt_c
      if(cosmo .and. haardt_madau) call update_UVrates(aexp)
      if(cosmo .and. rt_isDiffuseUVsrc) call update_UVsrc
-                               call timer('cooling','start')
      if(cosmo) call update_coolrates_tables(dble(aexp))
-                               call timer('rt - book-keeping','start')
      if(ilevel==levelmin) call output_rt_stats
   endif
 #else
+  if(hydro .and. (neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos))then
                                call timer('cooling','start')
-  if(hydro) then
-    if(neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos)call cooling_fine(ilevel)
+     call cooling_fine(ilevel)
   endif
 #endif
 
@@ -482,8 +499,10 @@ recursive subroutine amr_step(ilevel,icount)
   ! Star formation in leaf cells only
   !----------------------------------
 #if NDIM==3
-                               call timer('feedback','start')
-  if(hydro.and.star.and.(.not.static_gas))call star_formation(ilevel)
+  if(hydro.and.star.and.(.not.static_gas))then
+                               call timer('star formation','start')
+     call star_formation(ilevel)
+  endif
 #endif
   !---------------------------------------
   ! Update physical and virtual boundaries
@@ -512,14 +531,18 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------------------
   ! Compute refinement map
   !-----------------------
+  if(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap))then
                                call timer('flag','start')
-  if(.not.static.or.(nstep_coarse_old.eq.nstep_coarse.and.restart_remap)) call flag_fine(ilevel,icount)
+     call flag_fine(ilevel,icount)
+  endif
 
   !----------------------------
   ! Merge finer level particles
   !----------------------------
+  if(pic)then
                                call timer('particles - merge tree','start')
-  if(pic)call merge_tree_fine(ilevel)
+     call merge_tree_fine(ilevel)
+  endif
 
   !---------------
   ! Radiation step
@@ -615,13 +638,18 @@ subroutine rt_step(ilevel)
      ! If (myid==1) write(*,900) dt_hydro, dtnew(ilevel), i_substep, ilevel
      if (i_substep > 1) then
                  call timer('rt - set unew','start')
-      call rt_set_unew(ilevel)
+        call rt_set_unew(ilevel)
      endif
 
-                 call timer('rt - feedback','start')
-     if(rt_star) call star_RT_feedback(ilevel,dtnew(ilevel))
+     if(rt_star) then
+                 call timer('rt - star feedback','start')
+        call star_RT_feedback(ilevel,dtnew(ilevel))
+     endif
 #if NDIM==3
-     if(rt_sink) call sink_RT_feedback(ilevel,dtnew(ilevel))
+     if(rt_sink) then
+                 call timer('rt - sink feedback','start')
+        call sink_RT_feedback(ilevel,dtnew(ilevel))
+     endif
 #endif
 
      ! Hyperbolic solver
@@ -632,19 +660,22 @@ subroutine rt_step(ilevel)
                  call timer('rt - sources','start')
      call add_rt_sources(ilevel,dtnew(ilevel))
 
-     call timer('rt - ','start')
+                 call timer('rt - rev ghostzones ','start')
      ! Reverse update boundaries
      do ivar=1,nrtvar
         call make_virtual_reverse_dp(rtunew(1,ivar),ilevel)
      end do
 
      ! Set rtuold equal to rtunew
-     call timer('rt - set uold','start')
+                 call timer('rt - set uold','start')
      call rt_set_uold(ilevel)
 
-                               call timer('cooling','start')
-     if(neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos)call cooling_fine(ilevel)
-                               call timer('rt - rev ghostzones','start')
+     if(neq_chem.or.cooling.or.T2_star>0.0.or.barotropic_eos) then
+                 call timer('cooling','start')
+        call cooling_fine(ilevel)
+     endif
+
+                 call timer('rt - ghostzones','start')
      do ivar=1,nrtvar
         call make_virtual_fine_dp(rtuold(1,ivar),ilevel)
      end do
