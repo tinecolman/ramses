@@ -66,6 +66,8 @@ subroutine star_formation(ilevel)
   integer::irad
 #endif
 
+!$omp threadprivate(ind_grid,ind_cell,ind_cell2,nstar,ind_grid_new,ind_cell_new,ind_part,ind_debris,ok,ok_new)
+
   ! TODO: when f2008 is obligatory - remove this and replace erfc_pre_f08 below by
   ! the f2008 intrinsic erfc() function:
   real(dp) :: erfc_pre_f08
@@ -865,6 +867,7 @@ subroutine getnbor(ind_cell,ind_father,ncell,ilevel)
   integer,dimension(1:nvector,0:twondim),save::igridn,igridn_ok
   integer,dimension(1:nvector,1:twondim),save::icelln_ok
 
+!$omp threadprivate(ind_grid_father,pos,igridn,igridn_ok,icelln_ok)
 
   if(ilevel==1)then
      write(*,*) 'Warning: attempting to form stars on level 1 --> this is not allowed ...'
