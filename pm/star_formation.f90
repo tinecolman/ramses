@@ -117,9 +117,10 @@ subroutine star_formation(ilevel)
            endif
         enddo
         write(ilun,'(A5)',advance='no') 'tag  '
+        write(ilun,'(A4)',advance='no') 'tp  '
         write(ilun,'(A1)') ' '
      else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+        open(ilun, file=fileloc, status='old', position='append', action='write', form='formatted')
      endif
   endif
 
@@ -504,7 +505,7 @@ subroutine star_formation(ilevel)
                              sfr_ff(i) = 0
                              ok(i)     = .false.
                           endif
-                       ! Padoan 2012 "a simple SF law"
+                       ! Padoan 2012 "a simple SF law", a la Semenov
                        CASE (4)
                           ! Feedback efficiency
                           t_dyn     = dx_loc/(2*sqrt(sigma2+cs2))
@@ -768,6 +769,7 @@ subroutine star_formation(ilevel)
                  write(ilun,'(E24.12)',advance='no') uvar
               enddo
               write(ilun,'(I10)',advance='no') typep(ind_part(i))%tag
+              write(ilun,'(E24.12)',advance='no') tp(ind_part(i))
               write(ilun,'(A1)') ' '
            endif
 
