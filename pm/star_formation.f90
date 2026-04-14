@@ -60,7 +60,7 @@ subroutine star_formation(ilevel)
   character(LEN=5)::nchar,ncharcpu
   logical::file_exist
 #ifdef SOLVERmhd
-  real(dp)::bx1,bx2,by1,by2,bz1,bz2,A,B,C,emag,beta,fbeta
+  real(dp)::A,B,C,emag,beta,fbeta
 #endif
 #if NENER>0
   integer::irad
@@ -195,46 +195,7 @@ subroutine star_formation(ilevel)
      do i=1,ngrid
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,ngrid
-           ind_cell(i)=iskip+ind_grid(i)
-        end do
-        do i=1,ngrid
-           d=uold(ind_cell(i),1)
-           u=uold(ind_cell(i),2)/d
-           v=uold(ind_cell(i),3)/d
-           w=uold(ind_cell(i),4)/d
-           e=uold(ind_cell(i),5)
-#ifdef SOLVERmhd
-           bx1=uold(ind_cell(i),6)
-           by1=uold(ind_cell(i),7)
-           bz1=uold(ind_cell(i),8)
-           bx2=uold(ind_cell(i),nvar+1)
-           by2=uold(ind_cell(i),nvar+2)
-           bz2=uold(ind_cell(i),nvar+3)
-           e=e-0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
-#endif
-           e=e-0.5d0*d*(u**2+v**2+w**2)
-#if NENER>0
-           do irad=0,nener-1
-              e=e-uold(ind_cell(i),inener+irad)
-           end do
-#endif
-           uold(ind_cell(i),1)=d
-           uold(ind_cell(i),2)=u
-           uold(ind_cell(i),3)=v
-           uold(ind_cell(i),4)=w
-           uold(ind_cell(i),5)=e/d
-        end do
-        do ivar=imetal,nvar
-           do i=1,ngrid
-              d=uold(ind_cell(i),1)
-              w=uold(ind_cell(i),ivar)/d
-              uold(ind_cell(i),ivar)=w
-           end do
-        end do
-     end do
+     call uold_cons_to_prim_fine(ind_grid,ngrid)
   end do
 
 ! get values of uold for density and velocities in virtual boundaries
@@ -802,51 +763,143 @@ subroutine star_formation(ilevel)
      do i=1,ngrid
         ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
      end do
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,ngrid
-           ind_cell(i)=iskip+ind_grid(i)
-        end do
-        do i=1,ngrid
-           d=uold(ind_cell(i),1)
-           u=uold(ind_cell(i),2)
-           v=uold(ind_cell(i),3)
-           w=uold(ind_cell(i),4)
-           e=uold(ind_cell(i),5)*d
-#ifdef SOLVERmhd
-           bx1=uold(ind_cell(i),6)
-           by1=uold(ind_cell(i),7)
-           bz1=uold(ind_cell(i),8)
-           bx2=uold(ind_cell(i),nvar+1)
-           by2=uold(ind_cell(i),nvar+2)
-           bz2=uold(ind_cell(i),nvar+3)
-           e=e+0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
-#endif
-           e=e+0.5d0*d*(u**2+v**2+w**2)
-#if NENER>0
-           do irad=0,nener-1
-              e=e+uold(ind_cell(i),inener+irad)
-           end do
-#endif
-           uold(ind_cell(i),1)=d
-           uold(ind_cell(i),2)=d*u
-           uold(ind_cell(i),3)=d*v
-           uold(ind_cell(i),4)=d*w
-           uold(ind_cell(i),5)=e
-        end do
-        do ivar=imetal,nvar
-           do i=1,ngrid
-              d=uold(ind_cell(i),1)
-              w=uold(ind_cell(i),ivar)
-              uold(ind_cell(i),ivar)=d*w
-           end do
-        end do
-     end do
+     call uold_prim_to_cons_fine(ind_grid,ngrid)
   end do
 
   if(sf_log_properties) close(ilun)
 
 end subroutine star_formation
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+subroutine uold_cons_to_prim_fine(ind_grid,ngrid)
+  use amr_commons
+  use hydro_commons
+  implicit none
+  integer,intent(in)::ngrid
+  integer,dimension(1:nvector),intent(in)::ind_grid
+  !--------------------------------------------------------------------
+  ! Convert conservative hydro variables in uold to primitive variables
+  !--------------------------------------------------------------------
+  integer,dimension(1:nvector)::ind_cell
+  integer::ind,iskip,i,ivar
+  real(dp)::d,u,v,w,e
+#ifdef SOLVERmhd
+  real(dp)::bx1,bx2,by1,by2,bz1,bz2
+#endif
+#if NENER>0
+  integer::irad
+#endif
+
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,ngrid
+        ind_cell(i)=iskip+ind_grid(i)
+     end do
+     do i=1,ngrid
+        d=uold(ind_cell(i),1)
+        u=uold(ind_cell(i),2)/d
+        v=uold(ind_cell(i),3)/d
+        w=uold(ind_cell(i),4)/d
+        e=uold(ind_cell(i),5)
+#ifdef SOLVERmhd
+        bx1=uold(ind_cell(i),6)
+        by1=uold(ind_cell(i),7)
+        bz1=uold(ind_cell(i),8)
+        bx2=uold(ind_cell(i),nvar+1)
+        by2=uold(ind_cell(i),nvar+2)
+        bz2=uold(ind_cell(i),nvar+3)
+        e=e-0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
+#endif
+        e=e-0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+        do irad=0,nener-1
+           e=e-uold(ind_cell(i),inener+irad)
+        end do
+#endif
+        uold(ind_cell(i),1)=d
+        uold(ind_cell(i),2)=u
+        uold(ind_cell(i),3)=v
+        uold(ind_cell(i),4)=w
+        uold(ind_cell(i),5)=e/d
+     end do
+     do ivar=imetal,nvar
+        do i=1,ngrid
+           d=uold(ind_cell(i),1)
+           w=uold(ind_cell(i),ivar)/d
+           uold(ind_cell(i),ivar)=w
+        end do
+     end do
+  end do
+
+end subroutine uold_cons_to_prim_fine
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+subroutine uold_prim_to_cons_fine(ind_grid,ngrid)
+  use amr_commons
+  use hydro_commons
+  implicit none
+  integer,intent(in)::ngrid
+  integer,dimension(1:nvector),intent(in)::ind_grid
+  !---------------------------------------------------------------
+  ! Convert primitive variables currently stored in uold back to
+  ! conservative variables
+  !---------------------------------------------------------------
+  integer,dimension(1:nvector)::ind_cell
+  integer::ind,iskip,i,ivar
+  real(dp)::d,u,v,w,e
+#ifdef SOLVERmhd
+  real(dp)::bx1,bx2,by1,by2,bz1,bz2
+#endif
+#if NENER>0
+  integer::irad
+#endif
+
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,ngrid
+        ind_cell(i)=iskip+ind_grid(i)
+     end do
+     do i=1,ngrid
+        d=uold(ind_cell(i),1)
+        u=uold(ind_cell(i),2)
+        v=uold(ind_cell(i),3)
+        w=uold(ind_cell(i),4)
+        e=uold(ind_cell(i),5)*d
+#ifdef SOLVERmhd
+        bx1=uold(ind_cell(i),6)
+        by1=uold(ind_cell(i),7)
+        bz1=uold(ind_cell(i),8)
+        bx2=uold(ind_cell(i),nvar+1)
+        by2=uold(ind_cell(i),nvar+2)
+        bz2=uold(ind_cell(i),nvar+3)
+        e=e+0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
+#endif
+        e=e+0.5d0*d*(u**2+v**2+w**2)
+#if NENER>0
+        do irad=0,nener-1
+           e=e+uold(ind_cell(i),inener+irad)
+        end do
+#endif
+        uold(ind_cell(i),1)=d
+        uold(ind_cell(i),2)=d*u
+        uold(ind_cell(i),3)=d*v
+        uold(ind_cell(i),4)=d*w
+        uold(ind_cell(i),5)=e
+     end do
+     do ivar=imetal,nvar
+        do i=1,ngrid
+           d=uold(ind_cell(i),1)
+           w=uold(ind_cell(i),ivar)
+           uold(ind_cell(i),ivar)=d*w
+        end do
+     end do
+  end do
+
+end subroutine uold_prim_to_cons_fine
 #endif
 !################################################################
 !################################################################
