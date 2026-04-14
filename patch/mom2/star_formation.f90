@@ -289,7 +289,7 @@ subroutine star_formation(ilevel)
                        ! Multi-ff KM model
                        CASE (1)
                           ! Virial parameter
-                          alpha0    = (5.0*(sigma2+cs2))/(pi*factG*d*dx_loc**2)
+                          alpha0    = (5.0d0*(sigma2+cs2))/(pi*factG*d*dx_loc**2)
                           M2        = max(sigma2/cs2,1.0)
                           ! Turbulent forcing parameter (Federrath 2008 & 2010)
                           b_turb    = 0.4
@@ -319,17 +319,16 @@ subroutine star_formation(ilevel)
                           if(alpha0<1.0) then
                              sfr_ff(i) = eps_star
                           else
-                             sfr_ff(i) = 0.0
+                             sfr_ff(i) = 0
                              ok(i)     = .false.
                           endif
-
-                       ! Padoan 2012 a la Semenov
+                       ! Padoan 2012 "a simple SF law", a la Semenov
                        CASE (4)
                           ! Feedback efficiency
-                          t_dyn     = dx_loc/(2.0*sqrt(sigma2+cs2))
-                          t_ff      = 0.5427*sqrt(1.0/(factG*max(d,smallr)))
-                          sfr_ff(i) = eps_star*exp(-1.6*t_ff/t_dyn)
-
+                          t_dyn     = dx_loc/(2*sqrt(sigma2+cs2))
+                          t_ff      = 0.5427d0*sqrt(1/(factG*max(d,smallr)))
+                          sfr_ff(i) = eps_star*exp(-1.6d0*t_ff/t_dyn)
+                       ! Hopkins 2013
                        CASE (5)
                           ! Virial parameter
                           alpha0    = (15.0*(sigma2+cs2))/(pi*factG*d*dx_loc**2)
@@ -384,8 +383,14 @@ subroutine star_formation(ilevel)
               ! Poisson mean
               PoissMean=mgas/mstar
               if((trel>0.).and.(.not.cosmo)) PoissMean = PoissMean*min((t/trel), 1.0d0)
-              ! Compute Poisson realisation
-              call poissdev(localseed,PoissMean,nstar(i))
+              if(randomize_sf)then
+                 ! Compute Poisson realisation
+                 call poissdev(localseed,PoissMean,nstar(i))
+              else
+                 ! this is useful for the test suite only
+                 ! NB: SF testing is made easier by extreme boosting of SF as below:
+                 nstar(i)=PoissMeanMult*PoissMean
+              endif
               ! Compute depleted gas mass
               mgas=nstar(i)*mstar
               ! Security to prevent more than 90% of gas depletion
@@ -577,9 +582,9 @@ subroutine star_formation(ilevel)
               enddo
               write(ilun,'(E24.12)',advance='no') uold(ind_cell_new(i),1)
               do ivar=2,nvar
-                 if(ivar.eq.ndim+2)then
+                 if(ivar.eq.neul)then
                     ! Temperature
-                    uvar=(gamma-1.0d0)*(uold(ind_cell_new(i),ndim+2))*scale_T2
+                    uvar=(gamma-1.0d0)*(uold(ind_cell_new(i),neul))*scale_T2
                  else
                     uvar=uold(ind_cell_new(i),ivar)
                  endif
@@ -748,12 +753,12 @@ end subroutine getnbor
 !##############################################################
 !##############################################################
 !##############################################################
-function erfc(x)
+function erfc_pre_f08(x)
 
 ! complementary error function
   use amr_commons, ONLY: dp
   implicit none
-  real(dp) erfc
+  real(dp) erfc_pre_f08
   real(dp) x, y
   real(kind=8) pv, ph
   real(kind=8) q0, q1, q2, q3, q4, q5, q6, q7
@@ -771,9 +776,9 @@ function erfc(x)
   y = x*x
   y = exp(-y)*x*(p7/(y+q7)+p6/(y+q6) + p5/(y+q5)+p4/(y+q4)+p3/(y+q3) &
        &       + p2/(y+q2)+p1/(y+q1)+p0/(y+q0))
-  if (x < ph) y = y+2d0/(exp(pv*x)+1.0)
-  erfc = y
+  if (x < ph) y = y+2.0d0/(exp(pv*x)+1.0d0)
+  erfc_pre_f08 = y
 
   return
 
-end function erfc
+end function erfc_pre_f08
