@@ -25,13 +25,13 @@ subroutine star_formation(ilevel)
   ! Yann Rasera  10/2002-01/2003
   !----------------------------------------------------------------------
   ! local constants
-  real(dp)::d0,mgas,mcell
+  real(dp)::d0
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp),dimension(1:twotondim,1:3)::xc
   ! other variables
   integer ::ncache,nnew,ivar,ngrid,icpu,index_star,ndebris_tot,ilun=10
   integer ::igrid,ix,iy,iz,ind,i,n,iskip,nx_loc,idim
-  integer ::ntot,ntot_all,nstar_corrected,ncell
+  integer ::ntot,ntot_all,ncell
   logical ::ok_free
   real(dp)::d,x,y,z,u,v,w,e,tg,zg
   real(dp)::mstar,dstar,tstar,nISM,nCOM,phi_t,phi_x,theta,sigs,scrit,b_turb,zeta
@@ -44,13 +44,12 @@ subroutine star_formation(ilevel)
 #ifndef WITHOUTMPI
   real(kind=8)::mlost,mtot
 #endif
-  real(kind=8)::PoissMean
   real(dp),dimension(1:3)::skip_loc
   real(dp)::dx,dx_loc,scale,vol_loc,dx_min,vol_min,d1,d2,d3,d4,d5,d6
   real(dp)::mdebris
   real(dp),dimension(1:nvector)::sfr_ff
   integer ,dimension(1:ncpu,1:IRandNumSize)::allseed
-  integer ,dimension(1:nvector),save::ind_grid,ind_cell,ind_cell2,nstar
+  integer ,dimension(1:nvector),save::ind_grid,ind_cell,ind_cell2
   integer ,dimension(1:nvector),save::ind_grid_new,ind_cell_new,ind_part
   integer ,dimension(1:nvector),save::ind_debris
   integer ,dimension(1:nvector,0:twondim)::ind_nbor
@@ -508,48 +507,7 @@ subroutine star_formation(ilevel)
            end do
         endif
         ! Calculate number of new stars in each cell using Poisson statistics
-        do i=1,ngrid
-           nstar(i)=0
-           if(ok(i))then
-              ! Compute mean number of events
-              d=uold(ind_cell(i),1)
-              mcell=d*vol_loc
-              ! Free fall time of an homogeneous sphere
-              tstar= .5427d0*sqrt(1.0d0/(factG*max(d,smallr)))
-              if(.not.sf_virial) sfr_ff(i) = eps_star
-              ! Gas mass to be converted into stars
-              mgas=dtnew(ilevel)*(sfr_ff(i)/tstar)*mcell
-              ! Poisson mean
-              PoissMean=mgas/mstar
-              if((trel>0.).and.(.not.cosmo)) PoissMean = PoissMean*min((t/trel), 1.0d0)
-              if(randomize_sf)then
-                 ! Compute Poisson realisation
-                 call poissdev(localseed,PoissMean,nstar(i))
-              else
-                 ! this is useful for the test suite only
-                 ! NB: SF testing is made easier by extreme boosting of SF as below:
-                 nstar(i)=PoissMeanMult*PoissMean
-              endif
-              ! Compute depleted gas mass
-              mgas=nstar(i)*mstar
-              ! Security to prevent more than 90% of gas depletion
-              if (mgas > 0.9d0*mcell) then
-                 nstar_corrected=int(0.9d0*mcell/mstar)
-                 mstar_lost=mstar_lost+(nstar(i)-nstar_corrected)*mstar
-                 nstar(i)=nstar_corrected
-              endif
-              ! Compute new stars local statistics
-              mstar_tot=mstar_tot+nstar(i)*mstar
-              if(nstar(i)>0)then
-                 ntot=ntot+1
-                 if(f_w>0)ndebris_tot=ndebris_tot+1
-              endif
-           endif
-        enddo
-        ! Store nstar in array flag2
-        do i=1,ngrid
-           flag2(ind_cell(i))=nstar(i)
-        end do
+        call cmp_num_new_stars(ind_cell,ok,sfr_ff,ntot,ndebris_tot,mstar_tot,mstar_lost,ilevel,ngrid)
      end do
   end do
 
@@ -898,6 +856,85 @@ subroutine uold_prim_to_cons_fine(ind_grid,ngrid)
   end do
 
 end subroutine uold_prim_to_cons_fine
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+subroutine cmp_num_new_stars(ind_cell,ok,sfr_ff,ntot,ndebris_tot,mstar_tot,mstar_lost,ilevel,ngrid)
+   use amr_commons
+   use hydro_commons
+   use constants, only: twopi
+   implicit none
+   integer,intent(in)::ngrid,ilevel
+   integer,dimension(1:nvector),intent(in)::ind_cell
+   integer,dimension(1:nvector),intent(in)::ok
+   real(dp),dimension(1:nvector),intent(inout)::sfr_ff
+   integer,intent(inout)::ntot,ndebris_tot
+   real(dp),intent(inout)::mstar_tot,mstar_lost
+   !--------------------------------------------------------------------
+   ! Calculate number of new stars in each cell using Poisson statistics
+   ! Store the result in flag2. Also returns the total mass in newly created stars
+   !--------------------------------------------------------------------
+   integer::i,nstar_corrected,nx_loc
+   real(dp)::d,mcell,tstar,mgas,factG,dx,scale,dx_loc,vol_loc
+   real(kind=8)::PoissMean
+   integer,dimension(1:nvector),save::nstar
+
+   dx=0.5D0**ilevel
+   nx_loc=(icoarse_max-icoarse_min+1)
+   scale=boxlen/dble(nx_loc)
+   dx_loc=dx*scale
+   vol_loc=dx_loc**ndim
+
+   factG = 1d0
+   if(cosmo) factG = 0.75d0/twopi*omega_m*aexp
+
+   do i=1,ngrid
+      nstar(i)=0
+      if(ok(i))then
+         ! Compute mean number of events
+         d=uold(ind_cell(i),1)
+         mcell=d*vol_loc
+         ! Free fall time of an homogeneous sphere
+         tstar= .5427d0*sqrt(1.0d0/(factG*max(d,smallr)))
+         if(.not.sf_virial) sfr_ff(i) = eps_star
+         ! Gas mass to be converted into stars
+         mgas=dtnew(ilevel)*(sfr_ff(i)/tstar)*mcell
+         ! Poisson mean
+         PoissMean=mgas/mstar
+         if((trel>0.).and.(.not.cosmo)) PoissMean = PoissMean*min((t/trel), 1.0d0)
+         if(randomize_sf)then
+            ! Compute Poisson realisation
+            call poissdev(localseed,PoissMean,nstar(i))
+         else
+            ! this is useful for the test suite only
+            ! NB: SF testing is made easier by extreme boosting of SF as below:
+            nstar(i)=PoissMeanMult*PoissMean
+         endif
+         ! Compute depleted gas mass
+         mgas=nstar(i)*mstar
+         ! Security to prevent more than 90% of gas depletion
+         if (mgas > 0.9d0*mcell) then
+            nstar_corrected=int(0.9d0*mcell/mstar)
+            mstar_lost=mstar_lost+(nstar(i)-nstar_corrected)*mstar
+            nstar(i)=nstar_corrected
+         endif
+         ! Compute new stars local statistics
+         mstar_tot=mstar_tot+nstar(i)*mstar
+         if(nstar(i)>0)then
+            ntot=ntot+1
+            if(f_w>0)ndebris_tot=ndebris_tot+1
+         endif
+      endif
+   enddo
+
+   ! Store nstar in array flag2
+   do i=1,ngrid
+      flag2(ind_cell(i))=nstar(i)
+   end do
+
+end subroutine cmp_num_new_stars
+
 #endif
 !################################################################
 !################################################################
