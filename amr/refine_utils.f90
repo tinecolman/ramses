@@ -386,6 +386,7 @@ subroutine refine_fine(ilevel)
   ! Refine cells marked for refinement
   !------------------------------------
   ncreate=0
+!$omp parallel private(icpu,ibound,boundary_region,ncache,igrid,ngrid,ind,iskip,i,ncreate_tmp,icell) reduction(+:ncreate)
   do icpu=1,ncpu+nboundary  ! Loop over cpus and boundaries
      if(icpu==myid)then
         ibound=0
@@ -400,6 +401,7 @@ subroutine refine_fine(ilevel)
         boundary_region=.true.
         ncache=boundary(ibound,ilevel)%ngrid
      end if
+!$omp do
      do igrid=1,ncache,nvector  ! Loop over grids
         ngrid=MIN(nvector,ncache-igrid+1)
         if(myid==icpu)then
@@ -438,8 +440,11 @@ subroutine refine_fine(ilevel)
            end do
            ncreate=ncreate+ncreate_tmp
 
+!$omp atomic update
+           numbf=numbf-ncreate_tmp
+
            ! Check for free memory
-           if(ncreate_tmp>=numbf) then
+           if(numbf<=0) then
               write(*,*)'No more free memory'
               write(*,*)'Increase ngridmax'
 #ifndef WITHOUTMPI
@@ -474,7 +479,11 @@ subroutine refine_fine(ilevel)
            end if
         end do
      end do
-  end do
+!$omp end do nowait
+    end do
+!$omp end parallel
+  used_mem=ngridmax-numbf
+
   if(verbose)write(*,112)ncreate
   endif
 
@@ -483,6 +492,7 @@ subroutine refine_fine(ilevel)
   ! it is refined, then destroy its child grid.
   !-----------------------------------------------------
   nkill=0
+!$omp parallel private(icpu,ibound,boundary_region,ncache,igrid,ngrid,ind,iskip,i,nkill_tmp,icell) reduction(+:nkill)
   do icpu=1,ncpu+nboundary  ! Loop over cpus and boundaries
      if(icpu==myid)then
         ibound=0
@@ -497,6 +507,7 @@ subroutine refine_fine(ilevel)
         boundary_region=.true.
         ncache=boundary(ibound,ilevel)%ngrid
      end if
+!$omp do
      do igrid=1,ncache,nvector  ! Loop over grids
         ngrid=MIN(nvector,ncache-igrid+1)
         if(myid==icpu)then
@@ -561,7 +572,10 @@ subroutine refine_fine(ilevel)
            end if
         end do  ! End loop over cells
      end do
+!$omp end do nowait
   end do
+!$omp end parallel
+  numbf=numbf+nkill
   if(verbose)write(*,113)nkill
 
   ! Compute grid number statistics at level ilevel+1
@@ -645,7 +659,12 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
 
 !$omp threadprivate(ind_grid_son,ind_fathers,igridn,indn)
 !$omp threadprivate(u1,u2,uu,xx,cc)
-
+#ifdef SOLVERmhd
+!$omp threadprivate(ind1)
+#endif
+#ifdef RT
+!$omp threadprivate(urt1,urt2)
+#endif
 
   ! Mesh spacing in father level
   dx=0.5D0**(ilevel-1)
@@ -658,13 +677,13 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   dx_loc=dx*scale
 
   ! Get nn new grids from free memory
+!$omp critical
   do i=1,nn
      igrid=headf
      ind_grid_son(i)=igrid
      headf=next(headf)
-     numbf=numbf-1
-     used_mem=ngridmax-numbf
   end do
+!$omp end critical
 
   ! Set new grids position
   iz=(ind-1)/4
@@ -679,6 +698,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
      end do
   end do
 
+!$omp critical
   ! Connect new grids to father cells
   do i=1,nn
      son(ind_cell(i))=ind_grid_son(i)
@@ -690,6 +710,55 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   ! Connect news grids to neighboring father cells
   call getnborgrids(ind_grid,igridn,nn)
   call getnborcells(igridn,ind,indn,nn)
+
+  ! Interpolate parent variables to get new children ones
+  if(.not.init .and. .not.balance)then
+     ! Get neighboring father cells
+     do i=1,nn
+        ind_fathers(i,0)=ind_cell(i)
+     end do
+     do j=1,twondim
+        do i=1,nn
+           ind_fathers(i,j)=indn(i,j)
+        end do
+     end do
+     !============================
+     ! Interpolate hydro variables
+     !============================
+     if(hydro)then
+        do j=0,twondim
+           ! Gather hydro variables
+           do ivar=1,nvar_all
+              do i=1,nn
+                 u1(i,j,ivar)=uold(ind_fathers(i,j),ivar)
+              end do
+           end do
+#ifdef SOLVERmhd
+           ! Gather son index
+           do i=1,nn
+              ind1(i,j)=son(ind_fathers(i,j))
+           end do
+#endif
+        end do
+        ! Interpolate
+#ifdef SOLVERmhd
+        call interpol_hydro(u1,ind1,u2,nn)
+#else
+        call interpol_hydro(u1,u2,nn)
+#endif
+        ! Scatter to children cells
+        do j=1,twotondim
+           iskip=ncoarse+(j-1)*ngridmax
+           do ivar=1,nvar_all
+              do i=1,nn
+                 uold(iskip+ind_grid_son(i),ivar)=u2(i,j,ivar)
+              end do
+           end do
+        end do
+     end if
+  end if
+!$omp end critical
+
   error=.false.
   do j=1,twondim
      do i=1,nn
@@ -751,6 +820,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
   end if
 
   ! Connect news grids to level ilevel linked list
+!$omp critical
   if(boundary_region)then
      do i=1,nn
         igrid=ind_grid_son(i)
@@ -787,6 +857,7 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
         end if
      end do
   end if
+!$omp end critical
 
   ! Interpolate equilibrium profile
   if(strict_equilibrium>0)then
@@ -821,49 +892,6 @@ subroutine make_grid_fine(ind_grid,ind_cell,ind,ilevel,nn,ibound,boundary_region
 
   ! Interpolate parent variables to get new children ones
   if(.not.init .and. .not.balance)then
-     ! Get neighboring father cells
-     do i=1,nn
-        ind_fathers(i,0)=father(ind_grid_son(i))
-     end do
-     do j=1,twondim
-        do i=1,nn
-           ind_fathers(i,j)=nbor(ind_grid_son(i),j)
-        end do
-     end do
-     !============================
-     ! Interpolate hydro variables
-     !============================
-     if(hydro)then
-        do j=0,twondim
-           ! Gather hydro variables
-           do ivar=1,nvar_all
-              do i=1,nn
-                 u1(i,j,ivar)=uold(ind_fathers(i,j),ivar)
-              end do
-           end do
-#ifdef SOLVERmhd
-           ! Gather son index
-           do i=1,nn
-              ind1(i,j)=son(ind_fathers(i,j))
-           end do
-#endif
-        end do
-        ! Interpolate
-#ifdef SOLVERmhd
-        call interpol_hydro(u1,ind1,u2,nn)
-#else
-        call interpol_hydro(u1,u2,nn)
-#endif
-        ! Scatter to children cells
-        do j=1,twotondim
-           iskip=ncoarse+(j-1)*ngridmax
-           do ivar=1,nvar_all
-              do i=1,nn
-                 uold(iskip+ind_grid_son(i),ivar)=u2(i,j,ivar)
-              end do
-           end do
-        enddo
-     end if
 #ifdef RT
      !============================
      ! Interpolate RT variables
@@ -1004,6 +1032,7 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
   end do
 
   ! Disconnect son grids from level ilevel linked list
+!$omp critical
   if(boundary_region)then
      do i=1,nn
         igrid=ind_grid_son(i)
@@ -1050,6 +1079,7 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
         numbl(icpu,ilevel)=numbl(icpu,ilevel)-1
      end do
   end if
+!$omp end critical
 
   ! Reset grid variables
   do idim=1,ndim
@@ -1142,13 +1172,13 @@ subroutine kill_grid(ind_cell,ilevel,nn,ibound,boundary_region)
   end do
 
   ! Put son grids at the tail of the free memory linked list
+!$omp critical
   do i=1,nn
      igrid=ind_grid_son(i)
      next(tailf)=igrid
      prev(igrid)=tailf
      next(igrid)=0
      tailf=igrid
-     numbf=numbf+1
   end do
-
+!$omp end critical
 end subroutine kill_grid
