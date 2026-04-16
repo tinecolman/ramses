@@ -32,7 +32,7 @@ subroutine star_formation(ilevel)
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp),dimension(1:twotondim,1:3)::xc
   ! other variables
-  integer ::ncache,nnew,ivar,ngrid,icpu,index_star,ndebris_tot,ilun=10
+  integer ::ncache,nnew,ivar,ngrid,icpu,index_star,index_star_omp,ndebris_tot,ilun=10
   integer ::igrid,ix,iy,iz,ind,i,n,iskip,nx_loc,idim
   integer ::ntot,ntot_all,nstar_corrected,ncell
   logical ::ok_free
@@ -649,6 +649,8 @@ subroutine star_formation(ilevel)
 
   ! Loop over grids
   ncache=active(ilevel)%ngrid
+!$omp parallel do private(igrid,ngrid,i,ind,iskip,idim,ivar,nnew,index_star_omp) &
+!$omp &           private(n,d,u,v,w,x,y,z,tg,zg,mdebris,uvar)
   do igrid=1,ncache,nvector
      ngrid=MIN(nvector,ncache-igrid+1)
      do i=1,ngrid
@@ -689,7 +691,12 @@ subroutine star_formation(ilevel)
 
         ! Calculate new star particle and modify gas density
         do i=1,nnew
+!$omp atomic capture
+           ! make sure we have unique IDs
            index_star=index_star+1
+           ! store it in threadprivate variable so we don't overwrite it before it is used
+           index_star_omp=index_star
+!$omp end atomic
 
            ! Get gas variables
            n=flag2(ind_cell_new(i))
@@ -707,7 +714,7 @@ subroutine star_formation(ilevel)
            tp(ind_part(i)) = birth_epoch  ! Birth epoch
            mp(ind_part(i)) = n*mstar      ! Mass
            levelp(ind_part(i)) = ilevel   ! Level
-           idp(ind_part(i)) = index_star  ! Star identity
+           idp(ind_part(i)) = index_star_omp  ! Star identity
            typep(ind_part(i))%family = FAM_STAR
            typep(ind_part(i))%tag = 0
            xp(ind_part(i),1) = x
