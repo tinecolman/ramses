@@ -8,6 +8,9 @@ subroutine star_formation(ilevel)
   use constants, only: Myr2sec, Gyr2sec, mH, pi, rhoc, twopi
   use random
   use mpi_mod
+#ifdef OPENMP
+  use omp_lib
+#endif
   implicit none
 #ifndef WITHOUTMPI
   integer::info,info2,dummy_io
@@ -221,13 +224,25 @@ subroutine star_formation(ilevel)
   end do
 #endif
 
-  !------------------------------------------------
-  ! Compute number of new stars in each cell
-  !------------------------------------------------
+  !------------------------------------------------------------------------
+  ! Compute number of new stars in each cell and store temporarily in flag2
+  !------------------------------------------------------------------------
   ntot=0
   ndebris_tot=0
   ! Loop over grids
   ncache=active(ilevel)%ngrid
+!$omp parallel do private(igrid,ngrid,i,ind,iskip) &
+!$omp & private(tdec,d,T2,T_poly,cs2,cs2_poly,ncell,d1,d2,d3,d4,d5,d6) &
+!$omp & private(sigma2,sigma2_comp,sigma2_sole,trgv,divv,curlva,curlvb,curlvc)&
+!$omp & private(pcomp, divv2, curlv2, curlv,theta) &
+!$omp & private(flong,ul,ur,fl,fr,ftot,sfr_ff) &
+!$omp & private(alpha0,zeta,b_turb,phi_t,phi_x,sigs,scrit) &
+#ifdef SOLVERmhd
+!$omp & private(A,B,C,emag,beta,fbeta) &
+#endif
+!$omp & private(lapld,t_dyn,t_ff,nH,mcell,tstar,PoissMean,nstar_corrected)&
+!$omp & private(ind_nbor) &
+!$omp & reduction(+:ntot,ndebris_tot,mstar_tot,mstar_lost)
   do igrid=1,ncache,nvector
      ngrid=MIN(nvector,ncache-igrid+1)
      do i=1,ngrid
