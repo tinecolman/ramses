@@ -32,7 +32,7 @@ subroutine star_formation(ilevel)
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp),dimension(1:twotondim,1:3)::xc
   ! other variables
-  integer ::ncache,nnew,ivar,ngrid,icpu,index_star,index_star_omp,ndebris_tot,ilun=10
+  integer ::ncache,nnew,ivar,ngrid,icpu,index_star,index_star_omp,ndebris_tot,ilun
   integer ::igrid,ix,iy,iz,ind,i,n,iskip,nx_loc,idim
   integer ::ntot,ntot_all,nstar_corrected,ncell
   logical ::ok_free
@@ -40,7 +40,7 @@ subroutine star_formation(ilevel)
   real(dp)::mstar,dstar,tstar,nISM,nCOM,phi_t,phi_x,theta,sigs,scrit,b_turb,zeta
   real(dp)::T2,nH,T_poly,cs2,cs2_poly,trel,t_dyn,t_ff,tdec,uvar
   real(dp)::ul,ur,fl,fr,trgv,alpha0
-  real(dp)::sigma2,sigma2_comp,sigma2_sole,lapld,flong,ftot,pcomp=0.3d0
+  real(dp)::sigma2,sigma2_comp,sigma2_sole,lapld,flong,ftot,pcomp
   real(dp)::divv,divv2,curlv,curlva,curlvb,curlvc,curlv2
   real(dp)::birth_epoch,factG
   real(kind=8)::mlost_all,mtot_all
@@ -57,7 +57,7 @@ subroutine star_formation(ilevel)
   integer ,dimension(1:nvector),save::ind_grid_new,ind_cell_new,ind_part
   integer ,dimension(1:nvector),save::ind_debris
   integer ,dimension(1:nvector,0:twondim)::ind_nbor
-  logical ,dimension(1:nvector),save::ok,ok_new=.true.
+  logical ,dimension(1:nvector),save::ok,ok_new
   integer ,dimension(1:ncpu)::ntot_star_cpu,ntot_star_all
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
@@ -70,22 +70,26 @@ subroutine star_formation(ilevel)
 #endif
   integer,dimension(1:IRandNumSize),save::ompseed
 
+  ! TODO: when f2008 is obligatory - remove this and replace erfc_pre_f08 below by
+  ! the f2008 intrinsic erfc() function:
+  real(dp) :: erfc_pre_f08
+
 !$omp threadprivate(ind_grid,ind_cell,ind_cell2,nstar,ind_grid_new,ind_cell_new,ind_part,ind_debris,ok,ok_new)
 
   ! Make openmp random number seed saved and threadprivate so we keep access 
   ! even when exiting the parallel block
 !$omp threadprivate(ompseed)
 
-
-  ! TODO: when f2008 is obligatory - remove this and replace erfc_pre_f08 below by
-  ! the f2008 intrinsic erfc() function:
-  real(dp) :: erfc_pre_f08
   if(numbtot(1,ilevel)==0) return
   if(.not. hydro)return
   if(ndim.ne.3)return
   if(static)return
 
   if(verbose)write(*,*)' Entering star_formation'
+
+  ilun=10
+  pcomp=0.3d0
+  ok_new=.true.
 
   if(sf_log_properties.and.ifout.gt.1) then
      call title(ifout-1,nchar)
