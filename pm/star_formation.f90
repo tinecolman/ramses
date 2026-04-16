@@ -74,7 +74,8 @@ subroutine star_formation(ilevel)
   ! the f2008 intrinsic erfc() function:
   real(dp) :: erfc_pre_f08
 
-!$omp threadprivate(ind_grid,ind_cell,ind_cell2,nstar,ind_grid_new,ind_cell_new,ind_part,ind_debris,ok,ok_new)
+!$omp threadprivate(ind_grid,ind_cell,ind_cell2,nstar,ind_grid_new,ind_cell_new)
+!$omp threadprivate(ind_part,ind_debris,ok,ok_new)
 
   ! Make openmp random number seed saved and threadprivate so we keep access 
   ! even when exiting the parallel block
@@ -653,8 +654,10 @@ subroutine star_formation(ilevel)
 
   ! Loop over grids
   ncache=active(ilevel)%ngrid
-!$omp parallel do private(igrid,ngrid,i,ind,iskip,idim,ivar,nnew,index_star_omp) &
-!$omp &           private(n,d,u,v,w,x,y,z,tg,zg,mdebris,uvar)
+!!!$omp parallel do private(igrid,ngrid,i,ind,iskip,idim,ivar,nnew,index_star_omp) &
+!!!$omp &           private(n,d,u,v,w,x,y,z,tg,zg,mdebris,uvar) &
+!!!$omp &           shared(index_star)
+!TC: this loop has the same problem as make_tree_fine. We alter the indices for the particle lists while looping over it.
   do igrid=1,ncache,nvector
      ngrid=MIN(nvector,ncache-igrid+1)
      do i=1,ngrid
@@ -695,12 +698,12 @@ subroutine star_formation(ilevel)
 
         ! Calculate new star particle and modify gas density
         do i=1,nnew
-!$omp atomic capture
+!!!$omp atomic capture
            ! make sure we have unique IDs
            index_star=index_star+1
            ! store it in threadprivate variable so we don't overwrite it before it is used
            index_star_omp=index_star
-!$omp end atomic
+!!!$omp end atomic
 
            ! Get gas variables
            n=flag2(ind_cell_new(i))
