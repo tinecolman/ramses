@@ -65,8 +65,14 @@ subroutine star_formation(ilevel)
 #if NENER>0
   integer::irad
 #endif
+  integer,dimension(1:IRandNumSize),save::ompseed
 
 !$omp threadprivate(ind_grid,ind_cell,ind_cell2,nstar,ind_grid_new,ind_cell_new,ind_part,ind_debris,ok,ok_new)
+
+  ! Make openmp random number seed saved and threadprivate so we keep access 
+  ! even when exiting the parallel block
+!$omp threadprivate(ompseed)
+
 
   ! TODO: when f2008 is obligatory - remove this and replace erfc_pre_f08 below by
   ! the f2008 intrinsic erfc() function:
@@ -186,6 +192,15 @@ subroutine star_formation(ilevel)
      localseed=allseed(myid,1:IRandNumSize)
   end if
 
+#ifdef OPENMP
+!$omp parallel
+  ! Avoid OpenMP threads having the same random number seed
+  ompseed=MOD(localseed+omp_get_thread_num()+1,4096)
+!$omp end parallel
+#else
+  ompseed=localseed
+#endif
+  !
   !------------------------------------------------
   ! Convert hydro variables to primitive variables
   !------------------------------------------------
@@ -527,7 +542,7 @@ subroutine star_formation(ilevel)
               if((trel>0.).and.(.not.cosmo)) PoissMean = PoissMean*min((t/trel), 1.0d0)
               if(randomize_sf)then
                  ! Compute Poisson realisation
-                 call poissdev(localseed,PoissMean,nstar(i))
+                 call poissdev(ompseed,PoissMean,nstar(i))
               else
                  ! this is useful for the test suite only
                  ! NB: SF testing is made easier by extreme boosting of SF as below:
