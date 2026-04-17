@@ -57,7 +57,8 @@ subroutine star_formation(ilevel)
   integer ,dimension(1:nvector),save::ind_grid_new,ind_cell_new,ind_part
   integer ,dimension(1:nvector),save::ind_debris
   integer ,dimension(1:nvector,0:twondim)::ind_nbor
-  logical ,dimension(1:nvector),save::ok,ok_new
+  logical ,dimension(1:nvector),save::ok
+  logical ,dimension(1:nvector),parameter::ok_new=.true.
   integer ,dimension(1:ncpu)::ntot_star_cpu,ntot_star_all
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
@@ -75,7 +76,7 @@ subroutine star_formation(ilevel)
   real(dp) :: erfc_pre_f08
 
 !$omp threadprivate(ind_grid,ind_cell,ind_cell2,nstar,ind_grid_new,ind_cell_new)
-!$omp threadprivate(ind_part,ind_debris,ok,ok_new)
+!$omp threadprivate(ind_part,ind_debris,ok)
 
   ! Make openmp random number seed saved and threadprivate so we keep access 
   ! even when exiting the parallel block
@@ -90,7 +91,6 @@ subroutine star_formation(ilevel)
 
   ilun=10
   pcomp=0.3d0
-  ok_new=.true.
 
   if(sf_log_properties.and.ifout.gt.1) then
      call title(ifout-1,nchar)
@@ -644,6 +644,7 @@ subroutine star_formation(ilevel)
 
   !------------------------------
   ! Create new star particles
+  ! For each cell, 1 star particle will be created with a mass nstar x mstar
   !------------------------------
   ! Starting identity number
   if(myid==1)then
@@ -654,10 +655,8 @@ subroutine star_formation(ilevel)
 
   ! Loop over grids
   ncache=active(ilevel)%ngrid
-!!!$omp parallel do private(igrid,ngrid,i,ind,iskip,idim,ivar,nnew,index_star_omp) &
-!!!$omp &           private(n,d,u,v,w,x,y,z,tg,zg,mdebris,uvar) &
-!!!$omp &           shared(index_star)
-!TC: this loop has the same problem as make_tree_fine. We alter the indices for the particle lists while looping over it.
+!$omp parallel do private(igrid,ngrid,i,ind,iskip,idim,ivar,nnew,index_star_omp) &
+!$omp & private(n,d,u,v,w,x,y,z,tg,zg,mdebris,uvar)
   do igrid=1,ncache,nvector
      ngrid=MIN(nvector,ncache-igrid+1)
      do i=1,ngrid
@@ -677,10 +676,12 @@ subroutine star_formation(ilevel)
         end do
 
         ! Gather new star arrays
-        nnew=0
+        ! TC: This is needed because remove_free has no ok check
+        nnew=0 !Number of cells in which we will create a new star, will be <=ngrid
         do i=1,ngrid
-           if (ok(i))then
+           if (ok(i))then ! cell flaged for star formation?
               nnew=nnew+1
+              ! gather indices of grids/cells in which we actually will add a star
               ind_grid_new(nnew)=ind_grid(i)
               ind_cell_new(nnew)=ind_cell(i)
            end if
@@ -698,12 +699,12 @@ subroutine star_formation(ilevel)
 
         ! Calculate new star particle and modify gas density
         do i=1,nnew
-!!!$omp atomic capture
+!$omp atomic capture
            ! make sure we have unique IDs
            index_star=index_star+1
            ! store it in threadprivate variable so we don't overwrite it before it is used
            index_star_omp=index_star
-!!!$omp end atomic
+!$omp end atomic
 
            ! Get gas variables
            n=flag2(ind_cell_new(i))
