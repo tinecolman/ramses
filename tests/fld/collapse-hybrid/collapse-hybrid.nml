@@ -35,7 +35,7 @@ density_threshold=1.d10
 &SINK_PARAMS
 create_sinks=.true.
 accretion_scheme='threshold'
-!jeans_accretion=.true.
+jeans_accretion=.true.
 c_acc=0.1
 !rho_sink=7e-16
 mass_sink_direct_force=1.d0
@@ -43,7 +43,7 @@ sink_soft=4
 ir_cloud_massive=4
 ir_cloud=4
 merging_timescale=1.d6
-!facc_star_mom=1.
+facc_star_mom=1.
 mass_sink_seed=1.e-10
 /
 
