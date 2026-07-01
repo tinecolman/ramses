@@ -189,9 +189,10 @@ subroutine clump_finder(create_output,keep_alive)
   ! Compute the size of the peak-based arrays
   npeaks_max=MAX(4*maxval(npeaks_per_cpu_tot),1000)
   allocate(max_dens(npeaks_max))
+  allocate(dens_jeans(npeaks_max))
   allocate(peak_cell(npeaks_max))
   allocate(peak_cell_level(npeaks_max))
-  max_dens=0d0; peak_cell=0; peak_cell_level=0;
+  max_dens=0d0; peak_cell=0; peak_cell_level=0; dens_jeans=0.d0
   flag2=0
   if(ntest>0)then
      if(ivar_clump==0 .or. ivar_clump==-1)then

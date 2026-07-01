@@ -191,9 +191,20 @@ subroutine flag_formation_sites
 !!$        ok=ok.and.(kinetic_support(jj)<factG*mass_sink_seed*M_sun/(scale_d*scale_l**3)/(ir_cloud*dx_min/aexp))
         if(check_energies)then
            ! Avoid formation of sinks from gas which is only compressed by thermal pressure rather than gravity.
+#if USE_FLD==1
+           if(fld) then
+        ! Clump has to be contracting
+        ok=ok.and.contracting(jj)
+        ! Clump has to be virialized
+        ok=ok.and.Icl_dd(jj)<0.
+            ok=ok.and.Icl_d(jj)<0.
+            ok=ok.and.max_dens(jj)>dens_jeans(jj)
+           endif
+#else
            ok=ok.and.(kinetic_support(jj)<-grav_term(jj))
            ! Clumps should not be thermally supported against gravity
-           ok=ok.and.(thermal_support(jj)<-grav_term(jj))
+           ok=ok.and.(thermal_support(jj)<-grav_term(jj)) 
+#endif
         endif
         ! Then create a sink at the peak position
         if (ok)then
@@ -330,6 +341,9 @@ subroutine compute_clump_properties_round2
   real(dp),dimension(1:nGroups,1:ndim)::Fp
   real(dp),dimension(1:nGroups)::Np2Ep_flux
 #endif
+
+  integer::ht
+  real(dp)::eint
 
 #if NENER>0
   integer :: irad,nener_offset
@@ -480,6 +494,10 @@ subroutine compute_clump_properties_round2
         ! Cell thermal pressure and temperature
         p=(etot-ekk-emag-err)*(gamma-1)
         T2=p/d*scale_T2
+        eint=(etot-ekk-emag-err)
+        if(energy_fix)eint = uold(icellp(ipart),nvar)
+        call pressure_eos(d,eint,p) 
+        call temperature_eos(d,eint,T2,ht)
 
         ! Add radiation pressure by trapped photons
         p=p+err/3d0
@@ -522,11 +540,22 @@ subroutine compute_clump_properties_round2
 
         ! Virial analysis volume terms
         magnetic_support(peak_nr)  = magnetic_support(peak_nr) + 3*vol*pmag
+#if USE_FLD==1
+        ! Warning Benoit : with FLD, we compute the energy of each component and do not perform the Virial analysis.
+        if(fld) then
+           thermal_support (peak_nr)  = thermal_support(peak_nr)  + vol*(p-err/3.d0)/(gamma-1.0d0)
+           rad_term(peak_nr)       = rad_term(peak_nr)         + vol*err
+        endif
+#else
         thermal_support (peak_nr)  = thermal_support (peak_nr) + 3*vol*p
+        do i=1,3
+           rad_term(peak_nr)       = rad_term(peak_nr)         + frad(i)  * rrel(i) * vol*d
+        end do
+#endif
+        !thermal_support (peak_nr)  = thermal_support (peak_nr) + 3*vol*p
         do i=1,3
            kinetic_support(peak_nr)= kinetic_support(peak_nr)  + vrel(i)**2         * vol*d
            grav_term(peak_nr)      = grav_term(peak_nr)        + fgrav(i) * rrel(i) * vol*d
-           rad_term(peak_nr)       = rad_term(peak_nr)         + frad(i)  * rrel(i) * vol*d
         end do
 
         ! Time derivatives of the moment of inertia
@@ -564,10 +593,21 @@ subroutine compute_clump_properties_round2
   end do
 #endif
 
+#if USE_FLD==1
+  if(fld) then
+     ! Warning Benoit
+     !Icl_dd is the sum of the energies (and not the second time derivative of I...)
+     Icl_dd(1:npeaks)=(grav_term(1:npeaks)+kinetic_support(1:npeaks) &
+          & +thermal_support(1:npeaks)+rad_term(1:npeaks)+magnetic_support(1:npeaks))
+     ! Benoit : Egrav + 2Eth <0 (Jeans unstable)
+     Icl_d(1:npeaks)=(grav_term(1:npeaks)+2.0d0*thermal_support(1:npeaks))
+  endif
+#else
   ! Second time derivative of I
   Icl_dd(1:npeaks)=2*(grav_term(1:npeaks)+rad_term(1:npeaks)&
        -Psurf(1:npeaks)-MagPsurf(1:npeaks)+MagTsurf(1:npeaks)&
        +kinetic_support(1:npeaks)+thermal_support(1:npeaks)+magnetic_support(1:npeaks))
+#endif
 
   do j=npeaks,1,-1
      if (relevance(j)>0..and.n_cells(j)>0)then
@@ -863,6 +903,8 @@ subroutine surface_int_np(ind_cell,np,ilevel)
   real(dp),dimension(1:nvector,1:3)::B
 #endif
 
+  real(dp)::d,eint,p
+
 #if NENER>0
   integer::irad
   integer::nener_offset
@@ -919,6 +961,11 @@ subroutine surface_int_np(ind_cell,np,ilevel)
      end do
 #endif
      P_cell(j)=(gamma-1d0)*(uold(ind_cell(j),neul)-ekk_cell(j)-err_cell(j)-emag_cell(j))
+     eint=(uold(ind_cell(j),neul)-ekk_cell(j)-err_cell(j)-emag_cell(j))
+     if(energy_fix) eint=uold(ind_cell(j),nvar)
+     d=max(uold(ind_cell(j),1),smallr) 
+     call pressure_eos(d,eint,p)     
+     P_cell(j)=p
   end do
 
   do j=1,np
@@ -1047,6 +1094,9 @@ subroutine surface_int_np(ind_cell,np,ilevel)
                     end do
 #endif
                     P_neigh=(gamma-1.0d0)*(uold(cell_index(j),neul)-ekk_neigh-emag_neigh-err_neigh)
+                    eint=(uold(cell_index(j),ndim+2)-ekk_neigh-emag_neigh-err_neigh)
+                    if(energy_fix) eint=uold(cell_index(j),nvar)
+                    call pressure_eos(d,eint,P_neigh)                    
 
                     ! add to the actual terms for the virial analysis
                     Psurf(loc_clump_nr(j))    = Psurf(loc_clump_nr(j))    + 0.5d0*(P_neigh + P_cell(j)) * r_dot_n(j) * dx_loc**2
@@ -1184,6 +1234,9 @@ subroutine surface_int_np(ind_cell,np,ilevel)
                        end do
 #endif
                        P_neigh=(gamma-1.0d0)*(uold(cell_index(j),neul)-ekk_neigh-emag_neigh-err_neigh)
+                       eint=(uold(cell_index(j),ndim+2)-ekk_neigh-emag_neigh-err_neigh)
+                       if(energy_fix) eint=uold(cell_index(j),nvar)
+                       call pressure_eos(d,eint,P_neigh)                    
 
                        ! add to the actual terms for the virial analysis
                        Psurf(loc_clump_nr(j))    = Psurf(loc_clump_nr(j))    + 0.5d0*(P_neigh + P_cell(j)) * r_dot_n(j) * 0.25d0 * dx_loc**2
