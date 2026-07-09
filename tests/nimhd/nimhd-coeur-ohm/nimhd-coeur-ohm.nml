@@ -77,13 +77,13 @@ interpol_type=1
 &NONIDEALMHD_PARAMS
 nambipolar=.false.
 nmagdiffu=.true.
-nminitimestep=.true.
+nimhd_dt_cap=.true.
 resistivity_method=2
 resistivity_file='../../lib/resnh.dat'
 coefad=0.1d0
-coefalfven=0.5
+frac_dt_cap_ad=0.5
 rho_threshold=5d5
-coefdtohm=0.2d0
+frac_dt_cap_ohm=0.2d0
 gammaAD=3.5d13 
 /
 

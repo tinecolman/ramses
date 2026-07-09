@@ -86,7 +86,7 @@ C_bound(1)=0.0
 nmagdiffu=.true.
 resistivity_method=0
 etaMD=0.1d0
-nminitimestep=.false.   ! pour la diffusion ambipolaire seulement
+nimhd_dt_cap=.false.   ! pour la diffusion ambipolaire seulement
 /
 
 &COOLING_PARAMS

@@ -165,7 +165,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
   do j=jf1,jf2
   do i=ilo,ihi
      ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-     if(use_nonideal_mhd) then  
+     if(use_nonideal_mhd) then
         ivar=5
         do l=1,ngrid
            flux(l,i,j,k,ivar,2)=flux(l,i,j,k,ivar,2)+(fluxambdiff(l,i,j,k,2)+fluxohm(l,i,j,k,2))*dt/dy
@@ -189,7 +189,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
   do j=jlo,jhi
   do i=ilo,ihi
      ! Energy flux from ohmic term dB/dt=rot(-eta*J)
-     if(use_nonideal_mhd) then  
+     if(use_nonideal_mhd) then
         ivar=5
         do l=1,ngrid
            flux(l,i,j,k,ivar,3)=flux(l,i,j,k,ivar,3)+(fluxambdiff(l,i,j,k,3)+fluxohm(l,i,j,k,3))*dt/dz
@@ -208,7 +208,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
      do j=jf1,jf2
         do i=ilo,ihi
            do l=1,ngrid
-              emfx(l,i,j,k)=( emfambdiff(l,i,j,k,nxx)+emfohmdiss(l,i,j,k,nxx) )*dt/dx
+              emfx(l,i,j,k)=( emfambdiff(l,i,j,k,1)+emfohmdiss(l,i,j,k,1) )*dt/dx
            end do
         end do
      end do
@@ -218,7 +218,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
      do j=jlo,jhi
         do i=if1,if2
            do l=1,ngrid
-              emfy(l,i,j,k)=( emfambdiff(l,i,j,k,nyy)+emfohmdiss(l,i,j,k,nyy) )*dt/dx
+              emfy(l,i,j,k)=( emfambdiff(l,i,j,k,2)+emfohmdiss(l,i,j,k,2) )*dt/dx
            end do
         end do
      end do
@@ -228,7 +228,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
      do j=jf1,jf2
         do i=if1,if2
            do l=1,ngrid
-              emfz(l,i,j,k)=( emfambdiff(l,i,j,k,nzz)+emfohmdiss(l,i,j,k,nzz) )*dt/dx
+              emfz(l,i,j,k)=( emfambdiff(l,i,j,k,3)+emfohmdiss(l,i,j,k,3) )*dt/dx
            end do
         end do
      end do
@@ -250,7 +250,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
      do l=1,ngrid
         emfz(l,i,j,k)=emf(l,i,j,k)*dt/dx
 #ifdef NIMHD
-        emfz(l,i,j,k)=emfz(l,i,j,k) + ( emfambdiff(l,i,j,k,nzz)+emfohmdiss(l,i,j,k,nzz) )*dt/dx
+        emfz(l,i,j,k)=emfz(l,i,j,k) + ( emfambdiff(l,i,j,k,3)+emfohmdiss(l,i,j,k,3) )*dt/dx
 #endif
      end do
   end do
@@ -283,7 +283,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
      do l=1,ngrid
         emfy(l,i,j,k)=emf(l,i,j,k)*dt/dx
 #ifdef NIMHD
-        emfy(l,i,j,k)=emfy(l,i,j,k) + ( emfambdiff(l,i,j,k,nyy)+emfohmdiss(l,i,j,k,nyy) )*dt/dx
+        emfy(l,i,j,k)=emfy(l,i,j,k) + ( emfambdiff(l,i,j,k,2)+emfohmdiss(l,i,j,k,2) )*dt/dx
 #endif
      end do
   end do
@@ -302,7 +302,7 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
      do l=1,ngrid
         emfx(l,i,j,k)=emf(l,i,j,k)*dt/dx
 #ifdef NIMHD
-        emfx(l,i,j,k)=emfx(l,i,j,k) + ( emfambdiff(l,i,j,k,nxx)+emfohmdiss(l,i,j,k,nxx) )*dt/dx
+        emfx(l,i,j,k)=emfx(l,i,j,k) + ( emfambdiff(l,i,j,k,1)+emfohmdiss(l,i,j,k,1) )*dt/dx
 #endif
      end do
   end do

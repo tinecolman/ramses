@@ -9,7 +9,8 @@ subroutine read_nimhd_params(nml_ok)
   !--------------------------------------------------
   namelist/nonidealmhd_params/nambipolar,gammaAD &
         & ,nmagdiffu,etaMD,resistivity_method,resistivity_file &
-        & ,coefad, nminitimestep, coefalfven,coefdtohm, rho_threshold,nimhdheating_in_flux,nimhdheating_source_term
+        & ,coefad, nimhd_dt_cap, frac_dt_cap_ad,frac_dt_cap_ohm, rho_threshold &
+        & ,nimhdheating_in_flux,nimhdheating_source_term
 
   ! Checks on non-ideal MHD parameters
   rewind(1)
@@ -30,12 +31,6 @@ subroutine read_nimhd_params(nml_ok)
     write(*,*)'Non ideal MHD parameters'
     if(nambipolar) then
       write(*,*)'Ambipolar diffusion switched ON'
-      if(nminitimestep) then
-        write(*,*)'Mini time step switched ON'
-        write(*,*)'Mini time step coefficient',coefalfven
-      else
-        write(*,*)'Mini time step switched OFF'
-      endif
     else
       write(*,*)'Ambipolar diffusion switched OFF'
     endif
@@ -46,7 +41,12 @@ subroutine read_nimhd_params(nml_ok)
       write(*,*)'Magnetic diffusion switched OFF'
     endif
 
-  endif
+    if(nimhd_dt_cap) then
+      write(*,*)'Time step limiting ON'
+      write(*,*)'Time step limiting coefficients',frac_dt_cap_ad, frac_dt_cap_ohm
+    else
+      write(*,*)'Time step limiting OFF'
+    endif
 
   ! read tabulated resistivities
   if(resistivity_method.eq.2)then

@@ -687,7 +687,7 @@ subroutine computambip(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,b
    end do
 
 
-   !dtlim=dt!*coefalfven
+   !dtlim=dt!*frac_dt_cap_ad
    !dt est deja dtnew, qui a été choisi comme le dt normal (avec la condition de courant) ou le dt normal seuillé si le dtAD est trop faible(bricolo)
 
    do k=min(1,ku1+1),max(1,ku2-1)
@@ -981,7 +981,7 @@ double precision function betaad(rhocelln,rhon,dt,bsquare,bsquareold,dx,temper,l
       endif
 
       ! if the timestep has been limited, the resistivity needs to be adjusted
-      if(limit.and.nminitimestep) then
+      if(limit.and.nimhd_dt_cap) then
          if(dt.ne.0d0) then
             ! recalculate the ambipolar diffusion timestep for the current cell
             xx=bsquare*betaad
@@ -1124,7 +1124,7 @@ double precision function etaohmdiss(rhon,BBcell,temper,dt,dx,limit)
       etaohmdiss=eta_ohm_chimie*scale_t/(scale_l)**2
 
       ! if the timestep was limited in courant fine, we need to adjust the resistivity to make things consistent.
-      if(limit.and.nminitimestep) then
+      if(limit.and.nimhd_dt_cap) then
          if(dt.ne.0d0) then
             if(etaohmdiss.ne.0d0) then
                ! recalculate the ohmic timestep for the cell
