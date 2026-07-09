@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - combo_fld_nimhd
+      - nimhd_stage2
 
 jobs:
 
