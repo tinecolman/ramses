@@ -48,6 +48,8 @@ subroutine read_nimhd_params(nml_ok)
       write(*,*)'Time step limiting OFF'
     endif
 
+  endif
+
   ! read tabulated resistivities
   if(resistivity_method.eq.2)then
     call read_resistivities
