@@ -503,7 +503,7 @@ end subroutine compute_nimhd_flux_heating
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm)
+subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,emfohmdiss)
 
    use amr_parameters
    use hydro_commons
@@ -516,25 +516,16 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    real(dp)::dx,dy,dz,dt
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemfx,jemfy,jemfz
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::bmagij
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::fluxmd
-
    ! outputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3):: emfohmdiss,fluxohm 
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3):: emfohmdiss 
 
    ! local variables
    integer ::i,j,k,l,h
    real(dp)::rhox,rhoy,rhoz,epsx,epsy,epsz,bsquarex,bsquarey,bsquarez
    real(dp)::tcellx,tcelly,tcellz,etaod2x,etaod2y,etaod2z
-   real(dp)::rhof,bsqf,epsf,tcellf
-   real(dp)::etaod2,etaohmdiss
-   integer , dimension(1:3) :: index_i,index_j,index_k
-   emfohmdiss = 0d0
-   fluxohm = 0d0
+   real(dp)::etaohmdiss
 
-   index_i = (/1,0,0/)
-   index_j = (/0,1,0/)
-   index_k = (/0,0,1/)
+   emfohmdiss = 0d0
 
    do k=min(1,ku1+1),max(1,ku2-1)
       do j=min(1,ju1+1),max(1,ju2-1)
@@ -567,7 +558,52 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
                emfohmdiss(l,i,j,k,1)=-etaod2x*jemfx(l,i,j,k,1)
                emfohmdiss(l,i,j,k,2)=-etaod2y*jemfy(l,i,j,k,2)
                emfohmdiss(l,i,j,k,3)=-etaod2z*jemfz(l,i,j,k,3)
-               if(nimhdheating_in_flux) then 
+            end do
+         end do
+      end do
+   end do
+
+end subroutine computdifmag
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+subroutine compute_heating_difmag(u,ngrid,bmagij,fluxmd,fluxohm)
+   use amr_parameters
+   use hydro_commons
+   use nimhd_parameters
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   integer,intent(in)::ngrid
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),intent(in)::bmagij
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::fluxmd
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::fluxohm
+   !-----------------------------------------------------------------
+   ! Compute the Ohmic energy flux (fluxohm = eta * fluxmd) on the faces.
+   ! Expects fluxmd from computejb2.
+   ! Resistivity is assumed to be constant: eta = etaMD
+   !-----------------------------------------------------------------
+   integer ::i,j,k,l,h
+   real(dp)::rhof,bsqf,epsf,tcellf,etaod2
+   integer , dimension(1:3) :: index_i,index_j,index_k
+   real(dp)::etaohmdiss
+
+   fluxohm = 0d0
+   index_i = (/1,0,0/)
+   index_j = (/0,1,0/)
+   index_k = (/0,0,1/)
+
+   do k=min(1,ku1+1),max(1,ku2-1)
+      do j=min(1,ju1+1),max(1,ju2-1)
+         do i=min(1,iu1+1),max(1,iu2-1)
+            if(resistivity_method==0)then
+               do l=1,ngrid
+                  fluxohm(l,i,j,k,1)=etaMD*fluxmd(l,i,j,k,1)
+                  fluxohm(l,i,j,k,2)=etaMD*fluxmd(l,i,j,k,2)
+                  fluxohm(l,i,j,k,3)=etaMD*fluxmd(l,i,j,k,3)
+               enddo
+            else !table
+               do l=1,ngrid
                   do h = 1,3
                      rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),1))
                      epsf=0.5d0*(u(l,i,j,k,nvar)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),nvar))
@@ -579,13 +615,13 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
                      etaod2=etaohmdiss(rhof,bsqf,tcellf,0d0,0d0,.false.)
                      fluxohm(l,i,j,k,h)=etaod2*fluxmd(l,i,j,k,h)
                   enddo
-               endif
-            end do
+               enddo
+            endif
          end do
       end do
    end do
-  
-end subroutine computdifmag
+
+end subroutine compute_heating_difmag
 !###########################################################
 !###########################################################
 !###########################################################

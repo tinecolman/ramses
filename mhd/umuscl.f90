@@ -116,8 +116,12 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
 
   ! OHMIC DISSIPATION
   if(nmagdiffu) then
-     call computdifmag(uin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,emfohmdiss,fluxohm)
-  endif
+     call computdifmag(uin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,emfohmdiss)
+     if(nimhdheating_in_flux) then
+       call compute_heating_difmag(uin,ngrid,bmagij,fluxmd,fluxohm)
+     end if
+
+   endif
 #endif
 
   ! Compute 3D traced-states in all three directions
