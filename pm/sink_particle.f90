@@ -726,7 +726,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            e=e/d ! Specific energy
            v2=sum(vv**2)
            e=e-0.5d0*v2 ! Remove kinetic energy
-           if(energy_fix)e=uold(indp(j,ind),nvar)
+           if(energy_fix)e=uold(indp(j,ind),nvar)/d
 
            ! Get sink index
            isink=-idp(ind_part(j))
@@ -1727,7 +1727,7 @@ subroutine make_sink_from_clump(ilevel)
   integer ,dimension(1:ncpu)::ntot_sink_all
 #endif
   logical ::ok_free
-  real(dp)::d,u,v,w,e,delta_d,v2
+  real(dp)::d,u,v,w,e,delta_d,v2,eint
   real(dp)::birth_epoch
   real(dp)::dx,dx_loc,scale,vol_loc
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
@@ -1737,6 +1737,8 @@ subroutine make_sink_from_clump(ilevel)
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
 #endif
+  integer::ht
+  real(dp)::temp
 #if NENER>0
   integer ::irad
 #endif
@@ -1902,6 +1904,10 @@ subroutine make_sink_from_clump(ilevel)
               end do
 #endif
               e=e/d
+              if(energy_fix)e=uold(ind_cell_new(i),nvar)/d
+              eint=e*d
+              call temperature_eos(d,eint,temp,ht)
+
               do ivar=imetal,nvar
                  z(ivar)=uold(ind_cell_new(i),ivar)/d
               end do
@@ -1934,7 +1940,10 @@ subroutine make_sink_from_clump(ilevel)
 
               ! Convert back to conservative variable
               d=d-delta_d
-              e=e*d
+!              e=e*d
+              call enerint_eos(d,temp,e)
+              if(energy_fix)uold(ind_cell_new(i),nvar)=e
+
 #ifdef SOLVERmhd
               e=e+0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
 #endif
