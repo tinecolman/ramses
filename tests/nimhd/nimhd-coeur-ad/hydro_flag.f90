@@ -243,33 +243,6 @@ subroutine jeans_length_refine(ind_cell,ok,ncell,ilevel)
      ! prevent numerical crash due to negative temperature
      tempe = max(tempe,smallc**2)
      tempe2 = tempe
-     if(iso_jeans .and. (dens*scale_d .lt. rho_star)) then
-        ! Isothermal spound speed based jeans criterion (quite expensive....)
-        call enerint_eos(dens,Tp_jeans,iso_etherm)
-        call soundspeed_eos(dens,iso_etherm,iso_cs)
-        iso_cs2=iso_cs**2
-        tempe=min(tempe,iso_cs2)
-!       if(dens*scale_d .gt. 1.d-8)then
-!           ! Here we increase back the sound speed once 2nd collapse has started
-!           ! Cs_eos does not depend so much on density, so we start back at cs_iso
-!           call soundspeed_eos(dens,etherm,tempe)
-!           dens_max=1.d-8/scale_d
-!           call soundspeed_eos(dens_max,etherm,tempe2)
-!           iso_cs=iso_cs+(tempe-tempe2)
-!           iso_cs2=iso_cs**2
-!           tempe=iso_cs2
-!        end if
-        if(dens*scale_d .gt. rho_iso)then
-           ! Here we increase back the sound speed once 2nd collapse has started
-           ! Cs_eos does not depend so much on density, so we start back at cs_iso
-           !!call soundspeed_eos(dens,etherm,tempe)
-!           dens_max=1.d-8/scale_d
-!           call soundspeed_eos(dens_max,etherm,tempe2)
-           iso_cs=10.0_dp**(log10(tempe2) - (log10(tempe2)-log10(iso_cs))*((log10(rho_star) - log10(dens*scale_d))/(log10(rho_star) - log10(rho_iso))))
-           iso_cs2=iso_cs**2
-           tempe=iso_cs2
-        end if
-     endif
 
      ! compute the Jeans length (remember G=1)
      lamb_jeans = sqrt( tempe * pi / dens / factG )
