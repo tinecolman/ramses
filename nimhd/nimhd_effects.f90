@@ -357,189 +357,148 @@ end subroutine compute_jemf
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad)
-
-   USE amr_parameters
+subroutine compute_nimhd_flux_heating(q,ngrid,dx,dy,dz,bemfx,bemfy,bemfz,bmagij,fluxmd,fluxad)
+   use amr_parameters
    use hydro_commons
    use nimhd_parameters
-   IMPLICIT NONE
-
+   implicit none
    ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-   INTEGER ::ngrid
-   REAL(dp)::dx,dy,dz,dt
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(in)::q
+   integer,intent(in)::ngrid
+   real(dp),intent(in)::dx,dy,dz
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::bemfx,bemfy,bemfz
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),intent(in)::bmagij
+   ! output
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::fluxmd,fluxad
+   !-----------------------------------------------------------------
+   ! Calculate the ideal-MHD energy-flux building blocks:
+   !   fluxmd = J x B          (used by Ohmic dissipation)
+   !   fluxad = (J x B) x B x B (used by ambipolar diffusion, if active)
+   ! Where J is the current at the cell faces (calculated here), 
+   ! and B is the magnetic field given by compute_bmagij.
+   ! These are later scaled by the resistivities in
+   ! compute_heating_difmag and compute_heating_ambip.
+   !-----------------------------------------------------------------
+   integer ::i, j, k, l, m, n
+   real(dp)::v1x,v1y,v1z,v2x,v2y,v2z
+   real(dp),dimension(1:nvector,1:3,1:3)::jface
+   real(dp),dimension(1:nvector,1:3,1:3)::fluxbis
+   real(dp)::computdxbis,computdybis,computdzbis  !forward derivatives
+   real(dp)::oneoverdx
 
-   ! outputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemfx,jemfy,jemfz
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::bmagij
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::fluxmd,fluxad
-
-   ! declare local variables
-   INTEGER ::i, j, k, l, m
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bmagijbis
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::jface
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bcenter
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::fluxbis,fluxter,fluxquat
-   real(dp)::bsquare
-   real(dp)::computdxbis,computdybis,computdzbis
+   ! We optimize by calculating the division only once,
+   ! and using the fact that dx=dy=dz in RAMSES
+   oneoverdx = 1d0/dx
 
    fluxmd=0d0
    fluxad=0d0
-   bmagij=0d0
-   
-   bemfx=0d0
-   bemfy=0d0
-   bemfz=0d0
-
-   ! magnetic field at center of cells
-   do k=ku1,ku2
-      do j=ju1,ju2
-         do i=iu1,iu2
-            do l=1,ngrid
-               bcenter(l,i,j,k,nxx)=q(l,i,j,k,6)
-               bcenter(l,i,j,k,nyy)=q(l,i,j,k,7)
-               bcenter(l,i,j,k,nzz)=q(l,i,j,k,8)
-            end do
-         end do
-      end do
-   end do
-
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   ! computation of the component of j at center of cell
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-   ! computation of current on faces
-
-   ! face at i-1/2,j,k
-
-   do k=min(1,ku1+1),max(1,ku2-1)
-      do j=min(1,ju1+1),max(1,ju2-1)           
-         do i=min(1,iu1+1),iu2
-            do l=1,ngrid
-               jface(l,i,j,k,1,1)=computdybis(bemfz,3,l,i,j,k,dy)-computdzbis(bemfy,2,l,i,j,k,dz)
-            end do
-         end do
-      end do
-   end do
-
-   do k=min(1,ku1+1),max(1,ku2-1)
-      do j=ju1,ju2       
-         do i=min(1,iu1+1),iu2
-            do l=1,ngrid
-               jface(l,i,j,k,2,1)=computdzbis(bemfy,1,l,i,j,k,dz)-computdxbis(bcenter,3,l,i-1,j,k,dx)
-            end do
-         end do
-      end do
-   end do
-  
-   do k=ku1,ku2
-      do j=min(1,ju1+1),max(1,ju2-1)       
-         do i=min(1,iu1+1),iu2
-            do l=1,ngrid
-               jface(l,i,j,k,3,1)=computdxbis(bcenter,2,l,i-1,j,k,dx)-computdybis(bemfz,1,l,i,j,k,dy)
-            end do
-         end do
-      end do
-   end do
-  
-   ! face at i,j-1/2,k
-
-   do k=min(1,ku1+1),max(1,ku2-1) 
-      do j=min(1,ju1+1),ju2       
-         do i=iu1,iu2
-            do l=1,ngrid
-               jface(l,i,j,k,1,2)=computdybis(bcenter,3,l,i,j-1,k,dy)-computdzbis(bemfx,2,l,i,j,k,dz)
-            end do
-         end do
-      end do
-   end do
-
-   do k=min(1,ku1+1),max(1,ku2-1) 
-      do j=min(1,ju1+1),ju2       
-         do i=min(1,iu1+1),max(1,iu2-1) 
-            do l=1,ngrid
-               jface(l,i,j,k,2,2)=computdzbis(bemfx,1,l,i,j,k,dz)-computdxbis(bemfz,3,l,i,j,k,dx)
-            end do
-         end do
-      end do
-   end do
-  
-   do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
-         do i=min(1,iu1+1),max(1,iu2-1) 
-            do l=1,ngrid
-               jface(l,i,j,k,3,2)=computdxbis(bemfz,2,l,i,j,k,dx)-computdybis(bcenter,1,l,i,j-1,k,dy)
-            end do
-         end do
-      end do
-   end do
-
-   ! face at i,j,k-1/2
-  
-   do k=min(1,ku1+1),ku2
-      do j=min(1,ju1+1),max(1,ju2-1)        
-         do i=iu1,iu2
-            do l=1,ngrid
-               jface(l,i,j,k,1,3)=computdybis(bemfx,3,l,i,j,k,dy)-computdzbis(bcenter,2,l,i,j,k-1,dz)             
-            end do
-         end do
-      end do
-   end do
-
-   do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
-         do i=min(1,iu1+1),max(1,iu2-1)
-            do l=1,ngrid
-               jface(l,i,j,k,2,3)=computdzbis(bcenter,1,l,i,j,k-1,dz)-computdxbis(bemfy,3,l,i,j,k,dx)             
-            end do
-         end do
-      end do
-   end do
-  
-   do k=min(1,ku1+1),ku2
-      do j=min(1,ju1+1),max(1,ju2-1)      
-         do i=min(1,iu1+1),max(1,iu2-1)
-            do l=1,ngrid
-               jface(l,i,j,k,3,3)=computdxbis(bemfy,2,l,i,j,k,dx)-computdybis(bemfx,1,l,i,j,k,dx)            
-            end do
-         end do
-      end do
-   end do
-
 
    do k=min(1,ku1+1),max(1,ku2-1)
       do j=min(1,ju1+1),max(1,ju2-1)
          do i=min(1,iu1+1),max(1,iu2-1)
+
+            ! Computation the current density J on the cell faces
+            ! (q contains the magnetic field at center of cells)
             do l = 1, ngrid
-               call crossprodbis(jface,bmagij,fluxbis,l,i,j,k)
-               fluxmd(l,i,j,k,1)=fluxbis(l,i,j,k,1,1)
-               fluxmd(l,i,j,k,2)=fluxbis(l,i,j,k,2,2)
-               fluxmd(l,i,j,k,3)=fluxbis(l,i,j,k,3,3)
+               ! face at i-1/2,j,k
+               computdybis = (bemfz(l,i,j+1,k  ,3) - bemfz(l,i,j,k,3)) !/ dy
+               computdzbis = (bemfy(l,i,j  ,k+1,2) - bemfy(l,i,j,k,2)) !/ dz
+               jface(l,1,1) = (computdybis - computdzbis) * oneoverdx
+
+               computdzbis = (bemfy(l,i,j,k+1,1) - bemfy(l,i  ,j,k,1)) !/ dz
+               computdxbis = (    q(l,i,j,k  ,8) -     q(l,i-1,j,k,8)) !/ dx
+               jface(l,2,1) = (computdzbis - computdxbis) * oneoverdx
+
+               computdxbis = (    q(l,i,j  ,k,7) -     q(l,i-1,j,k,7)) !/ dx
+               computdybis = (bemfz(l,i,j+1,k,1) - bemfz(l,i  ,j,k,1)) !/ dy
+               jface(l,3,1) = (computdxbis - computdybis) * oneoverdx
+
+               ! face at i,j-1/2,k
+               computdybis = (    q(l,i,j,k  ,8) -     q(l,i,j-1,k,8)) !/ dy
+               computdzbis = (bemfx(l,i,j,k+1,2) - bemfx(l,i,j  ,k,2)) !/ dz
+               jface(l,1,2) = (computdybis - computdzbis) * oneoverdx
+
+               computdzbis = (bemfx(l,i  ,j,k+1,1) - bemfx(l,i,j,k,1)) !/ dz
+               computdxbis = (bemfz(l,i+1,j,k  ,3) - bemfz(l,i,j,k,3)) !/ dx
+               jface(l,2,2) = (computdzbis - computdxbis) * oneoverdx
+
+               computdxbis = (bemfz(l,i+1,j,k,2) - bemfz(l,i,j  ,k,2)) !/ dx
+               computdybis = (    q(l,i  ,j,k,6) -     q(l,i,j-1,k,6)) !/ dy
+               jface(l,3,2) = (computdxbis - computdybis) * oneoverdx
+
+               ! face at i,j,k-1/2
+               computdybis = (bemfx(l,i,j+1,k,3) - bemfx(l,i,j,k  ,3)) !/ dy
+               computdzbis = (    q(l,i,j  ,k,7) -     q(l,i,j,k-1,7)) !/ dz
+               jface(l,1,3) = (computdybis - computdzbis) * oneoverdx
+
+               computdzbis = (    q(l,i  ,j,k,6) -     q(l,i,j,k-1,6)) !/ dz
+               computdxbis = (bemfy(l,i+1,j,k,3) - bemfy(l,i,j,k  ,3)) !/ dx
+               jface(l,2,3) = (computdzbis - computdxbis) * oneoverdx
+
+               computdxbis = (bemfy(l,i+1,j  ,k,2) - bemfy(l,i,j,k,2)) !/ dx
+               computdybis = (bemfx(l,i  ,j+1,k,1) - bemfx(l,i,j,k,1)) !/ dx
+               jface(l,3,3) = (computdxbis - computdybis) * oneoverdx
+            end do 
+
+            ! Compute fluxmd from crossproduct (J x B)
+            do l = 1, ngrid
+               do n=1,3
+                  v1x=jface(l,1,n)
+                  v1y=jface(l,2,n)
+                  v1z=jface(l,3,n)
+
+                  v2x=bmagij(l,i,j,k,1,n)
+                  v2y=bmagij(l,i,j,k,2,n)
+                  v2z=bmagij(l,i,j,k,3,n)
+
+                  fluxbis(l,1,n)=v1y*v2z-v1z*v2y
+                  fluxbis(l,2,n)=v1z*v2x-v1x*v2z
+                  fluxbis(l,3,n)=v1x*v2y-v2x*v1y
+               end do
+
+               fluxmd(l,i,j,k,1)=fluxbis(l,1,1)
+               fluxmd(l,i,j,k,2)=fluxbis(l,2,2)
+               fluxmd(l,i,j,k,3)=fluxbis(l,3,3)
             end do
+
+            if(nambipolar) then
+               ! Compute fluxad from crossproduct ((J x B) x B) x B
+               do l = 1, ngrid
+
+                  ! x-component
+                  v1x=fluxbis(l,1,1)
+                  v2x=bmagij(l,i,j,k,1,1)
+                  v2y=bmagij(l,i,j,k,2,1)
+                  v2z=bmagij(l,i,j,k,3,1)
+                  v1y=fluxbis(l,3,1)*v2x-v1x*v2z
+                  v1z=v1x*v2y-v2x*fluxbis(l,2,1)
+                  fluxad(l,i,j,k,1)=v1y*v2z-v1z*v2y
+
+                  ! y-component
+                  v1y=fluxbis(l,2,2)
+                  v2x=bmagij(l,i,j,k,1,2)
+                  v2y=bmagij(l,i,j,k,2,2)
+                  v2z=bmagij(l,i,j,k,3,2)
+                  v1x=v1y*v2z-fluxbis(l,3,2)*v2y
+                  v1z=fluxbis(l,1,2)*v2y-v2x*v1y
+                  fluxad(l,i,j,k,2)=v1z*v2x-v1x*v2z
+
+                  ! z-component
+                  v1z=fluxbis(l,3,3)
+                  v2x=bmagij(l,i,j,k,1,3)
+                  v2y=bmagij(l,i,j,k,2,3)
+                  v2z=bmagij(l,i,j,k,3,3)
+                  v1x=fluxbis(l,2,3)*v2z-v1z*v2y
+                  v1y=v1z*v2x-fluxbis(l,1,3)*v2z
+                  fluxad(l,i,j,k,3)=v1x*v2y-v2x*v1y
+
+               end do
+            endif
          end do
       end do
    end do
 
-   if(nambipolar) then
-      do k=min(1,ku1+1),max(1,ku2-1)
-         do j=min(1,ju1+1),max(1,ju2-1)
-            do i=min(1,iu1+1),max(1,iu2-1)
-               do l = 1, ngrid
-                  call crossprodbis(fluxbis,bmagij,fluxter,l,i,j,k)
-                  call crossprodbis(fluxter,bmagij,fluxquat,l,i,j,k)
-                  fluxad(l,i,j,k,1)=fluxquat(l,i,j,k,1,1)
-                  fluxad(l,i,j,k,2)=fluxquat(l,i,j,k,2,2)
-                  fluxad(l,i,j,k,3)=fluxquat(l,i,j,k,3,3)
-               end do
-            end do
-         end do
-      end do
-   endif
-
-end subroutine computejb2
+end subroutine compute_nimhd_flux_heating
 !###########################################################
 !###########################################################
 !###########################################################
