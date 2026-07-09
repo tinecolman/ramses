@@ -354,10 +354,6 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
       end do
    end do
 
-   call compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
-
-   call compute_bmagij(u,q,ngrid,bmagij)
-
    call compute_bmagijbis(u,ngrid,bmagijbis)
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
