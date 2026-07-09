@@ -504,22 +504,23 @@ end subroutine compute_nimhd_flux_heating
 !###########################################################
 !###########################################################
 subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,emfohmdiss)
-
    use amr_parameters
    use hydro_commons
    use nimhd_parameters
    implicit none
-
    ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   integer ::ngrid
-   real(dp)::dx,dy,dz,dt
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemfx,jemfy,jemfz
+   integer,intent(in)::ngrid
+   real(dp),intent(in)::dx,dy,dz,dt
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u 
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::bemfx,bemfy,bemfz
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::jemfx,jemfy,jemfz
    ! outputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3):: emfohmdiss 
-
-   ! local variables
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::emfohmdiss
+   !-----------------------------------------------------------------
+   ! Computes the Ohmic contribution to the EMF,
+   !   emfohmdiss = -eta * J   (from dB/dt = -curl(eta*J)),
+   ! evaluated at the EMF edges.
+   !-----------------------------------------------------------------s
    integer ::i,j,k,l,h
    real(dp)::rhox,rhoy,rhoz,epsx,epsy,epsz,bsquarex,bsquarey,bsquarez
    real(dp)::tcellx,tcelly,tcellz,etaod2x,etaod2y,etaod2z
@@ -559,6 +560,7 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
                emfohmdiss(l,i,j,k,2)=-etaod2y*jemfy(l,i,j,k,2)
                emfohmdiss(l,i,j,k,3)=-etaod2z*jemfz(l,i,j,k,3)
             end do
+
          end do
       end do
    end do
@@ -627,20 +629,19 @@ end subroutine compute_heating_difmag
 !###########################################################
 !###########################################################
 subroutine computambip(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxad,emfambdiff,fluxambdiff)
-
    use amr_commons
    use amr_parameters
    use hydro_commons
    use nimhd_parameters
    use const
    implicit none
-
    ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   integer ::ngrid
-   real(dp)::dx,dy,dz,dt
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemfx,jemfy,jemfz
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u 
+   integer,intent(in)::ngrid
+   real(dp),intent(in)::dx,dy,dz,dt
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::bemfx,bemfy,bemfz
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::jemfx,jemfy,jemfz
+
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::fluxad
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::bmagij
 
@@ -775,6 +776,71 @@ subroutine computambip(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,b
    end do
 
 end subroutine computambip
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
+!subroutine compute_heating_ambip(u,ngrid,fluxad,fluxambdiff)
+!   use amr_commons
+!   use amr_parameters
+!   use hydro_commons
+!   use nimhd_parameters
+!   implicit none
+!   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+!   integer,intent(in)::ngrid
+!   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::fluxad
+!   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::fluxambdiff
+!   !-----------------------------------------------------------------
+!   ! Calculate the ambipolar energy flux on the faces
+!   !   fluxambdiff = -beta * fluxad
+!   ! Assume fixed coefficient
+!   !   beta = 1/(gammaAD*rho)
+!   !-----------------------------------------------------------------
+!   integer ::i, j, k, l
+!   real(dp),dimension(1:nvector),save::beta_x,beta_y,beta_z
+!   real(dp),dimension(1:nvector),save::rhofx,rhofy,rhofz
+!
+!   fluxambdiff=0d0
+!
+!   ! Compute (J x B) x B
+!   do k=min(1,ku1+1),max(1,ku2-1)
+!      do j=min(1,ju1+1),max(1,ju2-1)
+!         do i=min(1,iu1+1),max(1,iu2-1)
+!
+!            ! compute resistivity beta
+!            do l = 1, ngrid
+!               rhofx(l)=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j,k,1))
+!               rhofy(l)=0.5d0*(u(l,i,j,k,1)+u(l,i,j-1,k,1))
+!               rhofz(l)=0.5d0*(u(l,i,j,k,1)+u(l,i,j,k-1,1))
+!            end do
+!
+!            if(resistivity_method==0)then
+!               do l = 1, ngrid
+!                  beta_x(l)=1d0/(gammaAD*rhofx(l))
+!                  beta_y(l)=1d0/(gammaAD*rhofy(l))
+!                  beta_z(l)=1d0/(gammaAD*rhofz(l))
+!               end do
+!            else !table
+!               do l = 1, ngrid
+!                  ! TC: what to do yith rhocell
+!                  beta_x(l)=betaad(rhocell,rhofx,dt,bcell,bcell,dx,tcell,.true.)
+!                  beta_y(l)=betaad(rhocell,rhofy,dt,bcell,bcell,dx,tcell,.true.)
+!                  beta_z(l)=betaad(rhocell,rhofz,dt,bcell,bcell,dx,tcell,.true.)
+!               end do
+!            endif
+!
+!            do l = 1, ngrid
+!               ! energy flux on faces
+!               fluxambdiff(l,i,j,k,1)=-fluxad(l,i,j,k,1) * beta_x(l)
+!               fluxambdiff(l,i,j,k,2)=-fluxad(l,i,j,k,2) * beta_y(l)
+!               fluxambdiff(l,i,j,k,3)=-fluxad(l,i,j,k,3) * beta_z(l)
+!            end do
+!
+!         end do
+!      end do
+!   end do
+!
+!end subroutine compute_heating_ambip
 !###########################################################
 !###########################################################
 !###########################################################
