@@ -1,25 +1,39 @@
 ! by Jacques Masson, Benoit Commercon and Neil Vaytet
 ! refactored by Tine Colman
+!
+! This file contains the core routines for the non-ideal MHD (NIMHD)
+! effects: ambipolar diffusion and Ohmic dissipation. They are called
+! from the MHD Godunov update (mhd/umuscl.f90) and add the non-ideal
+! contributions to the electromotive fields (EMFs) that evolve the
+! magnetic field, together with the associated non-ideal energy fluxes.
+!
+! Overview of the routines in this file:
+!   - compute_bemf / compute_bmagij / compute_bmagijbis : interpolate the
+!     magnetic field to the various staggered locations needed below.
+!   - compute_jemf : compute the current density at the EMF/face locations
+!   - computejb2   : build the ideal-MHD flux building blocks (fluxmd, fluxad)
+!                    shared by both effects.
+!   - computdifmag : Ohmic dissipation EMF (emfohmdiss),
+!                    using the fixed resistivity eta = etaMD.
+!   - computambip  : ambipolar diffusion EMF (emfambdiff),
+!                    using the fixed coefficient beta = 1/(gammaAD*rho).
+!   - compute_heating_difmag / compute_heating_ambip : NIMHD energy fluxes
 
 !###########################################################
 !###########################################################
 !###########################################################
 !###########################################################
 subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
-
    USE amr_parameters
    use hydro_commons
-   IMPLICIT NONE
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(in)::q
+   integer,intent(in)::ngrid
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::bemfx,bemfy,bemfz
    !-------------------------------------------
-   ! compute magnetic field at location of EMF
+   ! Interpolates the magnetic field at location of EMF
    !-------------------------------------------
-   ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-   integer::ngrid
-   ! output
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
-   ! local variables
    integer ::i, j, k, l
 
    bemfx=0d0
@@ -31,7 +45,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    !!!!!!!!!!!!!!!!!!
 
    do k=min(1,ku1+1),ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfx(l,i,j,k,1)=0.25d0*( q(l,i,j,k,6)+q(l,i,j-1,k,6)+q(l,i,j,k-1,6)+q(l,i,j-1,k-1,6) )
@@ -41,7 +55,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfx(l,i,j,k,2)=0.5d0*( u(l,i,j,k,7)+u(l,i,j,k-1,7) )
@@ -51,7 +65,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfx(l,i,j,k,3)=0.5d0*(u(l,i,j,k,8)+u(l,i,j-1,k,8))
@@ -65,7 +79,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    !!!!!!!!!!!!!!!!!!
 
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfy(l,i,j,k,1)=0.5d0*(u(l,i,j,k,6)+u(l,i,j,k-1,6))
@@ -75,7 +89,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfy(l,i,j,k,2)=0.25d0*(q(l,i,j,k,7)+q(l,i-1,j,k,7)+q(l,i,j,k-1,7)+q(l,i-1,j,k-1,7))
@@ -85,7 +99,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfy(l,i,j,k,3)=0.5d0*(u(l,i-1,j,k,8)+u(l,i,j,k,8))
@@ -99,7 +113,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    !!!!!!!!!!!!!!!!!!
 
    do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfz(l,i,j,k,1)=0.5d0*(u(l,i,j,k,6)+u(l,i,j-1,k,6))
@@ -109,7 +123,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfz(l,i,j,k,2)=0.5d0*(u(l,i,j,k,7)+u(l,i-1,j,k,7))
@@ -119,7 +133,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfz(l,i,j,k,3)=0.25d0*(q(l,i,j,k,8)+q(l,i-1,j,k,8)+q(l,i,j-1,k,8)+q(l,i-1,j-1,k,8))
@@ -136,31 +150,28 @@ end subroutine compute_bemf
 subroutine compute_bmagij(u,q,ngrid,bmagij)
    USE amr_parameters
    use hydro_commons
-   IMPLICIT NONE
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(in)::q
+   integer,intent(in)::ngrid
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),intent(out)::bmagij
    !-----------------------------------------------------------------
-   ! bmagij is the value of the magnetic field Bi where Bj 
-   ! is naturally defined; Ex bmagij(l,i,j,k,1,2) is Bx at i,j-1/2,k
-   ! and we can write it Bx,y
+   ! Compute the value of the magnetic field Bi where Bj is naturally defined;
+   ! For example, bmagij(l,i,j,k,1,2) is Bx at i,j-1/2,k
+   ! and we can name it Bx,y
    !-----------------------------------------------------------------
-   ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-   integer::ngrid
-   ! output
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::bmagij
-   ! declare local variables
-   INTEGER ::i, j, k, l, m
+   integer ::i, j, k, l, m
 
-  bmagij=0d0
+   bmagij=0d0
 
+   ! Diagonal: Bx x, By y, Bz z
    do k=ku1,ku2
       do j=ju1,ju2
          do i=iu1,iu2
             do l=1,ngrid
-               do m=1,3
-                  !! m+5 mandatory cf Bx=uin(l,i,j,k,6)
-                  bmagij(l,i,j,k,m,m)=u(l,i,j,k,m+5)
-               end do
+               bmagij(l,i,j,k,1,1)=u(l,i,j,k,6)
+               bmagij(l,i,j,k,2,2)=u(l,i,j,k,7)
+               bmagij(l,i,j,k,3,3)=u(l,i,j,k,8)
             end do
          end do
       end do
@@ -240,20 +251,18 @@ end subroutine compute_bmagij
 subroutine compute_bmagijbis(u,ngrid,bmagijbis)
    use amr_parameters
    use hydro_commons
-   IMPLICIT NONE
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   integer,intent(in)::ngrid
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::bmagijbis
    !-----------------------------------------------------------------
-   ! bmagijbis(l,i,j,k,n) is the value of the magnetic field component
-   ! Bn at i-1/2,j-1/2,k-1/2
+   ! Compute the value of the magnetic field component at i-1/2,j-1/2,k-1/2
+   ! Used by compute_jemf
+   ! Only fills the values that are actually used by compute_jemf
    !-----------------------------------------------------------------
-   ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   integer::ngrid
-   ! output
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bmagijbis
-   ! declare local variables
-   INTEGER ::i, j, k, l
+   integer ::i, j, k, l
 
-   bmagijbis=0d0   
+   bmagijbis=0d0
 
    ! case Bx for Lorentz force EMF
    do k=min(1,ku1+1),ku2
@@ -276,7 +285,7 @@ subroutine compute_bmagijbis(u,ngrid,bmagijbis)
          end do
       end do
    end do
-   
+
    ! case Bz for Lorentz force EMF
    do k=ku1,ku2
       do j=min(1,ju1+1),ju2
