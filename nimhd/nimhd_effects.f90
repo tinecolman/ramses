@@ -564,9 +564,9 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
                ! TC: shouldn't dy and dz be used here in principle? (in practice they are the same)  
 
                ! WARNING dB/dt=-curl(eta*J)
-               emfohmdiss(l,i,j,k,nxx)=-etaod2x*jemfx(l,i,j,k,1)
-               emfohmdiss(l,i,j,k,nyy)=-etaod2y*jemfy(l,i,j,k,2)
-               emfohmdiss(l,i,j,k,nzz)=-etaod2z*jemfz(l,i,j,k,3)
+               emfohmdiss(l,i,j,k,1)=-etaod2x*jemfx(l,i,j,k,1)
+               emfohmdiss(l,i,j,k,2)=-etaod2y*jemfy(l,i,j,k,2)
+               emfohmdiss(l,i,j,k,3)=-etaod2z*jemfz(l,i,j,k,3)
                if(nimhdheating_in_flux) then 
                   do h = 1,3
                      rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),1))
