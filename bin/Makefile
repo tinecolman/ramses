@@ -121,15 +121,15 @@ ifeq ($(COMPILER),GNU)
       F90 = gfortran
    endif
    FC = gfortran -ffree-line-length-none -fimplicit-none
-   FFLAGS_BASE += -ffree-line-length-none -fimplicit-none -fallow-argument-mismatch
+   FFLAGS_BASE += -ffree-line-length-none -fimplicit-none
    # add preprocessor macro definitions to compilation flags
    FFLAGS_BASE += -cpp $(DEFINES)
    ifeq ($(MPI),0)
       FFLAGS_BASE += -DWITHOUTMPI
    endif
    # link-time optimization accross files
-   #LDFLAGS += -flto -fwhole-program
-   #FFLAGS_OPT += -flto -fwhole-program
+   LDFLAGS += -flto -fwhole-program
+   FFLAGS_OPT += -flto -fwhole-program
    # Flags for coverage calculation (resets optimization flags)
    ifeq ($(GCOV),1)
       FFLAGS_BASE += -fprofile-arcs -ftest-coverage
