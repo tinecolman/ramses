@@ -376,6 +376,9 @@ subroutine collapse_condinit(x,q,dx,nn)
 
        q(i,ip) = p0/100.
      ENDIF
+
+     q(i,  ip) = q(i,1)* C_s**2!/(gamma-1.0d0)
+
   ENDDO
 
 end subroutine collapse_condinit
