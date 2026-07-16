@@ -595,7 +595,7 @@ subroutine computambip(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,b
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(in)::fluxad
    ! output
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::emfambdiff
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)intent(out)::fluxambdiff
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::fluxambdiff
    !-----------------------------------------------------------------
    ! Computes the ambipolar contribution to the EMF from the Lorentz force
    !   F = J x B
@@ -1084,7 +1084,7 @@ subroutine resistivities_etaohm(u,B2x,B2y,B2z,ngrid,i,j,k,dt,dx,etaohm,interpol_
       do l=1,ngrid
          ! TODO generalise how to get the temperature using Eint
          ! Compute gas temperature in cgs
-         call temperature_eos(rhox(l), 0d0, cellx)
+         call temperature_eos(rhox(l), 0d0, tcellx)
          call temperature_eos(rhoy(l), 0d0, tcelly)
          call temperature_eos(rhoz(l), 0d0, tcellz)
 
