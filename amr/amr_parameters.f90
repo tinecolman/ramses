@@ -204,7 +204,6 @@ module amr_parameters
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
   logical ::nordlund_fix=.true.
-  logical ::energy_fix=.false.          ! Use internal energy instead of total energy
   logical ::cooling=.false.
   logical ::neq_chem=.false.            ! Non-equilbrium chemistry activated
   logical ::isothermal=.false.          ! Enable equation of state for gas (heating and cooling disabled if .true.)
@@ -223,9 +222,6 @@ module amr_parameters
   logical ::sf_compressive=.false.      ! Advect compressive and solenoidal turbulence terms separately
   logical ::cooling_ism = .false.      ! Use cooling module from Audit & Hennebelle 2005 (non-RT)
                                         ! instead of ramses classical cooling
-  logical ::racc_refine=.true.          ! Refine the grid around the sink to the maximum level of refinement
-  logical ::clump_jeans=.false.         ! Clump finder on cells violating Jeans criterion only
-  real(dp)::larson_lifetime=5000         ! lifetime of first larson core in years
   logical ::iso_jeans=.false.            ! activate isothermal sound speed Jeans length refinement criterion
   real(dp)::Tp_jeans = 10.0d0            ! Default temperature to activate iso_jeans
 

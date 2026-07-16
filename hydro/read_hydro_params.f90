@@ -512,9 +512,6 @@ subroutine read_hydro_params(nml_ok)
   if (interpol_mag_type == -1) then
     interpol_mag_type = interpol_type
   endif
-!!$  if (interpol_mag_type_cond == -1) then
-!!$    interpol_mag_type_cond = interpol_type_cond
-!!$  endif 
 #endif
 
 end subroutine read_hydro_params
