@@ -339,7 +339,7 @@ end subroutine compute_jemf
 !###########################################################
 !###########################################################
 !###########################################################
-subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad)
+subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,bmagij,fluxmd,fluxad)
 
    USE amr_parameters
    use hydro_commons
@@ -354,7 +354,6 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
 
    ! outputs
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::jemfx,jemfy,jemfz
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::bmagij
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::fluxmd,fluxad
 
@@ -369,11 +368,6 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
 
    fluxmd=0d0
    fluxad=0d0
-   bmagij=0d0
-   
-   bemfx=0d0
-   bemfy=0d0
-   bemfz=0d0
 
    ! magnetic field at center of cells
    do k=ku1,ku2
@@ -387,17 +381,6 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
          end do
       end do
    end do
-
-   call compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
-
-   call compute_bmagij(u,q,ngrid,bmagij)
-
-   call compute_jemf(u,ngrid,dx,dy,dz,bmagij,jemfx,jemfy,jemfz)
-
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   ! computation of the component of j where EMFs are located
-   ! jemfx(l,i,j,k,n) is the component Jn at i,j-1/2,k-1/2
-   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! computation of the component of j at center of cell

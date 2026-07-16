@@ -103,7 +103,10 @@ subroutine mag_unsplit(uin,gravin,flux,emfx,emfy,emfz,tmp,dx,dy,dz,dt,ngrid)
 #ifdef NIMHD
   if(use_nonideal_mhd) then
      ! compute necessary quantities
-     call computejb2(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad)
+     call compute_bemf(uin,qin,ngrid,bemfx,bemfy,bemfz)
+     call compute_bmagij(uin,qin,ngrid,bmagij)
+     call compute_jemf(uin,ngrid,dx,dy,dz,bmagij,jemfx,jemfy,jemfz)
+     call computejb2(uin,qin,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,bmagij,fluxmd,fluxad)
   endif
 
   ! AMBIPOLAR DIFFUSION
