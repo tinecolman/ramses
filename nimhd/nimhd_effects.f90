@@ -6,20 +6,16 @@
 !###########################################################
 !###########################################################
 subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
-
    USE amr_parameters
    use hydro_commons
-   IMPLICIT NONE
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar),intent(in)::q
+   integer,intent(in)::ngrid
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::bemfx,bemfy,bemfz
    !-------------------------------------------
-   ! compute magnetic field at location of EMF
+   ! Interpolates the magnetic field at location of EMF
    !-------------------------------------------
-   ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar)::q 
-   integer::ngrid
-   ! output
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bemfx,bemfy,bemfz
-   ! local variables
    integer ::i, j, k, l
 
    bemfx=0d0
