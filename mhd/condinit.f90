@@ -175,7 +175,7 @@ subroutine collapse_condinit(x,q,dx,nn)
   integer :: ivar, np
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp),dimension(1:3,1:3):: rot_M,rot_invM,rot_tilde
-  real(dp):: ee,theta_mag_radians
+  real(dp):: theta_mag_radians
 
   logical,save:: first=.true.
   real(dp),dimension(1:3,1:100,1:100,1:100),save::q_idl
@@ -377,12 +377,7 @@ subroutine collapse_condinit(x,q,dx,nn)
        q(i,ip) = p0/100.
      ENDIF
 
-    if(eos) then
-      !call enerint_eos(q(i,1),T_eos,ee)
-      !q(i,  ip) = ee
-    else
       q(i,  ip) = q(i,1)* C_s**2!/(gamma-1.0d0)
-    endif
 
   ENDDO
 
