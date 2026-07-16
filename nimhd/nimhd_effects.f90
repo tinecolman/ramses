@@ -233,25 +233,23 @@ end subroutine compute_bmagij
 subroutine compute_bmagijbis(u,ngrid,bmagijbis)
    use amr_parameters
    use hydro_commons
-   IMPLICIT NONE
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   integer,intent(in)::ngrid
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::bmagijbis
    !-----------------------------------------------------------------
-   ! bmagijbis(l,i,j,k,n) is the value of the magnetic field component
-   ! Bn at i-1/2,j-1/2,k-1/2
+   ! Compute the value of the magnetic field component at i-1/2,j-1/2,k-1/2
+   ! Used by compute_jemf
+   ! Only fills the values that are actually used by compute_jemf
    !-----------------------------------------------------------------
-   ! inputs
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3)::u 
-   integer::ngrid
-   ! output
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bmagijbis
-   ! declare local variables
-   INTEGER ::i, j, k, l
+   integer ::i, j, k, l
 
-   bmagijbis=0d0   
+   bmagijbis=0d0
 
    ! case Bx for Lorentz force EMF
    do k=min(1,ku1+1),ku2
       do j=min(1,ju1+1),ju2
-         do i=iu1,iu2
+         do i=min(1,iu1+1),max(1,iu2-1)
             do l=1,ngrid
                bmagijbis(l,i,j,k,1)=0.25d0*(u(l,i,j,k,6)+u(l,i,j-1,k,6)+u(l,i,j,k-1,6)+u(l,i,j-1,k-1,6))
             end do
@@ -261,21 +259,21 @@ subroutine compute_bmagijbis(u,ngrid,bmagijbis)
 
    ! case By for Lorentz force EMF
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2
+      do j=min(1,ju1+1),max(1,ju2-1)
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
-               bmagijbis(l,i,j,k,2)=0.25d0*(u(l,i,j,k,7)+u(l,i-1,j,k,7)+u(l,i,j,k-1,7)+u(l,i-1,j,k-1,7)) 
+               bmagijbis(l,i,j,k,2)=0.25d0*(u(l,i,j,k,7)+u(l,i-1,j,k,7)+u(l,i,j,k-1,7)+u(l,i-1,j,k-1,7))
             end do
          end do
       end do
    end do
-   
+
    ! case Bz for Lorentz force EMF
-   do k=ku1,ku2
+   do k=min(1,ku1+1),max(1,ku2-1)
       do j=min(1,ju1+1),ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
-               bmagijbis(l,i,j,k,3)=0.25d0*(u(l,i,j,k,8)+u(l,i-1,j,k,8)+u(l,i,j-1,k,8)+u(l,i-1,j-1,k,8)) 
+               bmagijbis(l,i,j,k,3)=0.25d0*(u(l,i,j,k,8)+u(l,i-1,j,k,8)+u(l,i,j-1,k,8)+u(l,i-1,j-1,k,8))
             end do
          end do
       end do
