@@ -3,8 +3,6 @@ subroutine read_hydro_params(nml_ok)
   use hydro_commons
   use cooling_module, only:X,Y
   use mpi_mod
-  use cloud_module
-
   implicit none
   logical::nml_ok
   !--------------------------------------------------
@@ -36,9 +34,7 @@ subroutine read_hydro_params(nml_ok)
 #if NENER>0
        & ,prad_region &
 #endif
-       & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho,theta_mag,mass_c,Mach &
-       & ,rap,cont,ff_sct,ff_rt,ff_act,ff_vct,bb_test &
-       & ,contrast,Mach,uniform_bmag,r0_box
+       & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho,theta_mag,mass_c,Mach
 
   ! Hydro parameters
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
