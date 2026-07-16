@@ -76,10 +76,6 @@ module amr_parameters
   logical::unbind=.false.     ! Enable particle unbinding for the clump finder
   logical::make_mergertree=.false. ! Make on the fly mergertrees
   logical::aton=.false.       ! Enable ATON coarse grid radiation transfer
-  logical::FLD=.false.        ! Enable FLD module
-#if USE_FLD==1
-  logical ::dt_control=.false.! Impose a time step using dtdiff_params in FLD module
-#endif
 
   ! Mesh parameters
   integer::nx=1,ny=1,nz=1                  ! Number of coarse cells in each dimension

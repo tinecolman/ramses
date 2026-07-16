@@ -49,15 +49,6 @@ NPSCAL = 0
 # Light MPI communicator structure (for > 10k MPI processes)
 LIGHT_MPI_COMM = 0
 
-# FLD stuff
-USE_FLD=0
-NGRP=0
-NENER:=$(NENER)+$(NGRP)
-ifeq ($(USE_FLD),1)
-   # for internal energy
-   NPSCAL := $(NPSCAL)+$(NIONS)+1
-endif
-
 # Compute NVAR
 NHYDRO = 2+$(NDIM)
 ifeq ($(SOLVER),mhd)
@@ -70,35 +61,8 @@ ifeq ($(NIMHD),1)
 endif
 NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
 ifeq ($(RT),1)
-   ifeq ($(USE_FLD),0) #else the NPSCAL already includes the NIONS
-      NVAR := $(NVAR)+$(NIONS)
-   endif
+   NVAR := $(NVAR)+$(NIONS)
 endif
-
-##note be vary careful with the variables allocation
-## for now it is assumed that
-## 1  is density
-## 2:4 velocity
-## 5 pressure
-## 6:8 magnetic field
-## 9:9+ncr : cosmic rays energy density (ncr groups of energy)
-## 9+ncr:9+nener : trapped photons (look at definitions in mhd/read_hydro_param)
-## 9+nener+1 : 9+nener+1+nions : the ions (rt_init, cooling_fine)
-## note defined through imetal=firstindex_pscal+1 in read_hydro_param then idelay=imetal ixion=idelay ichem=ixion 
-## then in rt_init nvar_count=ichem-1 and iIons = nvar_count+1 (this is terrible, I know....)
-## nvar-4:nvar-1 : current (used in godfine1 if IMHD==1) unew(....,nvar-4+idim)
-## nvar-1:nvar : internal energy used in set_uold if (energy_fix)
-
-#if you want to add your own scalar this has to be done between : 
-#9+nener+1+nions+1 and nvar-4
-
-#then do not forget that within the code the magnetic variable are duplicated and stored
-#nvar+1:nvar+3
-
-#finally note that ichem, idelay and imetal have not been checked carefully
-
-
-
 
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
 OLD_MPI_SUPPORT = 0
@@ -113,9 +77,6 @@ DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) \
           -DNVAR=$(NVAR) -DNHYDRO=$(NHYDRO) -DSOLVER$(SOLVER)
 ifeq ($(ATON),1)
    DEFINES += -DATON
-endif
-ifeq ($(USE_FLD),1)
-     DEFINES := $(DEFINES) -DNGRP=$(NGRP) -DNPSCAL=$(NPSCAL)
 endif
 ifeq ($(GRACKLE),1)
    DEFINES += -Dgrackle
@@ -135,10 +96,6 @@ endif
 ifeq ($(LIGHT_MPI_COMM), 1)
    DEFINES += -DLIGHT_MPI_COMM
 endif
-ifeq ($(USE_FLD),1)
-DEFINES += -DUSE_FLD=$(USE_FLD)
-endif
-
 # Add any user-provided flags from the command line
 DEFINES += $(USER_FLAGS)
 #############################################################################
@@ -235,12 +192,7 @@ ifeq ($(USE_TURB),1)
    LIBS_TURB = -L$(HOME)/local/lib -lfftw3
    LIBS_OBJ_TURB = -I$(HOME)/local/include -lfftw3
 endif
-
-# if USE_FLD and NGRP>1, Add Lapack
-ifneq ($(NGRP),$(filter $(NGRP),0 1))
-LIBS_FLD = -llapack
-endif
-LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB) $(LIBS_FLD)
+LIBS = $(LIBMPI) $(LIBS_GRACKLE) $(LIBS_TURB)
 #############################################################################
 # Sources directories are searched in this exact order
 VPATH = $(PATCH):../$(SOLVER):../aton:
@@ -253,10 +205,7 @@ endif
 ifeq ($(USE_TURB),1)
    VPATH += ../turb:
 endif
-VPATH += ../hydro:../pm:../poisson:../amr:../io:
-ifeq ($(USE_FLD),1)
-   VPATH += ../fld:
-endif
+VPATH += ../hydro:../pm:../poisson:../amr:../io
 #############################################################################
 # All objects
 MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o amr_constants.o random.o pm_parameters.o sink_feedback_parameters.o \
@@ -277,9 +226,6 @@ ifeq ($(NIMHD),1)
 endif
 ifeq ($(USE_TURB),1)
    MODOBJ += turb_parameters.o turb_commons.o
-endif
-ifeq ($(USE_FLD),1)
-   MODOBJ += radiation_parameters.o fld_commons.o
 endif
    MODOBJ += cloud_module.o
 
@@ -317,8 +263,6 @@ NIMHDOBJ = resistivity_table.o read_nimhd_params.o nimhd_effects.o
 TURBOBJ = turb_force_utils.o read_turb_params.o init_turb.o mpi_share_turb_fields.o \
           turb_next_field.o turb_check_time.o write_turb_fields.o read_turb_fields.o \
           add_turb_forcing.o
-# FLD objects
-FLDOBJ  = read_fld_params.o init_fld.o fld_opacities.o m1_utils.o multigroup.o radiation_boundary.o radiative_transfer_bicg.o
 # Patch objects
 sinclude $(PATCH)/Makefile
 
@@ -332,9 +276,6 @@ ifeq ($(NIMHD),1)
 endif
 ifeq ($(USE_TURB),1)
    AMRLIB += $(TURBOBJ)
-endif
-ifeq ($(USE_FLD),1)
-   AMRLIB += $(FLDOBJ)
 endif
 # ATON objects
 ATON_MODOBJ = timing.o radiation_commons.o rad_step.o

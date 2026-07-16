@@ -21,8 +21,8 @@ subroutine  condinit(x,u,dx,nn)
   ! U(i,nvar+1:nvar+3): Bright
   ! Q is the primitive variable vector. Conventions are here:
   ! Q(i,1): d, Q(i,2:4):u,v,w, Q(i,5): P, Q(i,6:8): Bleft,
-  ! Q(i,nvar+1:nvar+3): Bright, Q(i,9:8+nener): Er (if FLD)
-  ! If nvar > 8+nener, remaining variables (9+nener:nvar) are treated as passive
+  ! Q(i,nvar+1:nvar+3): Bright
+  ! If nvar > 8, remaining variables (9:nvar) are treated as passive
   ! scalars in the hydro solver.
   ! U(:,:) and Q(:,:) are in user units.
   !================================================================
@@ -86,7 +86,6 @@ subroutine  condinit(x,u,dx,nn)
   u(1:nn,neul)=u(1:nn,neul)+0.125d0*(q(1:nn,8)+q(1:nn,nvar+3))**2
   u(1:nn,6:8)=q(1:nn,6:8)
   u(1:nn,nvar+1:nvar+3)=q(1:nn,nvar+1:nvar+3)
-#if USE_FLD==0
 #if NENER>0
   ! radiative pressure -> radiative energy
   ! radiative energy -> total fluid energy
@@ -100,41 +99,6 @@ subroutine  condinit(x,u,dx,nn)
   do ivar=nhydro+1+nener,nvar
      u(1:nn,ivar)=q(1:nn,1)*q(1:nn,ivar)
   end do
-#endif
-#else
-#if NENER>0
-  ! non-thermal pressure -> non-thermal energy
-  ! non-thermal energy   -> total fluid energy
-  do irad=1,nener-ngrp
-     u(1:nn,8+irad)=q(1:nn,8+irad)/(gamma_rad(irad)-1.0d0)
-     u(1:nn,5)=u(1:nn,5)+u(1:nn,8+irad)
-  enddo
- ! Radiative transfer
-#if NGRP>0
-  ! radiative energy   -> total fluid energy
-  do ivar=1,ngrp
-     u(1:nn,firstindex_er+ivar)= q(1:nn,firstindex_er+ivar)
-     u(1:nn,5)=u(1:nn,5)+ u(1:nn,firstindex_er+ivar)
-  enddo
-#if USE_M_1==1
-  ! radiative flux
-  do ivar=1,ndim*ngrp
-     do i=1,ncache
-        u(1:nn,fisrtindex_fr+ivar)=q(1:nn,firstindex+ivar)
-     end do
-!      write(ilun)xdp
-  end do
-#endif
-#endif
-#endif
-#if NPSCAL>0
-  ! passive scalars
-  do ivar=1,npscal
-     u(1:nn,firstindex_pscal+ivar)=q(1:nn,1)*q(1:nn,firstindex_pscal+ivar)
-  end do
-  ! Internal energy
-  u(1:nn,nvar)=q(1:nn,5)/(gamma-1.0d0)
-#endif
 #endif
 
 end subroutine condinit
@@ -558,9 +522,6 @@ subroutine collapse_condinit(x,q,dx,nn)
   real(dp),save:: ind,seed1,seed2,seed3,xi,yi,zi,vx,vy,vz
   real(dp),save:: C_s,v_rms
   integer, save :: count_vrms
-#if USE_FLD==1
-  real(dp)::radiation_source
-#endif
 
   id=1; iu=2; iv=3; iw=4; ip=5
   x0=0.5*boxlen
@@ -760,25 +721,7 @@ subroutine collapse_condinit(x,q,dx,nn)
       q(i,  ip) = q(i,1)* C_s**2!/(gamma-1.0d0)
     endif
 
- 
-#if USE_FLD==1
-    if(eos) then
-      !call enerint_eos(q(i,1),T_eos,ee)
-      !q(i,  ip) = ee
-      !q(i,nvar) = ee
-    else
-      q(i,  ip) = q(i,1)* C_s**2!/(gamma-1.0d0)
-      q(i,nvar) = q(i,ip)
-    endif
-
-#if NGRP>0
-    do ivar=1,ngrp
-        q(i,firstindex_er+ivar) = radiation_source(T_eos,ivar)/(scale_d*scale_v**2)
-    enddo
-#endif     
-#endif
-
-  ENDDO 
+  ENDDO
 
 end subroutine collapse_condinit
 
@@ -802,7 +745,7 @@ subroutine nimhd_diffusion_condinit(x,q,dx,nn)
 
   ! Call built-in initial condition generator
   call region_condinit(x,q,dx,nn)
-  
+
   do i = 1,nn
      xx = x(i,1) - 0.5_dp*(1.0_dp + dx)
      yy = x(i,2) - 0.5_dp*(1.0_dp + dx)
