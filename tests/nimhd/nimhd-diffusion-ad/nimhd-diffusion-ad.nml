@@ -64,7 +64,6 @@ nambipolar=.true.
 resistivity_method=0
 gammaAD=1.0
 coefad=0.1d0
-nminitimestep=.false.   ! pour la diffusion ambipolaire seulement
 /
 
 &COOLING_PARAMS

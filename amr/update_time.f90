@@ -119,7 +119,7 @@ subroutine update_time(ilevel)
            endif
 #ifdef NIMHD
            if(use_nonideal_mhd)then
-              write(*,889)dtambdiff(ilevel),dtmagdiff(ilevel),dtwad(ilevel)
+              write(*,889)dtambdiff(ilevel),dtmagdiff(ilevel),dtideal(ilevel)
            endif
 #endif
            itest=1
@@ -213,8 +213,8 @@ subroutine update_time(ilevel)
          & ' a=',1pe10.3,' mem=',0pF4.1,'% ',0pF4.1,'%')
 999 format(' Level ',I2,' has ',I10,' grids (',3(I8,','),')')
 #ifdef NIMHD
-889 format(' dt ambipolar=',1pe10.3,' dt ohmic=',1pe10.3,&
-         & ' dt ideal mhd=',1pe10.3)
+889 format(' Nimhd steps: dtad=',1pe10.3,' dtohm=',1pe10.3,&
+         & ' dtideal=',1pe10.3)
 #endif
 
 end subroutine update_time
