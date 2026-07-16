@@ -55,7 +55,6 @@ ifeq ($(SOLVER),mhd)
    NHYDRO = 8
 endif
 ifeq ($(NIMHD),1)
-   NPSCAL := $(NPSCAL)+1
    SOLVER=mhd
 endif
 NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
