@@ -547,62 +547,57 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    real(dp)::etaod2,etaohmdiss
    integer , dimension(1:3) :: index_i,index_j,index_k
    integer :: ht
+   real(dp),dimension(1:nvector,1:3)::etaohm
+   real(dp),dimension(1:nvector)::B2x,B2y,B2z
    emfohmdiss = 0d0
    fluxohm = 0d0
-
-   index_i = (/1,0,0/)
-   index_j = (/0,1,0/)
-   index_k = (/0,0,1/)
 
    do k=min(1,ku1+1),max(1,ku2-1)
       do j=min(1,ju1+1),max(1,ju2-1)
          do i=min(1,iu1+1),max(1,iu2-1)
 
             do l=1,ngrid
+               B2x(l)=bemfx(l,i,j,k,1)**2+bemfx(l,i,j,k,2)**2+bemfx(l,i,j,k,3)**2
+               B2y(l)=bemfy(l,i,j,k,1)**2+bemfy(l,i,j,k,2)**2+bemfy(l,i,j,k,3)**2
+               B2z(l)=bemfz(l,i,j,k,1)**2+bemfz(l,i,j,k,2)**2+bemfz(l,i,j,k,3)**2
+            end do
 
-               rhox=0.25d0*(u(l,i,j,k,   1)+u(l,i  ,j-1,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i  ,j-1,k-1,   1))
-               rhoy=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i-1,j  ,k-1,   1))
-               rhoz=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j-1,k  ,   1)+u(l,i-1,j-1,k  ,   1))
+            call resistivities_etaohm(u,B2x,B2y,B2z,ngrid,i,j,k,dt,dx,etaohm,1,.true.)
 
-               epsx=0.25d0*(u(l,i,j,k,nvar)+u(l,i  ,j-1,k,nvar)+u(l,i,j  ,k-1,nvar)+u(l,i  ,j-1,k-1,nvar))
-               epsy=0.25d0*(u(l,i,j,k,nvar)+u(l,i-1,j  ,k,nvar)+u(l,i,j  ,k-1,nvar)+u(l,i-1,j  ,k-1,nvar))
-               epsz=0.25d0*(u(l,i,j,k,nvar)+u(l,i-1,j  ,k,nvar)+u(l,i,j-1,k  ,nvar)+u(l,i-1,j-1,k  ,nvar))
-
-               bsquarex=bemfx(l,i,j,k,1)**2+bemfx(l,i,j,k,2)**2+bemfx(l,i,j,k,3)**2
-               bsquarey=bemfy(l,i,j,k,1)**2+bemfy(l,i,j,k,2)**2+bemfy(l,i,j,k,3)**2
-               bsquarez=bemfz(l,i,j,k,1)**2+bemfz(l,i,j,k,2)**2+bemfz(l,i,j,k,3)**2
-
-               call temperature_eos(rhox, epsx, tcellx)
-               call temperature_eos(rhoy, epsy, tcelly)
-               call temperature_eos(rhoz, epsz, tcellz)
-
-               etaod2x=etaohmdiss(rhox,bsquarex,tcellx,dt,dx,.true.)
-               etaod2y=etaohmdiss(rhoy,bsquarey,tcelly,dt,dx,.true.)
-               etaod2z=etaohmdiss(rhoz,bsquarez,tcellz,dt,dx,.true.)
-               ! TC: shouldn't dy and dz be used here in principle? (in practice they are the same)  
-
+            do l=1,ngrid
                ! WARNING dB/dt=-curl(eta*J)
-               emfohmdiss(l,i,j,k,1)=-etaod2x*jemfx(l,i,j,k,1)
-               emfohmdiss(l,i,j,k,2)=-etaod2y*jemfy(l,i,j,k,2)
-               emfohmdiss(l,i,j,k,3)=-etaod2z*jemfz(l,i,j,k,3)
-               if(nimhdheating_in_flux) then 
-                  do h = 1,3
-                     rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),1))
-                     epsf=0.5d0*(u(l,i,j,k,nvar)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),nvar))
-                     bsqf=bmagij(l,i,j,k,1,h)**2+bmagij(l,i,j,k,2,h)**2+bmagij(l,i,j,k,3,h)**2
-
-                     ! Compute gas temperature in cgs
-                     call temperature_eos(rhof, epsf, tcellf)
-                        
-                     etaod2=etaohmdiss(rhof,bsqf,tcellf,0d0,0d0,.false.)
-                     fluxohm(l,i,j,k,h)=etaod2*fluxmd(l,i,j,k,h)
-                  enddo
-               endif
+               emfohmdiss(l,i,j,k,1)=-etaohm(l,1)*jemfx(l,i,j,k,1)
+               emfohmdiss(l,i,j,k,2)=-etaohm(l,2)*jemfy(l,i,j,k,2)
+               emfohmdiss(l,i,j,k,3)=-etaohm(l,3)*jemfz(l,i,j,k,3)
             end do
          end do
       end do
    end do
-  
+
+   if(nimhdheating_in_flux) then 
+      do k=min(1,ku1+1),max(1,ku2-1)
+         do j=min(1,ju1+1),max(1,ju2-1)
+            do i=min(1,iu1+1),max(1,iu2-1)
+
+               do l=1,ngrid
+                  B2x(l)=bmagij(l,i,j,k,1,1)**2+bmagij(l,i,j,k,2,1)**2+bmagij(l,i,j,k,3,1)**2
+                  B2y(l)=bmagij(l,i,j,k,1,2)**2+bmagij(l,i,j,k,2,2)**2+bmagij(l,i,j,k,3,2)**2
+                  B2z(l)=bmagij(l,i,j,k,1,3)**2+bmagij(l,i,j,k,2,3)**2+bmagij(l,i,j,k,3,3)**2
+               end do
+
+               call resistivities_etaohm(u,B2x,B2y,B2z,ngrid,i,j,k,0d0,0d0,etaohm,2,.false.)
+
+               do l=1,ngrid
+                  fluxohm(l,i,j,k,1)=etaohm(l,1)*fluxmd(l,i,j,k,1)
+                  fluxohm(l,i,j,k,2)=etaohm(l,2)*fluxmd(l,i,j,k,2)
+                  fluxohm(l,i,j,k,3)=etaohm(l,3)*fluxmd(l,i,j,k,3)
+               enddo
+            end do
+         end do
+      end do
+   endif
+
+   
 end subroutine computdifmag
 !###########################################################
 !###########################################################
@@ -1055,6 +1050,82 @@ end function densionbis
 !###########################################################
 !###########################################################
 !###########################################################
+subroutine resistivities_etaohm(u,B2x,B2y,B2z,ngrid,i,j,k,dt,dx,etaohm,interpol_loc,limit)
+   use amr_parameters
+   use hydro_commons
+   use nimhd_parameters
+   implicit none
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u 
+   real(dp),dimension(1:nvector),intent(in)::B2x,B2y,B2z
+   integer,intent(in)::ngrid,i,j,k,interpol_loc
+   real(dp),intent(in)::dt,dx
+   logical,intent(in)::limit
+   real(dp),dimension(1:nvector,1:3),intent(out)::etaohm
+   ! TODO comment
+   !
+   real(dp),dimension(1:nvector)::rhox,rhoy,rhoz
+   real(dp)::tcellx,tcelly,tcellz,etaohmdiss
+   integer::l
+
+   if(resistivity_method==0) then ! fixed value
+      do l=1,ngrid
+         etaohm(l,1)=etaMD
+         etaohm(l,2)=etaMD
+         etaohm(l,3)=etaMD
+      end do
+
+   else if(resistivity_method==1) then ! analytical formula
+      ! TODO
+      do l=1,ngrid
+         etaohm(l,1)=etaMD
+         etaohm(l,2)=etaMD
+         etaohm(l,3)=etaMD
+      end do
+
+   else ! table
+
+      ! Get intepolated density values
+      if(interpol_loc==1) then
+         do l=1,ngrid
+            rhox(l)=0.25d0*(u(l,i,j,k,   1)+u(l,i  ,j-1,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i  ,j-1,k-1,   1))
+            rhoy(l)=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i-1,j  ,k-1,   1))
+            rhoz(l)=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j-1,k  ,   1)+u(l,i-1,j-1,k  ,   1))
+         end do
+
+      else if(interpol_loc==2) then
+         do l=1,ngrid
+            rhox(l)=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j  ,k  ,1))
+            rhoy(l)=0.5d0*(u(l,i,j,k,1)+u(l,i  ,j-1,k  ,1))
+            rhoz(l)=0.5d0*(u(l,i,j,k,1)+u(l,i  ,j  ,k-1,1))
+         end do
+
+      else !interpol_loc==3
+         do l=1,ngrid
+            rhox(l)=0.5d0*(u(l,i,j,k,1)+u(l,i-1,j  ,k  ,1))
+            rhoy(l)=0.5d0*(u(l,i,j,k,1)+u(l,i  ,j-1,k  ,1))
+            rhoz(l)=0.5d0*(u(l,i,j,k,1)+u(l,i  ,j  ,k-1,1))
+         end do
+
+      end if
+
+      do l=1,ngrid
+         ! TODO generalise how to get the temperature using Eint
+         ! Compute gas temperature in cgs
+         call temperature_eos(rhox(l), tcellx)
+         call temperature_eos(rhoy(l), tcelly)
+         call temperature_eos(rhoz(l), tcellz)
+
+         etaohm(l,1)=etaohmdiss(rhox,B2x,tcellx,dt,dx,limit)
+         etaohm(l,2)=etaohmdiss(rhoy,B2y,tcelly,dt,dx,limit)
+         etaohm(l,3)=etaohmdiss(rhoz,B2z,tcellz,dt,dx,limit)
+      end do
+
+   end if
+
+end subroutine resistivities_etaohm
+!###########################################################
+!###########################################################
+!###########################################################
 double precision function etaohmdiss(rhon,BBcell,temper,dt,dx,limit)
 
    use amr_parameters,    only:dp,mu_gas
@@ -1117,6 +1188,3 @@ double precision function etaohmdiss(rhon,BBcell,temper,dt,dx,limit)
    endif
 
 end function etaohmdiss
-!###########################################################
-!###########################################################
-!###########################################################
