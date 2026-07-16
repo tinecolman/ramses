@@ -1115,9 +1115,9 @@ subroutine resistivities_etaohm(u,B2x,B2y,B2z,ngrid,i,j,k,dt,dx,etaohm,interpol_
          call temperature_eos(rhoy(l), tcelly)
          call temperature_eos(rhoz(l), tcellz)
 
-         etaohm(l,1)=etaohmdiss(rhox,B2x,tcellx,dt,dx,limit)
-         etaohm(l,2)=etaohmdiss(rhoy,B2y,tcelly,dt,dx,limit)
-         etaohm(l,3)=etaohmdiss(rhoz,B2z,tcellz,dt,dx,limit)
+         etaohm(l,1)=etaohmdiss(rhox(l),B2x(l),tcellx,dt,dx,limit)
+         etaohm(l,2)=etaohmdiss(rhoy(l),B2y(l),tcelly,dt,dx,limit)
+         etaohm(l,3)=etaohmdiss(rhoz(l),B2z(l),tcellz,dt,dx,limit)
       end do
 
    end if
