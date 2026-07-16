@@ -284,6 +284,61 @@ end subroutine compute_bmagijbis
 !###########################################################
 !###########################################################
 !###########################################################
+subroutine compute_jemf(u,ngrid,dx,dy,dz,bmagij,jemfx,jemfy,jemfz)
+   use amr_parameters
+   use hydro_commons
+   use nimhd_parameters
+   implicit none
+   ! inputs
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:nvar+3),intent(in)::u
+   integer,intent(in)::ngrid
+   real(dp),intent(in)::dx,dy,dz
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3),intent(in)::bmagij
+   ! outputs
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3),intent(out)::jemfx,jemfy,jemfz
+   !-----------------------------------------------------------------
+   ! Computes the current density J at the EMF edges
+   ! jemfx(l,i,j,k,n) is the component Jn at i,j-1/2,k-1/2
+   !-----------------------------------------------------------------
+   integer ::i, j, k, l, m, n
+   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bmagijbis
+   real(dp):: oneoverdx
+
+   ! We optimize by calculating the division only once,
+   ! and using the fact that dx=dy=dz in RAMSES
+   oneoverdx = 1d0/dx
+
+   jemfx=0d0
+   jemfy=0d0
+   jemfz=0d0
+
+   call compute_bmagijbis(u,ngrid,bmagijbis)
+
+   do k=min(1,ku1+1),max(1,ku2-1)
+      do j=min(1,ju1+1),max(1,ju2-1)
+         do i=min(1,iu1+1),max(1,iu2-1)
+            do l=1,ngrid
+               jemfx(l,i,j,k,1) = ((u(l,i,j,k,8)-u(l,i,j-1,k,8))                 - (u(l,i,j,k,7)-u(l,i,j,k-1,7))                ) * oneoverdx
+               jemfx(l,i,j,k,2) = ((bmagij(l,i,j,k,1,2)-bmagij(l,i,j,k-1,1,2))   - (bmagijbis(l,i+1,j,k,3)-bmagijbis(l,i,j,k,3))) * oneoverdx
+               jemfx(l,i,j,k,3) = ((bmagijbis(l,i+1,j,k,2)-bmagijbis(l,i,j,k,2)) - (bmagij(l,i,j,k,1,3)-bmagij(l,i,j-1,k,1,3))  ) * oneoverdx
+
+               jemfy(l,i,j,k,1) = ((bmagijbis(l,i,j+1,k,3)-bmagijbis(l,i,j,k,3)) - (bmagij(l,i,j,k,2,1) - bmagij(l,i,j,k-1,2,1) )) * oneoverdx
+               jemfy(l,i,j,k,2) = ((u(l,i,j,k,6)-u(l,i,j,k-1,6))                 - (u(l,i,j,k,8)-u(l,i-1,j,k,8))                 ) * oneoverdx
+               jemfy(l,i,j,k,3) = ((bmagij(l,i,j,k,2,3)-bmagij(l,i-1,j,k,2,3))   - (bmagijbis(l,i,j+1,k,1)-bmagijbis(l,i,j,k,1)) ) * oneoverdx
+
+               jemfz(l,i,j,k,1) = ((bmagij(l,i,j,k,3,1) -bmagij(l,i,j-1,k,3,1))  - (bmagijbis(l,i,j,k+1,2)-bmagijbis(l,i,j,k,2)) ) * oneoverdx
+               jemfz(l,i,j,k,2) = ((bmagijbis(l,i,j,k+1,1)-bmagijbis(l,i,j,k,1)) - (bmagij(l,i,j,k,3,2)-bmagij(l,i-1,j,k,3,2))   ) * oneoverdx
+               jemfz(l,i,j,k,3) = ((u(l,i,j,k,7)-u(l,i-1,j,k,7))                 - (u(l,i,j,k,6)-u(l,i,j-1,k,6))                 ) * oneoverdx
+            end do
+         end do
+      end do
+   end do
+
+end subroutine compute_jemf
+!###########################################################
+!###########################################################
+!###########################################################
+!###########################################################
 subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,bmagij,fluxmd,fluxad)
 
    USE amr_parameters
@@ -319,9 +374,6 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
    bemfx=0d0
    bemfy=0d0
    bemfz=0d0
-   jemfx=0d0
-   jemfy=0d0
-   jemfz=0d0
 
    ! magnetic field at center of cells
    do k=ku1,ku2
@@ -340,32 +392,12 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
 
    call compute_bmagij(u,q,ngrid,bmagij)
 
-   call compute_bmagijbis(u,ngrid,bmagijbis)
+   call compute_jemf(u,ngrid,dx,dy,dz,bmagij,jemfx,jemfy,jemfz)
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! computation of the component of j where EMFs are located
    ! jemfx(l,i,j,k,n) is the component Jn at i,j-1/2,k-1/2
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   do k=min(1,ku1+1),max(1,ku2-1)
-      do j=min(1,ju1+1),max(1,ju2-1)
-         do i=min(1,iu1+1),max(1,iu2-1)
-            do l=1,ngrid
-               jemfx(l,i,j,k,1)=(u(l,i,j,k,8)-u(l,i,j-1,k,8))/dy-(u(l,i,j,k,7)-u(l,i,j,k-1,7))/dz 
-               jemfx(l,i,j,k,2)=(bmagij(l,i,j,k,1,2)-bmagij(l,i,j,k-1,1,2))/dz- (bmagijbis(l,i+1,j,k,3)-bmagijbis(l,i,j,k,3))/dx
-               jemfx(l,i,j,k,3)=(bmagijbis(l,i+1,j,k,2) -bmagijbis(l,i,j,k,2))/dx- (bmagij(l,i,j,k,1,3)-bmagij(l,i,j-1,k,1,3))/dy
-
-               jemfy(l,i,j,k,1)=(bmagijbis(l,i,j+1,k,3)-bmagijbis(l,i,j,k,3))/dy-(bmagij(l,i,j,k,2,1) - bmagij(l,i,j,k-1,2,1) )/dz
-               jemfy(l,i,j,k,2)=(u(l,i,j,k,6)-u(l,i,j,k-1,6))/dz-(u(l,i,j,k,8)-u(l,i-1,j,k,8))/dx
-               jemfy(l,i,j,k,3)=(bmagij(l,i,j,k,2,3)-bmagij(l,i-1,j,k,2,3))/dx-(bmagijbis(l,i,j+1,k,1)-bmagijbis(l,i,j,k,1))/dy
-
-               jemfz(l,i,j,k,1)=(bmagij(l,i,j,k,3,1) -bmagij(l,i,j-1,k,3,1))/dy-(bmagijbis(l,i,j,k+1,2)-bmagijbis(l,i,j,k,2))/dz
-               jemfz(l,i,j,k,2)=( bmagijbis(l,i,j,k+1,1)-bmagijbis(l,i,j,k,1))/dz-(bmagij(l,i,j,k,3,2)-bmagij(l,i-1,j,k,3,2))/dx
-               jemfz(l,i,j,k,3)=(u(l,i,j,k,7)-u(l,i-1,j,k,7))/dx-(u(l,i,j,k,6)-u(l,i,j-1,k,6))/dy
-            end do
-         end do
-      end do
-   end do
 
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! computation of the component of j at center of cell
