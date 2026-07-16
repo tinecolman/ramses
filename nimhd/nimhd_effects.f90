@@ -905,13 +905,11 @@ end function crossprodz
 !###########################################################
 !###########################################################
 double precision function betaad(rhocelln,rhon,dt,bsquare,bsquareold,dx,temper,limit)
-
    use hydro_parameters
    use amr_commons
    use cooling_module
    use nimhd_parameters
    use constants
-
    implicit none
    real(dp) ::rhocelln,rhon,betaadtemp,dt,bsquare,bsquareold,dx,temper
    real(dp)::gammaadbis,densionbis,rhotemp,rhotemp_cell
@@ -926,11 +924,13 @@ double precision function betaad(rhocelln,rhon,dt,bsquare,bsquareold,dx,temper,l
    if(resistivity_method==0)then
       ! fixed resistivity
       betaad=1d0/(gammaAD*rhon)
+
    elseif(resistivity_method==1)then
       ! *** put your analytic resistivity here ***
       !analytical model resitivity(rho,T), Shu?
       gammaAD = 1
       betaad=1d0/(gammaAD*rhon)
+
    else
       ! table
       rhotemp = MAX(rhon,rho_threshold)
@@ -989,40 +989,37 @@ end function betaad
 !###########################################################
 !###########################################################
 double precision function gammaadbis(rhon,BBcell,BBcellold,temper)
-
    use hydro_parameters
    use amr_parameters,only:mu_gas
    use nimhd_parameters
    use resistivity_table
    use constants
    implicit none
-
-   real(dp)::rhon,rhoH,BBcell,temper,BBcellold
-   real(dp)::eta_AD_chimie
-   real(dp) :: n_H_max=2.5d+17     ! cm**-3
-
-   real(dp):: sigO,sigH,sigP,densionbis,BBcgs
-   real(dp)::inp
-
-   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
-   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
-
-   ! function which computes the coefficient gamma which
-   ! appears in ambipolar diffusion dB/dt=1/(gamma*rhoi*rhon)curl*(j*B)*B)+...
+   real(dp),intent(in)::rhon,BBcell,temper,BBcellold
+   !---------------------------------------------------------------------
+   ! Compure the coefficient gamma, which appears in ambipolar diffusion
+   !    dB/dt=1/(gamma*rhoi*rhon)curl*(j*B)*B)+...
    ! see Duffin & Pudritz 2008, astro-ph 08/10/08 eq (6)
    ! WARNING no mu_0 needed here
+   !---------------------------------------------------------------------
+   real(dp)::rhoH,inp,eta_AD_chimie
+   real(dp):: sigO,sigH,sigP,densionbis,BBcgs
+   real(dp),parameter::n_H_max=2.5d+17     ! cm**-3
+   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
-   rhoH=rhon*2.0d0*H2_fraction*scale_d/(mu_gas*mH) ! convert in H/cc
+   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
+   ! convert density to H/cc
+   rhoH=rhon*2.0d0*H2_fraction*scale_d/(mu_gas*mH)
    rhoH = min(rhoH, n_H_max)
 
-   ! TC: extrapolate from table[density,temperature,magnetic field]
-   call interpolate_table(rhoH,temper,BBcellold,sigO,sigH,sigP) 
-   !inp=rhoH/xmolaire/H2_fraction     ! inp is neutrals.cc, to fit densionbis
+   ! extrapolate from table[density,temperature,magnetic field]
+   call interpolate_table(rhoH,temper,BBcellold,sigO,sigH,sigP)
+
    inp=rhoH/2d0/H2_fraction     ! inp is neutrals.cc, to fit densionbis
    eta_AD_chimie=(sigO/(sigO**2+sigH**2)-1d0/sigP)   ! resistivity in s
-
    BBcgs=sqrt(BBcell*(4d0*pi*scale_d*(scale_v)**2))
-   eta_AD_chimie=BBcgs**2/(eta_AD_chimie*densionbis(inp)*inp*scale_d*scale_d*c_cgs**2)  ! need B in G, output is gammaad in cgs
+   eta_AD_chimie=BBcgs**2/(eta_AD_chimie*densionbis(inp)*inp*scale_d*scale_d*c_cgs**2)  ! need B in G, output is gammaadbis in cgs
    !print *, eta_AD_chimie, temper
 
    gammaadbis=eta_AD_chimie*scale_t*scale_d ! in code units
@@ -1032,27 +1029,27 @@ end function gammaadbis
 !###########################################################
 !###########################################################
 double precision function densionbis(rhon)
-
    use amr_parameters, only : dp
-
    implicit none 
-   real(dp)::rhon
-   real(dp)::xn, rhoncgs
-
+   real(dp),intent(in)::rhon
+   !-----------------------------
+   ! Compute the density of ions
+   !-----------------------------
+   real(dp)::rhoncgs
    ! Mellon & Li 2009 (?) or Hennebelle & Teyssier 2007
    real(dp):: coefionis=3d-16 !in cgs !remove ! coefionis*sqrt(n_H)=n_i , empirical value from Shu book 2, p. 363
-   real(dp):: default_ionisrate=1d-17
-
+   !real(dp):: default_ionisrate=1d-17
    real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+
    call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
-   ! density of neutral in g/cm3  
+   ! density of neutral in g/cm3
    rhoncgs=rhon*scale_d
 
    ! function which computes the density in g/cm3 of ions 
    ! see Duffin & Pudritz 2008, astro-ph 08/10/08 eq (14)
-
-   densionbis=coefionis*sqrt(rhoncgs*default_ionisrate/1.0d-17)
+   !densionbis=coefionis*sqrt(rhoncgs*default_ionisrate/1.0d-17)
+   densionbis=coefionis*sqrt(rhoncgs)
 
    ! back in code units
    densionbis=densionbis/scale_d
