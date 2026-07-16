@@ -359,7 +359,6 @@ subroutine computejb2(u,q,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,bmagij,fluxmd,flux
 
    ! declare local variables
    INTEGER ::i, j, k, l, m
-   real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bmagijbis
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::jface
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3)::bcenter
    real(dp),dimension(1:nvector,iu1:iu2,ju1:ju2,ku1:ku2,1:3,1:3)::fluxbis,fluxter,fluxquat
@@ -541,9 +540,9 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
 
    ! local variables
    integer ::i,j,k,l,h
-   real(dp)::rhox,rhoy,rhoz,epsx,epsy,epsz,bsquarex,bsquarey,bsquarez
+   real(dp)::rhox,rhoy,rhoz,bsquarex,bsquarey,bsquarez
    real(dp)::tcellx,tcelly,tcellz,etaod2x,etaod2y,etaod2z
-   real(dp)::rhof,bsqf,epsf,tcellf
+   real(dp)::rhof,bsqf,tcellf
    real(dp)::etaod2,etaohmdiss
    integer , dimension(1:3) :: index_i,index_j,index_k
    integer :: ht
@@ -564,17 +563,13 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
                rhoy=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j  ,k-1,   1)+u(l,i-1,j  ,k-1,   1))
                rhoz=0.25d0*(u(l,i,j,k,   1)+u(l,i-1,j  ,k,   1)+u(l,i,j-1,k  ,   1)+u(l,i-1,j-1,k  ,   1))
 
-               epsx=0.25d0*(u(l,i,j,k,nvar)+u(l,i  ,j-1,k,nvar)+u(l,i,j  ,k-1,nvar)+u(l,i  ,j-1,k-1,nvar))
-               epsy=0.25d0*(u(l,i,j,k,nvar)+u(l,i-1,j  ,k,nvar)+u(l,i,j  ,k-1,nvar)+u(l,i-1,j  ,k-1,nvar))
-               epsz=0.25d0*(u(l,i,j,k,nvar)+u(l,i-1,j  ,k,nvar)+u(l,i,j-1,k  ,nvar)+u(l,i-1,j-1,k  ,nvar))
-
                bsquarex=bemfx(l,i,j,k,1)**2+bemfx(l,i,j,k,2)**2+bemfx(l,i,j,k,3)**2
                bsquarey=bemfy(l,i,j,k,1)**2+bemfy(l,i,j,k,2)**2+bemfy(l,i,j,k,3)**2
                bsquarez=bemfz(l,i,j,k,1)**2+bemfz(l,i,j,k,2)**2+bemfz(l,i,j,k,3)**2
 
-               call temperature_eos(rhox, epsx, tcellx)
-               call temperature_eos(rhoy, epsy, tcelly)
-               call temperature_eos(rhoz, epsz, tcellz)
+               call temperature_eos(rhox, tcellx)
+               call temperature_eos(rhoy, tcelly)
+               call temperature_eos(rhoz, tcellz)
 
                etaod2x=etaohmdiss(rhox,bsquarex,tcellx,dt,dx,.true.)
                etaod2y=etaohmdiss(rhoy,bsquarey,tcelly,dt,dx,.true.)
@@ -588,11 +583,10 @@ subroutine computdifmag(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,
                if(nimhdheating_in_flux) then 
                   do h = 1,3
                      rhof=0.5d0*(u(l,i,j,k,1)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),1))
-                     epsf=0.5d0*(u(l,i,j,k,nvar)+u(l,i-index_i(h),j-index_j(h),k-index_k(h),nvar))
                      bsqf=bmagij(l,i,j,k,1,h)**2+bmagij(l,i,j,k,2,h)**2+bmagij(l,i,j,k,3,h)**2
 
                      ! Compute gas temperature in cgs
-                     call temperature_eos(rhof, epsf, tcellf)
+                     call temperature_eos(rhof, tcellf)
                         
                      etaod2=etaohmdiss(rhof,bsqf,tcellf,0d0,0d0,.false.)
                      fluxohm(l,i,j,k,h)=etaod2*fluxmd(l,i,j,k,h)
@@ -684,7 +678,7 @@ subroutine computambip(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,b
 
                ! Compute gas temperature in cgs
 
-               call temperature_eos(u(l,i,j,k,1), u(l,i,j,k,nvar), tcell)
+               call temperature_eos(u(l,i,j,k,1), tcell)
                
                bsquarex=bemfx(l,i,j,k,1)**2+bemfx(l,i,j,k,2)**2+bemfx(l,i,j,k,3)**2
                bsquarey=bemfy(l,i,j,k,1)**2+bemfy(l,i,j,k,2)**2+bemfy(l,i,j,k,3)**2
