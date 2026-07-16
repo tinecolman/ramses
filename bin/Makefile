@@ -24,7 +24,7 @@ PATCH =
 # Use RT? 1=Yes, 0=No
 RT = 0
 # Use non-ideal MHD? 1=Yes, 0=No
-NIMHD=0
+NIMHD = 0
 # Use turbulence? 1=Yes, 0=No (requires fftw3)
 USE_TURB = 0
 # Use MPI? 1=Yes, 0=No
@@ -54,9 +54,8 @@ NHYDRO = 2+$(NDIM)
 ifeq ($(SOLVER),mhd)
    NHYDRO = 8
 endif
-# current is treated as a passive scalar?
 ifeq ($(NIMHD),1)
-   NPSCAL := $(NPSCAL)+4
+   NPSCAL := $(NPSCAL)+1
    SOLVER=mhd
 endif
 NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
