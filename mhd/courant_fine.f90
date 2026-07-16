@@ -384,13 +384,8 @@ subroutine cmpdt_nimhd(uu,dx,ncell,dtambdiff,dtohmdiss)
       call temperature_eos(rho(k), uu(k,nvar), tcell(k))
    end do
 
-   do k = 1,ncell
-      B2(k)=0
-   end do
-   do idim = 1,3
-      do k = 1, ncell
-         B2(k)=B2(k) + (0.5d0*(uu(k,5+idim)+uu(k,nvar+idim)))**2
-      end do
+   do k = 1, ncell
+      B2(k)=0.25d0 * ((uu(k,6)+uu(k,nvar+1))**2 + (uu(k,7)+uu(k,nvar+2))**2 + (uu(k,8)+uu(k,nvar+3))**2)
    end do
 
    ! Ohmic dissipation
