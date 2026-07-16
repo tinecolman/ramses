@@ -690,7 +690,7 @@ subroutine computambip(u,ngrid,dx,dy,dz,dt,bemfx,bemfy,bemfz,jemfx,jemfy,jemfz,b
 
                ! Compute gas temperature in cgs
 
-               call temperature_eos(u(l,i,j,k,1), u(l,i,j,k,nvar), tcell)
+               call temperature_eos(u(l,i,j,k,1), 0d0, tcell)
                
                bsquarex=bemfx(l,i,j,k,1)**2+bemfx(l,i,j,k,2)**2+bemfx(l,i,j,k,3)**2
                bsquarey=bemfy(l,i,j,k,1)**2+bemfy(l,i,j,k,2)**2+bemfy(l,i,j,k,3)**2
@@ -1119,9 +1119,9 @@ subroutine resistivities_etaohm(u,B2x,B2y,B2z,ngrid,i,j,k,dt,dx,etaohm,interpol_
       do l=1,ngrid
          ! TODO generalise how to get the temperature using Eint
          ! Compute gas temperature in cgs
-         call temperature_eos(rhox(l), tcellx)
-         call temperature_eos(rhoy(l), tcelly)
-         call temperature_eos(rhoz(l), tcellz)
+         call temperature_eos(rhox(l), 0d0, cellx)
+         call temperature_eos(rhoy(l), 0d0, tcelly)
+         call temperature_eos(rhoz(l), 0d0, tcellz)
 
          etaohm(l,1)=etaohmdiss(rhox(l),B2x(l),tcellx,dt,dx,limit)
          etaohm(l,2)=etaohmdiss(rhoy(l),B2y(l),tcelly,dt,dx,limit)
