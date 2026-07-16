@@ -31,7 +31,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    !!!!!!!!!!!!!!!!!!
 
    do k=min(1,ku1+1),ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfx(l,i,j,k,1)=0.25d0*( q(l,i,j,k,6)+q(l,i,j-1,k,6)+q(l,i,j,k-1,6)+q(l,i,j-1,k-1,6) )
@@ -41,7 +41,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfx(l,i,j,k,2)=0.5d0*( u(l,i,j,k,7)+u(l,i,j,k-1,7) )
@@ -51,7 +51,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfx(l,i,j,k,3)=0.5d0*(u(l,i,j,k,8)+u(l,i,j-1,k,8))
@@ -65,7 +65,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    !!!!!!!!!!!!!!!!!!
 
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfy(l,i,j,k,1)=0.5d0*(u(l,i,j,k,6)+u(l,i,j,k-1,6))
@@ -75,7 +75,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=min(1,ku1+1),ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfy(l,i,j,k,2)=0.25d0*(q(l,i,j,k,7)+q(l,i-1,j,k,7)+q(l,i,j,k-1,7)+q(l,i-1,j,k-1,7))
@@ -85,7 +85,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfy(l,i,j,k,3)=0.5d0*(u(l,i-1,j,k,8)+u(l,i,j,k,8))
@@ -99,7 +99,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    !!!!!!!!!!!!!!!!!!
 
    do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=iu1,iu2
             do l=1,ngrid
                bemfz(l,i,j,k,1)=0.5d0*(u(l,i,j,k,6)+u(l,i,j-1,k,6))
@@ -109,7 +109,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=ju1,ju2       
+      do j=ju1,ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfz(l,i,j,k,2)=0.5d0*(u(l,i,j,k,7)+u(l,i-1,j,k,7))
@@ -119,7 +119,7 @@ subroutine compute_bemf(u,q,ngrid,bemfx,bemfy,bemfz)
    end do
 
    do k=ku1,ku2
-      do j=min(1,ju1+1),ju2       
+      do j=min(1,ju1+1),ju2
          do i=min(1,iu1+1),iu2
             do l=1,ngrid
                bemfz(l,i,j,k,3)=0.25d0*(q(l,i,j,k,8)+q(l,i-1,j,k,8)+q(l,i,j-1,k,8)+q(l,i-1,j-1,k,8))

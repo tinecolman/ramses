@@ -23,7 +23,6 @@ module constants
   real(dp),parameter ::sigma_T      = 6.6524587d-25 ! Thomson scattering cross-section [cm2]; NIST
   real(dp),parameter ::M_sun        = 1.9891000d+33 ! Solar Mass [g]; IAU
   real(dp),parameter ::L_sun        = 3.8280000d+33 ! Solar Lum [erg s-1]; IAU
-  real(dp),parameter ::R_sun        = 6.9570000d+10 ! Solar Radius [cm]; IAU
   real(dp),parameter ::rhoc         = 1.8800000d-29 ! Crit. density [g cm-3]
 
   ! Conversion factors - distance
