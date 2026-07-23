@@ -471,7 +471,7 @@ subroutine calc_thermal_pressure_from_total_energy(ind_grid, iskip, pressure, nc
 #endif
 #ifdef SOLVERmhd
    real(dp) :: A, B, C
-#endf
+#endif
 
    do i = 1, ncache
       d = max(uold(ind_grid(i)+iskip, 1), smallr)
