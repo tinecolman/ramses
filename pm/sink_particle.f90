@@ -726,6 +726,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            e=e/d ! Specific energy
            v2=sum(vv**2)
            e=e-0.5d0*v2 ! Remove kinetic energy
+           if(energy_fix)e=uold(indp(j,ind),nvar)/d
 
            ! Get sink index
            isink=-idp(ind_part(j))
@@ -900,6 +901,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   use pm_commons
   use hydro_commons
   use constants, only: pi, twopi, c_cgs, factG_in_cgs, M_sun, mH, sigma_t, ev2erg
+  use cloud_module,only:facc_star_mom
 #ifdef RT
   use rt_hydro_commons,only: rtunew
   use rt_parameters,only: nGroups, iGroups, group_egy, rt_AGN, group_egy_AGNfrac
@@ -916,7 +918,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   logical::on_creation
   integer::j,nx_loc,isink,ivar,idim,ind
-  real(dp)::d,e,density,volume
+  real(dp)::d,e,d_floor,density,volume
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
 #endif
@@ -937,15 +939,17 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   ! Particle based arrays
   logical,dimension(1:nvector,1:twotondim)::ok
   integer ,dimension(1:nvector,1:twotondim)::indp
-  real(dp),dimension(1:ndim)::vv
+  real(dp),dimension(1:ndim)::vv,v_mom
 
   real(dp),dimension(1:ndim)::r_rel,v_rel,x_acc,p_acc,l_acc
   real(dp)::fbk_ener_AGN,fbk_mom_AGN,r_len
   logical,dimension(1:ndim)::period
 
-  real(dp)::tan_theta,cone_dist,orth_dist
+  real(dp)::tan_theta,cone_dist,orth_dist,rr2
   real(dp),dimension(1:ndim)::cone_dir
   real(dp)::acc_ratio,v_AGN
+
+  real(dp)::c2,d_jeans
 
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -1006,6 +1010,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! removing all the other energies, if any.
            e=uold(indp(j,ind),5)
 
+           ! PH retrieve the kinetic energy as well
+           ! we change the velocity of the gas to conserve angular momentum
+           e = e - 0.5*(uold(indp(j,ind),2)**2+uold(indp(j,ind),3)**2+uold(indp(j,ind),4)**2)/uold(indp(j,ind),1)
 #ifdef SOLVERmhd
            bx1=uold(indp(j,ind),6)
            by1=uold(indp(j,ind),7)
@@ -1021,6 +1028,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            end do
 #endif
            e=e/d ! Specific energy
+           if(energy_fix)e=uold(indp(j,ind),nvar)/d
 
            ! Get sink index
            isink=-idp(ind_part(j))
@@ -1068,7 +1076,14 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               end if
 
               if (threshold_accretion.and.d_sink>0.0)then
-                 m_acc=c_acc*weight*(d-d_sink)
+                 d_floor=d_sink
+                 if(jeans_accretion)then
+                    call soundspeed_eos(d,e*d,c2)
+                    c2=c2**2
+                    d_jeans=c2*3.1415926/(4.0*dx_loc)**2/factG
+                    d_floor=d_jeans
+                 endif
+                 m_acc=c_acc*weight*(d-d_floor)
                  m_acc_smbh = 0.
               end if
 
@@ -1111,11 +1126,17 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! Accreted relative center of mass
            x_acc(1:ndim)=(m_acc+m_acc_smbh)*r_rel(1:ndim)
 
+           ! PH compute the part of the velocity associated to the momentum
+           ! then the gas keeps part of its momentum which is not accreted onto the sink
+           rr2 = r_rel(1)**2+r_rel(2)**2+r_rel(3)**2
+           v_mom(1:3) = 0.0
+           if(.not.on_creation) v_mom(1:3) = (1.-facc_star_mom)* (v_rel(1:3) - (v_rel(1)*r_rel(1)+v_rel(2)*r_rel(2)+v_rel(3)*r_rel(3))/rr2*r_rel(1:3))
+
            ! Accreted relative momentum
-           p_acc(1:ndim)=(m_acc+m_acc_smbh)*v_rel(1:ndim)
+           p_acc(1:ndim)=(m_acc+m_acc_smbh)*(v_rel(1:ndim)-v_mom(1:ndim))
 
            ! Accreted relative angular momentum
-           l_acc(1:ndim)=(m_acc+m_acc_smbh)*cross(r_rel(1:ndim),v_rel(1:ndim))
+           l_acc(1:ndim)=(m_acc+m_acc_smbh)*cross(r_rel(1:ndim),v_rel(1:ndim)-v_mom(1:ndim))
 
            ! Add accreted properties to sink variables
            msink_new(isink)=msink_new(isink)+m_acc
@@ -1133,7 +1154,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            m_acc=m_acc+m_acc_smbh
            ! Accrete mass, momentum and gas total energy
            unew(indp(j,ind),1)=unew(indp(j,ind),1)-m_acc/vol_loc
-           unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)-m_acc*vv(1:ndim)/vol_loc
+           unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)-m_acc*(vv(1:ndim)-v_mom(1:ndim))/vol_loc
+           ! Add the new specific kinetic energy
+           e = e + 0.5* ( (vv(1)-v_mom(1))**2 + (vv(2)-v_mom(2))**2 + (vv(3)-v_mom(3))**2 )
            unew(indp(j,ind),neul)=unew(indp(j,ind),neul)-m_acc*e/vol_loc
            ! Note that we do not accrete magnetic fields and non-thermal energies.
 
@@ -1704,7 +1727,7 @@ subroutine make_sink_from_clump(ilevel)
   integer ,dimension(1:ncpu)::ntot_sink_all
 #endif
   logical ::ok_free
-  real(dp)::d,u,v,w,e,delta_d,v2
+  real(dp)::d,u,v,w,e,delta_d,v2,eint
   real(dp)::birth_epoch
   real(dp)::dx,dx_loc,scale,vol_loc
   real(dp)::scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2
@@ -1714,6 +1737,8 @@ subroutine make_sink_from_clump(ilevel)
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
 #endif
+  integer::ht
+  real(dp)::temp
 #if NENER>0
   integer ::irad
 #endif
@@ -1879,6 +1904,10 @@ subroutine make_sink_from_clump(ilevel)
               end do
 #endif
               e=e/d
+              if(energy_fix)e=uold(ind_cell_new(i),nvar)/d
+              eint=e*d
+              call temperature_eos(d,eint,temp,ht)
+
               do ivar=imetal,nvar
                  z(ivar)=uold(ind_cell_new(i),ivar)/d
               end do
@@ -1911,7 +1940,10 @@ subroutine make_sink_from_clump(ilevel)
 
               ! Convert back to conservative variable
               d=d-delta_d
-              e=e*d
+!              e=e*d
+              call enerint_eos(d,temp,e)
+              if(energy_fix)uold(ind_cell_new(i),nvar)=e
+
 #ifdef SOLVERmhd
               e=e+0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
 #endif
@@ -2873,6 +2905,7 @@ subroutine read_sink_params()
   use pm_commons
   use amr_commons
   use constants, only: pi,yr2sec
+  use cloud_module,only:facc_star_mom
   implicit none
 
   !----------------------------------------------------------------------------
@@ -2881,9 +2914,9 @@ subroutine read_sink_params()
 
   real(dp)::dx_min,scale,cty
   integer::nx_loc
-  namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,merging_timescale,&
+  namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,jeans_accretion,merging_timescale,&
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,create_sinks,&
-       check_energies,mass_sink_seed,mass_smbh_seed,c_acc,nlevelmax_sink,&
+       check_energies,mass_sink_seed,mass_smbh_seed,c_acc,facc_star_mom,nlevelmax_sink,&
        eddington_limit,eddington_cap,acc_sink_boost,mass_merger_vel_check,&
        clump_core,verbose_AGN,T2_AGN,T2_min,cone_opening,mass_halo_AGN,mass_clump_AGN,mass_star_AGN,&
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,v_max,boost_threshold_density,&

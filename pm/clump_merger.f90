@@ -1,9 +1,10 @@
 #if NDIM==3
 subroutine compute_clump_properties(xx)
   use amr_commons
-  use hydro_commons, ONLY:uold
+  use hydro_commons, ONLY:uold,inener,nener,nvar
   use clfind_commons
   use mpi_mod
+  use constants, only: pi
   implicit none
 #ifndef WITHOUTMPI
   integer::info
@@ -30,6 +31,19 @@ subroutine compute_clump_properties(xx)
 #ifndef WITHOUTMPI
   integer::i
   real(dp)::tot_mass_tot
+#endif
+
+#if USE_FLD==1
+  real(dp)::eint,d_jeans,cs,erad_loc,ekin_loc,emag_loc,factG,bx1,by1,bz1,bx2,by2,bz2
+  integer::nener_offset
+
+  ! Gravitational constant
+  factG=1d0
+  if(cosmo)factG=3d0/8d0/pi*omega_m*aexp
+
+#if NENER>0
+  nener_offset = inener-1
+#endif
 #endif
 
   period(1)=(nx==1)
@@ -109,6 +123,44 @@ subroutine compute_clump_properties(xx)
         ! Min density
         min_dens(peak_nr)=min(d,min_dens(peak_nr))
 
+#if USE_FLD==1
+        ! Local Jeans density
+        ekin_loc=0.0d0
+        do i=1,ndim
+           ekin_loc=ekin_loc+0.5*uold(icellp(ipart),i+1)**2
+        end do
+        ekin_loc=ekin_loc/d
+        erad_loc=0.0d0
+#if NENER>0
+        do i=1,nener
+           erad_loc=erad_loc + uold(icellp(ipart),nener_offset+i)
+        end do
+#endif
+        emag_loc=0.0d0
+#ifdef SOLVERmhd     
+        bx1=uold(icellp(ipart),6)
+        by1=uold(icellp(ipart),7)
+        bz1=uold(icellp(ipart),8)
+        bx2=uold(icellp(ipart),nvar+1)
+        by2=uold(icellp(ipart),nvar+2)
+        bz2=uold(icellp(ipart),nvar+3)
+        emag_loc = 0.125d0*((bx1+bx2)**2+(by1+by2)**2+(bz1+bz2)**2)
+#endif
+        eint=uold(icellp(ipart),5)-ekin_loc-emag_loc-erad_loc
+        if(energy_fix)eint=uold(icellp(ipart),nvar)
+        call soundspeed_eos(d,eint,cs)        
+        d_jeans=cs**2*pi/(4.0d0*dx_loc)**2/factG
+
+        ! Max density and peak location
+        if(d>=max_dens(peak_nr))then
+           !max_dens(peak_nr)=d
+           ! Abuse av_dens as a "local max density" for now...
+           !av_dens(peak_nr)=d
+           !peak_pos(peak_nr,1:ndim)=xcell(1:ndim)
+           dens_jeans(peak_nr)=d_jeans
+        end if
+#endif
+
         ! Clump mass
         clump_mass(peak_nr)=clump_mass(peak_nr)+vol*d
 
@@ -149,6 +201,9 @@ subroutine compute_clump_properties(xx)
      call virtual_peak_dp(center_of_mass(1,i),'sum')
      call virtual_peak_dp(clump_velocity(1,i),'sum')
   end do
+#if USE_FLD==1
+  call virtual_peak_dp(dens_jeans,'max')
+#endif
 #endif
 
   ! Compute specific quantities
@@ -161,6 +216,10 @@ subroutine compute_clump_properties(xx)
 
 #ifndef WITHOUTMPI
   ! Scatter results to all MPI domains
+#if USE_FLD==1
+  call boundary_peak_dp(dens_jeans)
+#endif
+
   do i=1,ndim
      call boundary_peak_dp(peak_pos(1,i))
      call boundary_peak_dp(center_of_mass(1,i))
@@ -958,6 +1017,7 @@ subroutine deallocate_all
   deallocate(min_dens)
   deallocate(av_dens)
   deallocate(max_dens)
+  deallocate(dens_jeans)
   deallocate(peak_cell, peak_cell_level)
   deallocate(ind_halo)
   deallocate(halo_mass)
