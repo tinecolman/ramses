@@ -307,6 +307,10 @@ subroutine read_hydro_params(nml_ok)
     T2_eos = T_eos/mu_gas
   endif
 
+  if(eos)then
+    call init_eos
+  endif
+ 
   !--------------------------------------------------
   ! Check whether illegally trying non-eq chemistry
   !--------------------------------------------------
