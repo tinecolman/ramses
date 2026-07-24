@@ -1,0 +1,12 @@
+name: Verify FLD
+
+on:
+  push:
+    branches:
+      - combo_fld_nimhd
+
+jobs:
+
+  tests:
+    name: Test Ramses FLD
+    uses: ./.github/workflows/tests-fld.yaml
