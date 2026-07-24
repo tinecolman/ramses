@@ -385,6 +385,10 @@ subroutine read_hydro_params(nml_ok)
      nml_ok=.false.
   end if
 
+  ! Compute the size of the box early,
+  ! to avoid problems in the initial build of the amr grid
+  if(condinit_kind=='collapse-fld') call calc_boxlen
+
   !-------------------------------------------------
   ! This section deals with hydro boundary conditions
   !-------------------------------------------------

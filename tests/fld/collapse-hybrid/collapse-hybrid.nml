@@ -52,7 +52,7 @@ T2_star=10.
 /
 
 &INIT_PARAMS
-condinit_kind ='collapse'
+condinit_kind ='collapse-fld'
 mass_c=100.   !in solar mass
 rap=1.        !axis ratio
 cont=100.     !density contrast
