@@ -524,8 +524,10 @@ subroutine velocity_fine(ilevel)
         select case (condinit_kind)
             case('ponomarenko')
                call velana_ponomarenko(xx,vv,dx_loc,t,ngrid)
+#ifdef NIMHD
             case('nimhd_diffusion')
                call velana_nimhd_diffusion(xx,vv,dx_loc,t,ngrid)
+#endif
             case default
                call velana(xx,vv,dx_loc,t,ngrid)
          end select
