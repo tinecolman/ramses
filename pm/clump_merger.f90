@@ -27,9 +27,8 @@ subroutine compute_clump_properties(xx)
   integer::nx_loc,ind,ix,iy,iz,idim
   logical,dimension(1:ndim)::period
   logical::periodic
-
-#ifndef WITHOUTMPI
   integer::i
+#ifndef WITHOUTMPI
   real(dp)::tot_mass_tot
 #endif
 

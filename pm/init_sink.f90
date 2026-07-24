@@ -66,7 +66,6 @@ subroutine init_sink
   allocate(int_lum(1:nsinkmax))
   int_lum=0.
   allocate(dt_acc(1:nsinkmax))
-  allocate(level_sink(1:nsinkmax,levelmin:nlevelmax))
 #endif
   allocate(rho_sink_tff(levelmin:nlevelmax))
   msum_overlap=0; rho_sink_tff=0d0
