@@ -12,9 +12,6 @@ subroutine read_hydro_params(nml_ok)
 #if RT==1
   use rt_parameters,only:rt_protostar_m1
 #endif
-#if RT==1
-  use rt_parameters,only:rt_protostar_m1
-#endif
   implicit none
   logical::nml_ok
   !--------------------------------------------------
@@ -316,6 +313,11 @@ subroutine read_hydro_params(nml_ok)
 #ifndef RT
   if(neq_chem) then
      if(myid==1)write(*,*) 'Error: non-equilibrium chemistry unavailable'
+     if(myid==1)write(*,*) 'Recompile with RT=True (or -DRT)'
+     nml_ok=.false.
+  endif
+  if(rt) then
+     if(myid==1)write(*,*) 'Error: RT unavailable'
      if(myid==1)write(*,*) 'Recompile with RT=True (or -DRT)'
      nml_ok=.false.
   endif
