@@ -21,6 +21,9 @@ jobs:
         - name: Install OpenMPI
           run: sudo apt-get install -y openmpi-bin libopenmpi-dev
 
+        - name: Install lapack
+          run: sudo apt-get install -y liblapack-dev
+
         - name: Setup python
           uses: actions/setup-python@v5
           with:
