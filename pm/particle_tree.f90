@@ -1627,3 +1627,113 @@ end subroutine empty_comm
 !################################################################
 !################################################################
 !################################################################
+subroutine check_particle_tree(ilevel,label)
+  use pm_commons
+  use amr_commons
+  implicit none
+  integer::ilevel
+  character(len=*)::label
+  !-----------------------------------------------------------------------
+  ! Debug routine, activated with debug_tree=.true. in &RUN_PARAMS.
+  ! Walks the particle linked list of every grid at level ilevel and
+  ! checks its structural integrity (chain length vs numbp, prevp
+  ! backlinks, tailp, chain termination) and that every particle lies
+  ! within the 3x3x3 grid-cube of its parent grid (same criterion as
+  ! check_tree). Must be called outside any OpenMP parallel region,
+  ! e.g. between the particle phases of amr_step, to localize which
+  ! phase corrupts the particle tree.
+  !-----------------------------------------------------------------------
+  integer::igrid,jgrid,ipart,jpart,npart1,icpu,idim,i,nbad,prev_part
+  integer::nx_loc
+  real(dp)::dx,scale
+  real(dp),dimension(1:3)::skip_loc
+  logical::bad,broken
+  character(len=7)::gtype
+
+  if(numbtot(1,ilevel)==0)return
+
+  dx=0.5D0**ilevel
+  nx_loc=(icoarse_max-icoarse_min+1)
+  skip_loc=(/0.0d0,0.0d0,0.0d0/)
+  if(ndim>0)skip_loc(1)=dble(icoarse_min)
+  if(ndim>1)skip_loc(2)=dble(jcoarse_min)
+  if(ndim>2)skip_loc(3)=dble(kcoarse_min)
+  scale=boxlen/dble(nx_loc)
+
+  nbad=0
+  ! Loop over active and virtual (reception) grids at this level
+  do icpu=1,ncpu
+     do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+           gtype='active '
+        else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+           gtype='virtual'
+        end if
+        npart1=numbp(igrid)
+        ipart=headp(igrid)
+        prev_part=0
+        broken=.false.
+        do jpart=1,npart1
+           if(ipart==0)then
+              write(*,*)'check_particle_tree (',label,'): chain shorter than numbp'
+              write(*,*)'  myid=',myid,' ilevel=',ilevel,' ',gtype,' igrid=',igrid, &
+                   & ' numbp=',npart1,' found=',jpart-1
+              nbad=nbad+1
+              broken=.true.
+              exit
+           end if
+           if(prevp(ipart)/=prev_part)then
+              write(*,*)'check_particle_tree (',label,'): broken prevp backlink'
+              write(*,*)'  myid=',myid,' ilevel=',ilevel,' ',gtype,' igrid=',igrid, &
+                   & ' ipart=',ipart,' prevp=',prevp(ipart),' expected=',prev_part
+              nbad=nbad+1
+           end if
+           bad=.false.
+           do idim=1,ndim
+              i=floor((xp(ipart,idim)/scale+skip_loc(idim) &
+                   & -(xg(igrid,idim)-3.0D0*dx))/dx/2.0D0)
+              if(i<0.or.i>2)bad=.true.
+           end do
+           if(bad)then
+              write(*,*)'check_particle_tree (',label,'): particle outside grid cube'
+              write(*,*)'  myid=',myid,' ilevel=',ilevel,' ',gtype,' igrid=',igrid, &
+                   & ' ipart=',ipart,' idp=',idp(ipart)
+              write(*,*)'  xp=',xp(ipart,1:ndim)
+              write(*,*)'  xg=',(xg(igrid,1:ndim)-skip_loc(1:ndim))*scale
+              nbad=nbad+1
+           end if
+           if(nbad>50)then
+              write(*,*)'check_particle_tree (',label,'): too many errors, aborting'
+              stop
+           end if
+           prev_part=ipart
+           ipart=nextp(ipart)
+        end do
+        if(npart1>0.and..not.broken)then
+           if(tailp(igrid)/=prev_part)then
+              write(*,*)'check_particle_tree (',label,'): tailp mismatch'
+              write(*,*)'  myid=',myid,' ilevel=',ilevel,' ',gtype,' igrid=',igrid, &
+                   & ' tailp=',tailp(igrid),' chain end=',prev_part
+              nbad=nbad+1
+           end if
+           if(ipart/=0)then
+              write(*,*)'check_particle_tree (',label,'): chain longer than numbp'
+              write(*,*)'  myid=',myid,' ilevel=',ilevel,' ',gtype,' igrid=',igrid, &
+                   & ' numbp=',npart1,' nextp(chain end)=',ipart
+              nbad=nbad+1
+           end if
+        end if
+     end do
+  end do
+  if(nbad>0)then
+     write(*,*)'check_particle_tree (',label,'): ',nbad,' error(s) on myid=',myid
+     stop
+  end if
+
+end subroutine check_particle_tree
+!################################################################
+!################################################################
+!################################################################
+!################################################################

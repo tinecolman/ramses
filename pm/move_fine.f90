@@ -204,6 +204,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use pm_commons
   use poisson_commons
   use hydro_commons, ONLY: uold,smallr
+!$ use omp_lib
   implicit none
   integer::ng,np,ilevel
   integer,dimension(1:nvector)::ind_grid
@@ -216,7 +217,7 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! This routine is called by move_fine.
   !------------------------------------------------------------
   logical::error
-  integer::i,j,ind,idim,nx_loc,isink
+  integer::i,j,ind,idim,nx_loc,isink,ithread
   real(dp)::dx,scale
   ! Grid-based arrays
   integer ,dimension(1:nvector),save::father_cell
@@ -286,13 +287,17 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      end do
   end do
   if(error)then
-     write(*,*)'problem in move'
-     do idim=1,ndim
-        do j=1,np
-           if(x(j,idim)<0.5D0.or.x(j,idim)>5.5D0)then
-              write(*,*)x(j,1:ndim)
-           endif
-        end do
+     ithread=0
+!$   ithread=omp_get_thread_num()
+     write(*,*)'problem in move: myid=',myid,' thread=',ithread,' ng=',ng,' np=',np
+     do j=1,np
+        if(any(x(j,1:ndim)<0.5D0).or.any(x(j,1:ndim)>5.5D0))then
+           write(*,*)' j=',j,' ind_part=',ind_part(j),' idp=',idp(ind_part(j)), &
+                & ' ind_grid_part=',ind_grid_part(j)
+           write(*,*)'  x =',x(j,1:ndim)
+           write(*,*)'  xp=',xp(ind_part(j),1:ndim)
+           write(*,*)'  x0=',(x0(ind_grid_part(j),1:ndim)-skip_loc(1:ndim))*scale
+        endif
      end do
      stop
   end if

@@ -364,6 +364,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   use pm_parameters, only:nlevelmax_sink
   use poisson_commons
   use hydro_commons, ONLY: mass_sph
+!$ use omp_lib
   implicit none
   integer::ng,np,ilevel
   integer ,dimension(1:nvector)::ind_cell,ind_grid_part,ind_part
@@ -375,7 +376,7 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
   ! are updated by the input particle list.
   !------------------------------------------------------------------
   logical::error
-  integer::j,ind,idim,nx_loc
+  integer::j,ind,idim,nx_loc,ithread
   real(dp)::dx,dx_loc,scale,vol_loc
   ! Grid-based arrays
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
@@ -450,13 +451,17 @@ subroutine cic_amr(ind_cell,ind_part,ind_grid_part,x0,ng,np,ilevel,multipole_loc
      end do
   end do
   if(error)then
-     write(*,*)'problem in cic'
-     do idim=1,ndim
-        do j=1,np
-           if(x(j,idim)<0.5D0.or.x(j,idim)>5.5D0)then
-              write(*,*)x(j,1:ndim)
-           endif
-        end do
+     ithread=0
+!$   ithread=omp_get_thread_num()
+     write(*,*)'problem in cic: myid=',myid,' thread=',ithread,' ng=',ng,' np=',np
+     do j=1,np
+        if(any(x(j,1:ndim)<0.5D0).or.any(x(j,1:ndim)>5.5D0))then
+           write(*,*)' j=',j,' ind_part=',ind_part(j),' idp=',idp(ind_part(j)), &
+                & ' ind_grid_part=',ind_grid_part(j)
+           write(*,*)'  x =',x(j,1:ndim)
+           write(*,*)'  xp=',xp(ind_part(j),1:ndim)
+           write(*,*)'  x0=',(x0(ind_grid_part(j),1:ndim)-skip_loc(1:ndim))*scale
+        endif
      end do
      stop
   end if

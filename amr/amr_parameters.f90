@@ -65,6 +65,7 @@ module amr_parameters
   logical::stellar = .false.  ! stellar particles for sink feedback
   logical::rt      =.false.   ! Radiative transfer activated
   logical::debug   =.false.   ! Debug mode activated
+  logical::debug_tree=.true. ! Check particle tree consistency after each particle phase
   logical::static  =.false.   ! Static mode activated
   logical::static_dm=.false.  ! Static mode for dm only activated
   logical::static_gas=.false. ! Static mode for gas only activated

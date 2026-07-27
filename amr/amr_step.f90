@@ -125,7 +125,9 @@ recursive subroutine amr_step(ilevel,icount)
   ! Particle leakage
   !-----------------
                                call timer('particles - make tree','start')
+  if(pic.and.debug_tree)call check_particle_tree(ilevel,'before make_tree_fine')
   if(pic)call make_tree_fine(ilevel)
+  if(pic.and.debug_tree)call check_particle_tree(ilevel,'after make_tree_fine')
 
   !------------------------
   ! Output results to files
@@ -228,8 +230,10 @@ recursive subroutine amr_step(ilevel,icount)
      ! Remove particles to finer levels
                                call timer('particles - kill tree','start')
      call kill_tree_fine(ilevel)
+     if(debug_tree)call check_particle_tree(ilevel,'after kill_tree_fine')
      ! Update boundary conditions for remaining particles
      call virtual_tree_fine(ilevel)
+     if(debug_tree)call check_particle_tree(ilevel,'after virtual_tree_fine')
   end if
 
   !---------------
@@ -480,6 +484,7 @@ recursive subroutine amr_step(ilevel,icount)
      else
         call move_fine(ilevel) ! Only remaining particles
      end if
+     if(debug_tree)call check_particle_tree(ilevel,'after move_fine')
   end if
 
   !----------------------------------
@@ -524,6 +529,7 @@ recursive subroutine amr_step(ilevel,icount)
   !----------------------------
                                call timer('particles - merge tree','start')
   if(pic)call merge_tree_fine(ilevel)
+  if(pic.and.debug_tree)call check_particle_tree(ilevel,'after merge_tree_fine')
 
   !---------------
   ! Radiation step

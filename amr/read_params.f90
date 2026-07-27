@@ -323,7 +323,7 @@ subroutine read_run_params(namelist_unit,nml_ok)
 #endif
 
    ! Namelist definition for general run parameters
-   namelist/run_params/clumpfind,cosmo,pic,sink,tracer,lightcone,poisson,hydro,rt,verbose,debug &
+   namelist/run_params/clumpfind,cosmo,pic,sink,tracer,lightcone,poisson,hydro,rt,verbose,debug,debug_tree &
    & ,nrestart,ncontrol,nstepmax,nsubcycle,nremap,ordering &
    & ,bisec_tol,static,overload,cost_weighting,aton,nrestart_quad,restart_remap &
    & ,static_dm,static_gas,static_stars,convert_birth_times,use_proper_time,remap_pscalar &
