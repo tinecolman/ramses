@@ -3,8 +3,17 @@ module pm_commons
   use amr_parameters
   use pm_parameters
   use random
+!$ use omp_lib
 
   implicit none
+
+  ! Global lock protecting the particle linked lists (headp,tailp,nextp,
+  ! prevp,numbp and the free list). Used by add_list/remove_list/add_free/
+  ! add_free_cond/remove_free instead of a named critical section: ifort
+  ! does not reliably unify a named critical across object files, which
+  ! breaks mutual exclusion between add_list.f90 and remove_list.f90.
+  ! Initialized in adaptive_loop.
+!$ integer(kind=omp_lock_kind)::part_list_lock
 
   ! Sink particle related arrays
   real(dp),allocatable,dimension(:)    ::msink,xmsink

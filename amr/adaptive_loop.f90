@@ -29,6 +29,8 @@ subroutine adaptive_loop
   end if
 #endif
 
+!$ call omp_init_lock(part_list_lock) ! Lock protecting particle linked lists
+
   call init_amr                      ! Initialize AMR variables
   call init_time                     ! Initialize time variables
   if(hydro)call init_hydro           ! Initialize hydro variables
