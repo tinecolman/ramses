@@ -178,6 +178,41 @@ ifeq ($(COMPILER),INTEL)
    endif
 endif
 
+# Intel LLVM-based compiler (ifx)
+ifeq ($(COMPILER),INTEL_LLVM)
+   # set compiler commands
+   ifeq ($(MPI),1)
+      F90 = $(MPIF90)
+   else
+      F90 = ifx
+   endif
+   FC = ifx -fp-model precise
+   # -fp-model source is not supported by ifx; precise is the closest equivalent
+   FFLAGS_BASE += -fp-model precise
+   # add preprocessor macro definitions to compilation flags
+   FFLAGS_BASE += -cpp $(DEFINES)
+   ifeq ($(or $(MPI),$(OPENMP)),1)
+      FFLAGS_BASE += -DNOSYSTEM
+   endif
+   ifeq ($(MPI),0)
+      FFLAGS_BASE += -DWITHOUTMPI
+   endif
+   ifeq ($(OPENMP),1)
+      FFLAGS_BASE += -fpp -qopenmp
+      LIBS += -liomp5
+   endif
+   # link-time optimization accross files (-inline-forceinline is ifort-only)
+   LDFLAGS += -ipo
+   FFLAGS_OPT += -ipo
+   # Flags for debugging (resets optimization flags; -ftrapuv is ifort-only)
+   ifeq ($(DEBUG),1)
+      FFLAGS_BASE += -g -traceback -check bounds -warn all
+      FFLAGS_BASE += -fpe0 -init=zero -init=snan -init=arrays
+      LDFLAGS = -g -traceback
+      FFLAGS_OPT = -O0
+   endif
+endif
+
 #############################################################################
 MOD = mod
 #############################################################################
