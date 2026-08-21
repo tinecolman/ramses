@@ -741,7 +741,6 @@ contains
        deallocate(emission_part(1)%cpuid)
        deallocate(emission_part(1)%nparts)
        deallocate(emission_part(1)%u)
-       deallocate(emission_part(1)%f)
        deallocate(emission_part(1)%f8)
     end if
 
