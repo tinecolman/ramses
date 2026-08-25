@@ -286,7 +286,11 @@ subroutine rho_from_current_level(ilevel)
         if(icpu==myid)then
            igrid=active(ilevel)%igrid(jgrid)
         else
+#ifdef LIGHT_MPI_COMM
+           igrid=reception(icpu,ilevel)%pcomm%igrid(jgrid)
+#else
            igrid=reception(icpu,ilevel)%igrid(jgrid)
+#endif
         end if
         npart1=numbp(igrid)  ! Number of particles in the grid
         if(npart1>0)then
