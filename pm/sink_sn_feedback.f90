@@ -37,6 +37,8 @@ subroutine make_sn_stellar
   real(dp):: norm, distance_sn, ekin_before, ekin_after
   logical::r_cooling_resolved=.false.
 
+!$omp threadprivate(ind_grid,ind_cell,ok,xx)
+
   if(.not. hydro)return
   if(ndim .ne. 3)return
 
@@ -175,6 +177,9 @@ subroutine make_sn_stellar
 
       ! Loop over grids
       ncache=active(ilevel)%ngrid
+!$omp parallel do schedule(dynamic,10) &
+!$omp private(igrid,ngrid,i,ind,iskip,idim,rr,dgas,pgas,ekin_before,ekin_after,T_sn,sn_ed_lim) &
+!$omp reduction(+:pgas_check,egas_check)
       do igrid = 1, ncache, nvector
         ngrid = min(nvector, ncache - igrid + 1)
         do i = 1, ngrid
@@ -264,6 +269,7 @@ subroutine make_sn_stellar
         end do
         ! End loop over cells
       end do
+!$omp end parallel do
       ! End loop over grids
     end do
     ! End loop over levels
@@ -366,6 +372,9 @@ subroutine sphere_average(navg, center, radius, rpow, upow, avg)
 
         ! Loop over grids
         ncache = active(ilevel)%ngrid
+!$omp parallel do schedule(dynamic,10) &
+!$omp private(igrid,ngrid,i,ind,iskip,idim,ivar,rr,integrand,utemp,ind_grid,ind_cell,ok,xx) &
+!$omp reduction(+:avg_loc)
         do igrid = 1, ncache, nvector
             ngrid = min(nvector, ncache - igrid + 1)
             do i = 1, ngrid
@@ -422,6 +431,7 @@ subroutine sphere_average(navg, center, radius, rpow, upow, avg)
             end do
             ! End loop over cells
         end do
+!$omp end parallel do
         ! End loop over grids
     end do
     ! End loop over levels

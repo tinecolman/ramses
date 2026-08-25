@@ -43,6 +43,8 @@ SUBROUTINE sink_RT_feedback(ilevel, dt)
   !this array gathers the ionising flux by looping over stellar object
   !note that this array is local and therefore is not declared in pm_common
   real(dp),dimension(1:nsink,1:ngroups):: sink_ioni_flux
+
+!$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 !-------------------------------------------------------------------------
   if(.not.rt_advect)RETURN
   if(nsink .le. 0 ) return
@@ -53,12 +55,22 @@ SUBROUTINE sink_RT_feedback(ilevel, dt)
   call gather_ioni_flux(dt,sink_ioni_flux)
 
   ! Loop over cpus
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part)
   do icpu=1,ncpu
-     igrid=headl(icpu,ilevel)
      ig=0
      ip=0
      ! Loop over grids
+!$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+#ifdef LIGHT_MPI_COMM
+           igrid=reception(icpu,ilevel)%pcomm%igrid(jgrid)
+#else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+#endif
+        end if
         npart1=numbp(igrid)
         npart2=0
         if(npart1 > 0)then
@@ -101,14 +113,15 @@ SUBROUTINE sink_RT_feedback(ilevel, dt)
            end do
            ! End loop over particles
         end if
-        igrid = next(igrid)   ! Go to next grid
      end do
+!$omp end do nowait
      ! End loop over grids
      if(ip > 0) then
          call sink_RT_vsweep_stellar( &
                      ind_grid,ind_part,ind_grid_part,ig,ip,dt,ilevel,sink_ioni_flux)
      endif
   end do
+!$omp end parallel
   ! End loop over cpus
 
 111 format('   Entering sink_rt_feedback for level ',I2)
@@ -213,7 +226,7 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
   ! Particle based arrays
   logical,dimension(1:nvector),save::ok
   real(dp),dimension(1:nvector,1:ndim),save::x
-  integer ,dimension(1:nvector,3),save::id=0,igd=0,icd=0
+  integer ,dimension(1:nvector,3),save::id,igd,icd
   integer ,dimension(1:nvector),save::igrid,icell,indp,kg
   real(dp),dimension(1:3)::skip_loc
   ! units and temporary quantities
@@ -221,7 +234,11 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
   !this arrays gather the ionising flux by looping over stellar object
   real(dp),dimension(1:nsink,1:ngroups):: sink_ioni_flux
 
+!$omp threadprivate(x0,ind_cell,nbors_father_cells,ok,x,id,igd,icd,igrid,icell,indp,kg)
+
 !-------------------------------------------------------------------------
+  id=0; igd=0; icd=0
+
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   call rt_units(scale_Np, scale_Fp)
@@ -317,6 +334,8 @@ SUBROUTINE sink_RT_vsweep_stellar(ind_grid,ind_part,ind_grid_part,ng,np,dt,ileve
         isink=-idp(ind_part(j))
         ! deposit the photons onto the grid
         do ig=1,ngroups
+           ! Cloud particles held by different threads can share a cell
+!$omp atomic update
            rtunew(indp(j),iGroups(ig))=rtunew(indp(j),iGroups(ig)) + &
                 sink_ioni_flux(isink,ig) * dt / dble(ncloud_sink) / vol_cgs / scale_Np
         end do

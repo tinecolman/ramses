@@ -1,0 +1,118 @@
+! Supernova feedback from a sink, in a uniform medium, without self-gravity.
+!
+! A single sink sits off-centre and off every symmetry plane of the box. It
+! carries enough recently accreted mass (dmfsink in ic_sink) to spawn one
+! stellar object of 100 Msun on the first step, which explodes immediately
+! (sn_direct). The blast then expands into a uniform, static, non-self-
+! gravitating medium.
+!
+! The point of this setup, next to center-SN and stellar-HII, is that neither
+! the Poisson solver nor any symmetry of the initial conditions enters the
+! solution: gravity is off and the refinement is purely geometric, so the mesh
+! is static and there is nothing for a roundoff-level error to be amplified by.
+! The reference solution should therefore be insensitive to the MPI
+! decomposition and to the number of OpenMP threads, which is not the case for
+! the symmetric feedback tests.
+!
+! Accretion is switched off so that the only thing that changes the sink and
+! the gas is the supernova itself.
+
+&RUN_PARAMS
+hydro=.true.
+poisson=.false.
+pic=.true.
+sink=.true.
+stellar=.true.
+nrestart=0
+nremap=10
+nsubcycle=1
+verbose=.false.
+/
+
+&INIT_PARAMS
+nregion=1
+region_type(1)='square'
+x_center=125
+y_center=125
+z_center=125
+length_x=250
+length_y=250
+length_z=250
+exp_region=10.0
+d_region=1d1                      ! 10 hydrogen atoms per cc
+p_region=3300.1987634209013       ! T = 10 K
+/
+
+&AMR_PARAMS
+levelmin=6
+levelmax=7
+ngridmax=200000
+npartmax=50000
+boxlen=250.                       ! pc
+/
+
+&OUTPUT_PARAMS
+tout=0.002
+/
+
+&HYDRO_PARAMS
+gamma=1.666666667
+courant_factor=0.8
+riemann='hllc'
+slope_type=1
+pressure_fix=.true.
+beta_fix=0.5
+/
+
+&COOLING_PARAMS
+cooling=.false.
+metal=.false.
+/
+
+&UNITS_PARAMS
+units_density = 1.66d-24          ! 1 H/cc
+units_time    = 3.004683525921981d15
+units_length  = 3.08567758128200d18 ! 1 pc
+/
+
+&REFINE_PARAMS
+! Purely geometric, static refinement of a sphere around the supernova.
+! m_refine=0 with the default mass_sph=0 flags every cell, geometry_refine
+! then keeps only the cells inside r_refine (which is a DIAMETER).
+m_refine=10*0.0
+x_refine=10*158.5
+y_refine=10*107.75
+z_refine=10*133.75
+r_refine=10*100.
+interpol_type=0
+interpol_var=1
+/
+
+&SINK_PARAMS
+create_sinks=.false.
+nsinkmax=10
+mass_sink_seed=1                  ! in M_sun
+accretion_scheme='none'
+n_sink=1d2
+/
+
+&STELLAR_PARAMS
+sn_feedback_sink=.true.
+nstellarmax=10
+stellar_msink_th=300.             ! threshold for stellar object creation, Msun
+sn_direct=.true.                  ! explode at birth instead of after the lifetime
+mstellarini=100                   ! fixed mass, so the IMF draw plays no role
+! IMF (unused here, mstellarini takes precedence for the first object)
+imf_index=-2.35
+imf_low=8
+imf_high=120
+! Stellar lifetime model
+lt_a=0.23840797
+lt_b=2.20522946
+lt_m0=148.158972
+lt_t0=3.26515722
+! SN properties
+Vsat=300
+Tsat=1d5
+Vdisp=0                           ! no random offset: the SN sits on the sink
+/

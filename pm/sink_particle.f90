@@ -553,7 +553,9 @@ subroutine collect_acczone_avg(ilevel)
   integer::ilevel
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,npart2,icpu,isink
-  integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
+  integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
+
+!$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 
   if(ilevel<levelmin)return
   if(verbose)write(*,111)ilevel
@@ -562,12 +564,22 @@ subroutine collect_acczone_avg(ilevel)
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0
 
   ! Loop over cpus
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part)
   do icpu=1,ncpu
-     igrid=headl(icpu,ilevel)
      ig=0
      ip=0
      ! Loop over grids
+!$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+#ifdef LIGHT_MPI_COMM
+           igrid=reception(icpu,ilevel)%pcomm%igrid(jgrid)
+#else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+#endif
+        end if
         npart1=numbp(igrid)  ! Number of particles in the grid
         npart2=0
 
@@ -613,14 +625,15 @@ subroutine collect_acczone_avg(ilevel)
            end do
            ! End loop over particles
         end if
-        igrid=next(igrid)   ! Go to next grid
      end do
+!$omp end do nowait
 
      ! End loop over grids
      if(ip>0)then
         call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
      end if
   end do
+!$omp end parallel
   ! End loop over cpus
 
   if(nsink>0)then
@@ -681,6 +694,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:twotondim)::vol
   logical, dimension(1:nvector,1:twotondim)::ok
 
+!$omp threadprivate(xpart,indp)
+
   ! Compute volume of each cloud particle
   nx_loc=(icoarse_max-icoarse_min+1)
   scale=boxlen/dble(nx_loc)
@@ -734,9 +749,16 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            weight=vol_cloud*vol(j,ind)
 
            ! Compute sink average quantities
+           ! Several threads can contribute to the same sink, hence the atomics
+!$omp atomic update
            wvol(isink)=wvol(isink)+weight
+!$omp atomic update
            wden(isink)=wden(isink)+weight*d
-           wmom(isink,1:ndim)=wmom(isink,1:ndim)+weight*d*vv(1:ndim)
+           do idim=1,ndim
+!$omp atomic update
+              wmom(isink,idim)=wmom(isink,idim)+weight*d*vv(idim)
+           end do
+!$omp atomic update
            weth(isink)=weth(isink)+weight*d*e
 
         endif
@@ -767,7 +789,9 @@ subroutine grow_sink(ilevel,on_creation)
   logical::on_creation
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,npart2,icpu,isink,lev
-  integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
+  integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
+
+!$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 
   if(accretion_scheme=='none'.and.(.not.on_creation))return
   if(verbose)write(*,111)ilevel
@@ -780,12 +804,22 @@ subroutine grow_sink(ilevel,on_creation)
   xsink_new=0d0; vsink_new=0d0; lsink_new=0d0; delta_mass_new=0d0
 
   ! Loop over cpus
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part)
   do icpu=1,ncpu
-     igrid=headl(icpu,ilevel)
      ig=0
      ip=0
      ! Loop over grids
+!$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
+        if(icpu==myid)then
+           igrid=active(ilevel)%igrid(jgrid)
+        else
+#ifdef LIGHT_MPI_COMM
+           igrid=reception(icpu,ilevel)%pcomm%igrid(jgrid)
+#else
+           igrid=reception(icpu,ilevel)%igrid(jgrid)
+#endif
+        end if
         npart1=numbp(igrid)  ! Number of particles in the grid
         npart2=0
         ! Count sink and cloud particles
@@ -829,11 +863,12 @@ subroutine grow_sink(ilevel,on_creation)
            end do
            ! End loop over particles
         end if
-        igrid=next(igrid)   ! Go to next grid
      end do
+!$omp end do nowait
      ! End loop over grids
      if(ip>0)call accrete_sink(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,on_creation)
   end do
+!$omp end parallel
   ! End loop over cpus
   if(nsink>0)then
 #ifndef WITHOUTMPI
@@ -946,6 +981,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp)::tan_theta,cone_dist,orth_dist
   real(dp),dimension(1:ndim)::cone_dir
   real(dp)::acc_ratio,v_AGN
+  ! Local copies of the AGN jet parameters. This routine runs inside a parallel
+  ! region, so the module variables must not be written to from here.
+  real(dp)::cone_op,fbk_frac_ener,fbk_frac_mom
 
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -979,9 +1017,13 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 #endif
 
   ! Jet geometry safety net
-  cone_opening = max(tiny(0.0d0),cone_opening)
-  cone_opening = min(cone_opening, 180d0)
-  tan_theta = tan(pi/180d0*cone_opening/2) ! tangent of half of the opening angle
+  cone_op = max(tiny(0.0d0),cone_opening)
+  cone_op = min(cone_op, 180d0)
+  tan_theta = tan(pi/180d0*cone_op/2) ! tangent of half of the opening angle
+
+  ! AGN feedback mode, possibly overridden per sink below
+  fbk_frac_ener = AGN_fbk_frac_ener
+  fbk_frac_mom  = AGN_fbk_frac_mom
 
   ! Get cloud particle CIC weights
   do idim=1,ndim
@@ -1084,21 +1126,21 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  if (AGN_fbk_mode_switch_threshold > 0.0) then
                     if (acc_ratio > AGN_fbk_mode_switch_threshold) then
                        ! Eddington ratio higher than AGN_fbk_mode_switch_threshold -> energy
-                       AGN_fbk_frac_ener = 1
-                       AGN_fbk_frac_mom = 0
+                       fbk_frac_ener = 1
+                       fbk_frac_mom = 0
                     else
                        ! Eddington ratio lower than AGN_fbk_mode_switch_threshold -> momentum
-                       AGN_fbk_frac_ener = 0
-                       AGN_fbk_frac_mom = 1
+                       fbk_frac_ener = 0
+                       fbk_frac_mom = 1
                     end if
                  end if
                  v_AGN = (2*0.1d0*epsilon_kin/kin_mass_loading)**0.5d0*c_cgs ! in cm/s
                  if (agn_inj_method=='mass') then
-                    fbk_ener_AGN=AGN_fbk_frac_ener*min(delta_mass(isink)*T2_AGN/scale_T2*weight/volume*d/density,T2_max/scale_T2*weight*d)
-                    fbk_mom_AGN=AGN_fbk_frac_mom*min(kin_mass_loading*delta_mass(isink)*v_AGN/scale_v*weight/volume*d/density/(1d0-cos(pi/180*cone_opening/2)),v_max*1d5/scale_v*weight*d)
+                    fbk_ener_AGN=fbk_frac_ener*min(delta_mass(isink)*T2_AGN/scale_T2*weight/volume*d/density,T2_max/scale_T2*weight*d)
+                    fbk_mom_AGN=fbk_frac_mom*min(kin_mass_loading*delta_mass(isink)*v_AGN/scale_v*weight/volume*d/density/(1d0-cos(pi/180*cone_op/2)),v_max*1d5/scale_v*weight*d)
                  else if (agn_inj_method=='volume') then
-                    fbk_ener_AGN=AGN_fbk_frac_ener*min(delta_mass(isink)*T2_AGN/scale_T2*weight/volume,T2_max/scale_T2*weight*d)
-                    fbk_mom_AGN=AGN_fbk_frac_mom*min(kin_mass_loading*delta_mass(isink)*v_AGN/scale_v*weight/volume/(1d0-cos(pi/180*cone_opening/2)),v_max*1d5/scale_v*weight*d)
+                    fbk_ener_AGN=fbk_frac_ener*min(delta_mass(isink)*T2_AGN/scale_T2*weight/volume,T2_max/scale_T2*weight*d)
+                    fbk_mom_AGN=fbk_frac_mom*min(kin_mass_loading*delta_mass(isink)*v_AGN/scale_v*weight/volume/(1d0-cos(pi/180*cone_op/2)),v_max*1d5/scale_v*weight*d)
                  endif
               end if
            end if
@@ -1116,27 +1158,45 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            l_acc(1:ndim)=(m_acc+m_acc_smbh)*cross(r_rel(1:ndim),v_rel(1:ndim))
 
            ! Add accreted properties to sink variables
+           ! Several threads can accrete onto the same sink, hence the atomics
+!$omp atomic update
            msink_new(isink)=msink_new(isink)+m_acc
+!$omp atomic update
            msmbh_new(isink)=msmbh_new(isink)+m_acc_smbh
+!$omp atomic update
            dmfsink_new(isink)=dmfsink_new(isink)+m_acc
-           xsink_new(isink,1:ndim)=xsink_new(isink,1:ndim)+x_acc(1:ndim)
-           vsink_new(isink,1:ndim)=vsink_new(isink,1:ndim)+p_acc(1:ndim)
-           lsink_new(isink,1:ndim)=lsink_new(isink,1:ndim)+l_acc(1:ndim)
+           do idim=1,ndim
+!$omp atomic update
+              xsink_new(isink,idim)=xsink_new(isink,idim)+x_acc(idim)
+!$omp atomic update
+              vsink_new(isink,idim)=vsink_new(isink,idim)+p_acc(idim)
+!$omp atomic update
+              lsink_new(isink,idim)=lsink_new(isink,idim)+l_acc(idim)
+           end do
            if(mass_smbh_seed>0.0)then
+!$omp atomic update
               delta_mass_new(isink)=delta_mass_new(isink)+m_acc_smbh
            else
+!$omp atomic update
               delta_mass_new(isink)=delta_mass_new(isink)+m_acc
            end if
 
            m_acc=m_acc+m_acc_smbh
            ! Accrete mass, momentum and gas total energy
+           ! Cloud particles held by different threads can share a cell, hence the atomics
+!$omp atomic update
            unew(indp(j,ind),1)=unew(indp(j,ind),1)-m_acc/vol_loc
-           unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)-m_acc*vv(1:ndim)/vol_loc
+           do idim=1,ndim
+!$omp atomic update
+              unew(indp(j,ind),idim+1)=unew(indp(j,ind),idim+1)-m_acc*vv(idim)/vol_loc
+           end do
+!$omp atomic update
            unew(indp(j,ind),neul)=unew(indp(j,ind),neul)-m_acc*e/vol_loc
            ! Note that we do not accrete magnetic fields and non-thermal energies.
 
            ! Accrete passive scalars
            do ivar=imetal,nvar
+!$omp atomic update
               unew(indp(j,ind),ivar)=unew(indp(j,ind),ivar)-m_acc*uold(indp(j,ind),ivar)/d/vol_loc
            end do
 
@@ -1146,17 +1206,22 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            if( .not. on_creation)then
               if(agn)then
                  if(ok_blast_agn(isink).and.delta_mass(isink)>0.0)then
-                    if(AGN_fbk_frac_ener.gt.0.0)then ! thermal AGN feedback
+                    if(fbk_frac_ener.gt.0.0)then ! thermal AGN feedback
+!$omp atomic update
                        unew(indp(j,ind),neul)=unew(indp(j,ind),neul)+fbk_ener_AGN/vol_loc
                     end if
 
-                    if(AGN_fbk_frac_mom.gt.0.0)then ! momentum AGN feedback
+                    if(fbk_frac_mom.gt.0.0)then ! momentum AGN feedback
                        ! checking if particle is in cone
                        cone_dir(1:ndim)=lsink(isink,1:ndim)/sqrt(sum(lsink(isink,1:ndim)**2))
                        cone_dist=sum(r_rel(1:ndim)*cone_dir(1:ndim))
                        orth_dist=sqrt(sum((r_rel(1:ndim)-cone_dist*cone_dir(1:ndim))**2))
                        if (orth_dist.le.abs(cone_dist)*tan_theta)then
-                          unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)+fbk_mom_AGN*r_rel(1:ndim)/(r_len)/vol_loc
+                          do idim=1,ndim
+!$omp atomic update
+                             unew(indp(j,ind),idim+1)=unew(indp(j,ind),idim+1)+fbk_mom_AGN*r_rel(idim)/(r_len)/vol_loc
+                          end do
+!$omp atomic update
                           unew(indp(j,ind),neul)=unew(indp(j,ind),neul)+sum(fbk_mom_AGN*r_rel(1:ndim)/(r_len)*vv(1:ndim))/vol_loc
                        end if
                     end if
@@ -1166,6 +1231,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                     dert=0.1d0*delta_mass(isink)*(c_cgs/scale_v)**2
                     do igroup=1,nGroups
                        Np_inj=dert * group_egy_AGNfrac(igroup) / (scale_evtocode*group_egy(igroup)) / (vol_loc*scale_vol) / scale_Np*weight/volume
+!$omp atomic update
                        rtunew(indp(j,ind),iGroups(igroup))=rtunew(indp(j,ind),iGroups(igroup))+Np_inj
                     enddo
                  end if
@@ -2178,8 +2244,10 @@ subroutine update_cloud(ilevel)
   !----------------------------------------------------------------------------
 
   integer::igrid,jgrid,ipart,jpart,next_part,ig,ip,npart1,isink,nx_loc
-  integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
+  integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
   real(dp)::dx,dx_loc,scale
+
+!$omp threadprivate(ind_grid,ind_part,ind_grid_part)
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -2191,9 +2259,11 @@ subroutine update_cloud(ilevel)
   dx_loc=dx*scale
 
   ! Update particles position and velocity
+!$omp parallel private(ig,ip,jgrid,igrid,npart1,ipart,jpart,next_part)
   ig=0
   ip=0
   ! Loop over grids
+!$omp do schedule(dynamic,10)
   do jgrid=1,active(ilevel)%ngrid
      igrid=active(ilevel)%igrid(jgrid)
      npart1=numbp(igrid)  ! Number of particles in the grid
@@ -2222,8 +2292,10 @@ subroutine update_cloud(ilevel)
         ! End loop over particles
      end if
   end do
+!$omp end do nowait
   ! End loop over grids
   if(ip>0)call upd_cloud(ind_part,ip)
+!$omp end parallel
 
   if (myid==1.and.verbose)then
      write(*,*)'Sink drift due to accretion relative to grid size at level ',ilevel
@@ -2422,6 +2494,7 @@ subroutine f_gas_sink(ilevel)
   real(dp),dimension(1:nvector,1:ndim)::xx,ff
   real(dp),dimension(1:nvector)::d2,mcell,denom
   real(dp)::rho_tff,rho_tff_tot,d_min
+  real(dp),dimension(1:ndim)::fsink_loc
   logical ,dimension(1:ndim)::period
 
 #if NDIM==3
@@ -2467,9 +2540,13 @@ subroutine f_gas_sink(ilevel)
      if (direct_force_sink(isink))then
 
         d_min=boxlen**2
+        fsink_loc=0d0
 
         ! Loop over myid grids by vector sweeps
         ncache=active(ilevel)%ngrid
+!$omp parallel do schedule(dynamic,10) &
+!$omp private(igrid,ngrid,i,ind,iskip,idim,ind_grid,ind_cell,ok,mcell,xx,ff,d2,denom) &
+!$omp reduction(min:d_min) reduction(+:fsink_loc)
         do igrid=1,ncache,nvector
            ngrid=MIN(nvector,ncache-igrid+1)
            do i=1,ngrid
@@ -2537,11 +2614,13 @@ subroutine f_gas_sink(ilevel)
               ! Add sink acceleration due to gas
               do i=1,ngrid
                  if(ok(i))then
-                    fsink_new(isink,1:ndim)=fsink_new(isink,1:ndim)-factG*mcell(i)*ff(i,1:ndim)
+                    fsink_loc(1:ndim)=fsink_loc(1:ndim)-factG*mcell(i)*ff(i,1:ndim)
                  end if
               end do
            end do !end loop over cells
         end do !end loop over grids
+!$omp end parallel do
+        fsink_new(isink,1:ndim)=fsink_new(isink,1:ndim)+fsink_loc(1:ndim)
 
         d_min=d_min**0.5d0
         d_min=max(ssoft,d_min)
@@ -2812,6 +2891,8 @@ subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ileve
   real(dp),dimension(1:ndim)::skip_loc
   real(dp),dimension(1:twotondim,1:ndim)::xc
 
+!$omp threadprivate(nbors_father_cells,x,dd,dg,ig,id,igg,igd,icg,icd,igrid,icell,kg,x0)
+
   ! Mesh spacing in that level
   dx=0.5D0**ilevel
   nx_loc=(icoarse_max-icoarse_min+1)
@@ -3005,6 +3086,8 @@ subroutine cic_get_vals(fluid_var,ind_grid,xpart,ind_grid_part,ng,np,ilevel,ilev
   integer ,dimension(1:nvector,1:twotondim),save::indp
   logical ,dimension(1:nvector,twotondim),save::ok
 
+!$omp threadprivate(vol_tot,xx,vol,indp,ok)
+
   call cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ilevel)
 
   fluid_var(1:np,1:nvar)=0
@@ -3064,20 +3147,26 @@ subroutine set_unew_sink(ilevel)
   if(verbose)write(*,111)ilevel
 
   ! Set unew to uold for myid cells
+!$omp parallel private(ind,iskip,ivar,i)
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-  do ivar=1,nvar_all
+     do ivar=1,nvar_all
+!$omp do
         do i=1,active(ilevel)%ngrid
            unew(active(ilevel)%igrid(i)+iskip,ivar) = uold(active(ilevel)%igrid(i)+iskip,ivar)
         end do
+!$omp end do nowait
      end do
   end do
+!$omp end parallel
 
   ! Set unew to 0 for virtual boundary cells
+!$omp parallel private(icpu,ind,iskip,ivar,i)
   do icpu=1,ncpu
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
      do ivar=1,nvar_all
+!$omp do
         do i=1,reception(icpu,ilevel)%ngrid
 #ifdef LIGHT_MPI_COMM
            unew(reception(icpu,ilevel)%pcomm%igrid(i)+iskip,ivar)=0
@@ -3085,9 +3174,11 @@ subroutine set_unew_sink(ilevel)
            unew(reception(icpu,ilevel)%igrid(i)+iskip,ivar)=0
 #endif
         end do
+!$omp end do nowait
      end do
   end do
   end do
+!$omp end parallel
 
 111 format('   Entering set_unew_sink for level ',i2)
 
@@ -3117,14 +3208,18 @@ subroutine set_uold_sink(ilevel)
   end do
 
   ! Set uold to unew for myid cells
+!$omp parallel private(ind,iskip,ivar,i)
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
      do ivar=1,nvar_all
+!$omp do
         do i=1,active(ilevel)%ngrid
            uold(active(ilevel)%igrid(i)+iskip,ivar) = unew(active(ilevel)%igrid(i)+iskip,ivar)
         end do
+!$omp end do nowait
      end do
   end do
+!$omp end parallel
 111 format('   Entering set_uold_sink for level ',i2)
 
 end subroutine set_uold_sink

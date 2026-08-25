@@ -1,0 +1,2 @@
+FLAGS: NDIM=3 SOLVER=hydro PATCH=
+OPENMP: true

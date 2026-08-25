@@ -1,0 +1,128 @@
+! HII region driven by a stellar object attached to a sink, without self-gravity.
+!
+! Companion of sn-blast, for the radiative rather than the supernova feedback
+! channel. A single sink sits off-centre and off every symmetry plane of the
+! box, carrying enough recently accreted mass (dmfsink in ic_sink) to spawn one
+! stellar object of 50 Msun on the first step. That object ionises the uniform
+! neutral medium around it through sink_rt_feedback. The photoionised gas is
+! heated to ~1e4 K and expands, so the run covers the injection, the ionisation
+! balance and the dynamical response.
+!
+! As in sn-blast, gravity is off and the refinement is purely geometric, so the
+! mesh is static and nothing amplifies a roundoff-level error. stellar-HII, the
+! other test of this code path, is symmetric and self-gravitating and needs
+! tolerances of 3e-6; here the default 3e-13 holds.
+
+&RUN_PARAMS
+hydro=.true.
+poisson=.false.
+rt=.true.
+pic=.true.
+sink=.true.
+stellar=.true.
+nrestart=0
+nremap=10
+nsubcycle=1
+verbose=.false.
+/
+
+&INIT_PARAMS
+nregion=1
+region_type(1)='square'
+x_center=125
+y_center=125
+z_center=125
+length_x=250
+length_y=250
+length_z=250
+exp_region=10.0
+d_region=1d1                      ! 10 hydrogen atoms per cc
+p_region=3300.1987634209013       ! T = 10 K
+/
+
+&AMR_PARAMS
+levelmin=6
+levelmax=7
+ngridmax=200000
+npartmax=50000
+boxlen=250.                       ! pc
+/
+
+&OUTPUT_PARAMS
+tout=0.005
+/
+
+&HYDRO_PARAMS
+gamma=1.666666667
+courant_factor=0.8
+riemann='hllc'
+slope_type=1
+pressure_fix=.true.
+beta_fix=0.5
+/
+
+&COOLING_PARAMS
+cooling=.true.                    ! needed for the RT thermochemistry to heat
+metal=.false.                     ! the photoionised gas, so that it expands
+/
+
+&UNITS_PARAMS
+units_density = 1.66d-24          ! 1 H/cc
+units_time    = 3.004683525921981d15
+units_length  = 3.08567758128200d18 ! 1 pc
+/
+
+&REFINE_PARAMS
+! Purely geometric, static refinement of a sphere around the ionising source.
+! m_refine=0 with the default mass_sph=0 flags every cell, geometry_refine
+! then keeps only the cells inside r_refine (which is a DIAMETER).
+m_refine=10*0.0
+x_refine=10*158.5
+y_refine=10*107.75
+z_refine=10*133.75
+r_refine=10*100.
+interpol_type=0
+interpol_var=1
+/
+
+&SINK_PARAMS
+create_sinks=.false.
+nsinkmax=10
+mass_sink_seed=1                  ! in M_sun
+accretion_scheme='none'
+n_sink=1d2
+/
+
+&STELLAR_PARAMS
+sn_feedback_sink=.false.          ! radiative feedback only, no supernova here
+nstellarmax=10
+stellar_msink_th=300.             ! threshold for stellar object creation, Msun
+mstellarini=50                    ! fixed mass, so the IMF draw plays no role
+imf_index=-2.35
+imf_low=8
+imf_high=120
+hii_t=1000.0                      ! Myr, the object keeps emitting for the run
+/
+
+&RT_PARAMS
+rt_sink=.true.
+X=0.76d0
+Y=0.24d0
+rt_output_coolstats=.true.
+rt_flux_scheme='glf'
+rt_smooth=.true.
+rt_courant_factor=0.8
+rt_c_fraction=1d-4
+rt_otsa=.false.
+/
+
+&RT_GROUPS
+group_csn(1,:)= 3.8808E-18, 7.6280E-22, 0.0000
+group_cse(1,:)= 3.6627E-18, 1.1054E-21, 0.0000
+group_csn(2,:)= 8.9878E-19, 6.1154E-18, 0.0000
+group_cse(2,:)= 8.7025E-19, 5.9879E-18, 0.0000
+group_csn(3,:)= 1.0528E-19, 1.5058E-18, 1.3239E-18
+group_cse(3,:)= 1.0448E-19, 1.4969E-18, 1.3173E-18
+group_egy     = 16.970, 28.161, 57.638
+spec2group    = 1, 2, 3
+/
