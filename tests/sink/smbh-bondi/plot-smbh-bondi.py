@@ -41,11 +41,4 @@ fig.savefig('smbh-bondi.pdf', bbox_inches="tight")
 data = visu_ramses.load_snapshot(15)
 for key in data["sinks"].keys():
     data["data"]["sink_"+key] = data["sinks"][key]
-# The sink accretion-zone averages are summed with OpenMP atomics, so their
-# summation order is not reproducible. Everything else still matches the
-# reference to the last digit written to sink_00015.csv; cs**2 is derived from
-# etherm/rho_gas and lands right on a rounding boundary of that format, so it
-# moves by one unit in the last printed digit as soon as more than one thread
-# is used. Hence a loosened tolerance for that one variable.
-visu_ramses.check_solution(data["data"], 'smbh-bondi',
-                           tolerance={"sink_cs**2": 1.0e-9})
+visu_ramses.check_solution(data["data"],'smbh-bondi')

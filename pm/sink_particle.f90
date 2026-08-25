@@ -552,7 +552,7 @@ subroutine collect_acczone_avg(ilevel)
 
   integer::ilevel
   integer::igrid,jgrid,ipart,jpart,next_part
-  integer::ig,ip,npart1,npart2,icpu,isink
+  integer::ig,ip,npart1,npart2,icpu,isink,counter
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
 
 !$omp threadprivate(ind_grid,ind_part,ind_grid_part)
@@ -564,10 +564,11 @@ subroutine collect_acczone_avg(ilevel)
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0
 
   ! Loop over cpus
-!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part)
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part,isink,counter)
   do icpu=1,ncpu
      ig=0
      ip=0
+     isink=0
      ! Loop over grids
 !$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
@@ -597,30 +598,37 @@ subroutine collect_acczone_avg(ilevel)
            end do
         endif
 
-        ! Gather sink and cloud particles
+        ! Gather sink and cloud particles. The buffer is flushed as soon as the
+        ! sink index changes, so that each call handles a single sink and can
+        ! sum into local variables before touching the shared per-sink arrays.
         if(npart2>0)then
-           ig=ig+1
-           ind_grid(ig)=igrid
            ipart=headp(igrid)
+           counter=0  ! Number of cloud particles taken from this grid so far
            ! Loop over particles
            do jpart=1,npart1
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ! Select only sink particles
               if( is_cloud(typep(ipart)) ) then
-                 if(ig==0)then
+                 if(ip==nvector .or. isink/=-idp(ipart))then
+                    ! Buffer is full, or this particle belongs to another sink
+                    if(isink/=0)then
+                       call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,isink)
+                    end if
+                    isink=-idp(ipart)
+                    ip=0
                     ig=1
+                    ind_grid(ig)=igrid
+                 else if(counter==0)then
+                    ! First cloud particle taken from this grid in this buffer
+                    ig=ig+1
                     ind_grid(ig)=igrid
                  end if
                  ip=ip+1
                  ind_part(ip)=ipart
                  ind_grid_part(ip)=ig
+                 counter=counter+1
               endif
-              if(ip==nvector)then
-                 call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
-                 ip=0
-                 ig=0
-              end if
               ipart=next_part  ! Go to next particle
            end do
            ! End loop over particles
@@ -630,7 +638,7 @@ subroutine collect_acczone_avg(ilevel)
 
      ! End loop over grids
      if(ip>0)then
-        call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+        call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,isink)
      end if
   end do
 !$omp end parallel
@@ -664,7 +672,7 @@ end subroutine collect_acczone_avg
 !##############################################################################
 !##############################################################################
 !##############################################################################
-subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
+subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,isink)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -674,17 +682,20 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! weighted gas quantities for each particle are computed
   ! no CIC averaging over quantities anymore as average over whole sink
   ! accretion zone is computed
+  ! All np particles belong to sink isink, so the contributions are summed
+  ! locally and added to the global arrays once, at the end of the routine.
   !----------------------------------------------------------------------------
 
-  integer::ng,np,ilevel
+  integer::ng,np,ilevel,isink
   integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
-  integer::j,nx_loc,isink,idim,ind
+  integer::j,nx_loc,idim,ind
 #if NENER>0
   integer::irad
 #endif
   real(dp)::d,e,v2
   real(dp)::scale,weight,dx_cloud,vol_cloud
-  real(dp),dimension(1:ndim)::vv
+  real(dp)::wvol_add,wden_add,weth_add
+  real(dp),dimension(1:ndim)::vv,wmom_add
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
 #endif
@@ -711,6 +722,9 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 
   ! Compute cloud particle CIC weights at the current level
   call cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ilevel)
+
+  ! Contributions of this buffer to the sink averages
+  wvol_add=0d0; wden_add=0d0; weth_add=0d0; wmom_add=0d0
 
   do ind=1,twotondim
      do j=1,np
@@ -742,28 +756,31 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            v2=sum(vv**2)
            e=e-0.5d0*v2 ! Remove kinetic energy
 
-           ! Get sink index
-           isink=-idp(ind_part(j))
-
            ! Get cloud particle CIC weight
            weight=vol_cloud*vol(j,ind)
 
-           ! Compute sink average quantities
-           ! Several threads can contribute to the same sink, hence the atomics
-!$omp atomic update
-           wvol(isink)=wvol(isink)+weight
-!$omp atomic update
-           wden(isink)=wden(isink)+weight*d
-           do idim=1,ndim
-!$omp atomic update
-              wmom(isink,idim)=wmom(isink,idim)+weight*d*vv(idim)
-           end do
-!$omp atomic update
-           weth(isink)=weth(isink)+weight*d*e
+           ! Accumulate sink average quantities
+           wvol_add=wvol_add+weight
+           wden_add=wden_add+weight*d
+           wmom_add(1:ndim)=wmom_add(1:ndim)+weight*d*vv(1:ndim)
+           weth_add=weth_add+weight*d*e
 
         endif
      end do
   end do
+
+  ! Add to the global sink arrays. Several threads can hold cloud particles of
+  ! the same sink, hence the atomics.
+!$omp atomic update
+  wvol(isink)=wvol(isink)+wvol_add
+!$omp atomic update
+  wden(isink)=wden(isink)+wden_add
+  do idim=1,ndim
+!$omp atomic update
+     wmom(isink,idim)=wmom(isink,idim)+wmom_add(idim)
+  end do
+!$omp atomic update
+  weth(isink)=weth(isink)+weth_add
 
 end subroutine collect_acczone_avg_np
 !##############################################################################
@@ -788,7 +805,7 @@ subroutine grow_sink(ilevel,on_creation)
   integer::ilevel
   logical::on_creation
   integer::igrid,jgrid,ipart,jpart,next_part
-  integer::ig,ip,npart1,npart2,icpu,isink,lev
+  integer::ig,ip,npart1,npart2,icpu,isink,lev,counter
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
 
 !$omp threadprivate(ind_grid,ind_part,ind_grid_part)
@@ -804,10 +821,11 @@ subroutine grow_sink(ilevel,on_creation)
   xsink_new=0d0; vsink_new=0d0; lsink_new=0d0; delta_mass_new=0d0
 
   ! Loop over cpus
-!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part)
+!$omp parallel private(icpu,ig,ip,jgrid,igrid,npart1,npart2,ipart,jpart,next_part,isink,counter)
   do icpu=1,ncpu
      ig=0
      ip=0
+     isink=0
      ! Loop over grids
 !$omp do schedule(dynamic,10)
      do jgrid=1,numbl(icpu,ilevel)
@@ -835,30 +853,37 @@ subroutine grow_sink(ilevel,on_creation)
               ipart=next_part  ! Go to next particle
            end do
         endif
-        ! Gather sink and cloud particles
+        ! Gather sink and cloud particles. The buffer is flushed as soon as the
+        ! sink index changes, so that each call handles a single sink and can
+        ! sum into local variables before touching the shared per-sink arrays.
         if(npart2>0)then
-           ig=ig+1
-           ind_grid(ig)=igrid
            ipart=headp(igrid)
+           counter=0  ! Number of cloud particles taken from this grid so far
            ! Loop over particles
            do jpart=1,npart1
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ! Select only sink particles
               if( is_cloud(typep(ipart)) ) then
-                 if(ig==0)then
+                 if(ip==nvector .or. isink/=-idp(ipart))then
+                    ! Buffer is full, or this particle belongs to another sink
+                    if(isink/=0)then
+                       call accrete_sink(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,on_creation,isink)
+                    end if
+                    isink=-idp(ipart)
+                    ip=0
                     ig=1
+                    ind_grid(ig)=igrid
+                 else if(counter==0)then
+                    ! First cloud particle taken from this grid in this buffer
+                    ig=ig+1
                     ind_grid(ig)=igrid
                  end if
                  ip=ip+1
                  ind_part(ip)=ipart
                  ind_grid_part(ip)=ig
+                 counter=counter+1
               endif
-              if(ip==nvector)then
-                 call accrete_sink(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,on_creation)
-                 ip=0
-                 ig=0
-              end if
               ipart=next_part  ! Go to next particle
            end do
            ! End loop over particles
@@ -866,7 +891,7 @@ subroutine grow_sink(ilevel,on_creation)
      end do
 !$omp end do nowait
      ! End loop over grids
-     if(ip>0)call accrete_sink(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,on_creation)
+     if(ip>0)call accrete_sink(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,on_creation,isink)
   end do
 !$omp end parallel
   ! End loop over cpus
@@ -930,7 +955,7 @@ end subroutine grow_sink
 !##############################################################################
 !##############################################################################
 !##############################################################################
-subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation)
+subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation,isink)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -944,13 +969,15 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   ! This routine is called by subroutine grow_sink. It performs accretion
   ! for nvector particles. Routine is not very efficient.
   ! Optimize if taking too long...
+  ! All np particles belong to sink isink, so the accreted quantities are
+  ! summed locally and added to the global arrays once, at the end.
   !----------------------------------------------------------------------------
 
-  integer::ng,np,ilevel
+  integer::ng,np,ilevel,isink
   integer,dimension(1:nvector)::ind_grid
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   logical::on_creation
-  integer::j,nx_loc,isink,ivar,idim,ind
+  integer::j,nx_loc,ivar,idim,ind
   real(dp)::d,e,density,volume
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
@@ -975,6 +1002,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp),dimension(1:ndim)::vv
 
   real(dp),dimension(1:ndim)::r_rel,v_rel,x_acc,p_acc,l_acc
+  real(dp)::msink_add,msmbh_add,dmfsink_add,delta_mass_add
+  real(dp),dimension(1:ndim)::xsink_add,vsink_add,lsink_add
   real(dp)::fbk_ener_AGN,fbk_mom_AGN,r_len
   logical,dimension(1:ndim)::period
 
@@ -1025,6 +1054,10 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   fbk_frac_ener = AGN_fbk_frac_ener
   fbk_frac_mom  = AGN_fbk_frac_mom
 
+  ! Contributions of this buffer to the sink variables
+  msink_add=0d0; msmbh_add=0d0; dmfsink_add=0d0; delta_mass_add=0d0
+  xsink_add=0d0; vsink_add=0d0; lsink_add=0d0
+
   ! Get cloud particle CIC weights
   do idim=1,ndim
      do j=1,np
@@ -1063,9 +1096,6 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            end do
 #endif
            e=e/d ! Specific energy
-
-           ! Get sink index
-           isink=-idp(ind_part(j))
 
            ! Reference frame relative to the sink position
            r_rel(1:ndim)=xx(j,1:ndim,ind)-xsink(isink,1:ndim)
@@ -1157,28 +1187,17 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! Accreted relative angular momentum
            l_acc(1:ndim)=(m_acc+m_acc_smbh)*cross(r_rel(1:ndim),v_rel(1:ndim))
 
-           ! Add accreted properties to sink variables
-           ! Several threads can accrete onto the same sink, hence the atomics
-!$omp atomic update
-           msink_new(isink)=msink_new(isink)+m_acc
-!$omp atomic update
-           msmbh_new(isink)=msmbh_new(isink)+m_acc_smbh
-!$omp atomic update
-           dmfsink_new(isink)=dmfsink_new(isink)+m_acc
-           do idim=1,ndim
-!$omp atomic update
-              xsink_new(isink,idim)=xsink_new(isink,idim)+x_acc(idim)
-!$omp atomic update
-              vsink_new(isink,idim)=vsink_new(isink,idim)+p_acc(idim)
-!$omp atomic update
-              lsink_new(isink,idim)=lsink_new(isink,idim)+l_acc(idim)
-           end do
+           ! Accumulate accreted properties
+           msink_add=msink_add+m_acc
+           msmbh_add=msmbh_add+m_acc_smbh
+           dmfsink_add=dmfsink_add+m_acc
+           xsink_add(1:ndim)=xsink_add(1:ndim)+x_acc(1:ndim)
+           vsink_add(1:ndim)=vsink_add(1:ndim)+p_acc(1:ndim)
+           lsink_add(1:ndim)=lsink_add(1:ndim)+l_acc(1:ndim)
            if(mass_smbh_seed>0.0)then
-!$omp atomic update
-              delta_mass_new(isink)=delta_mass_new(isink)+m_acc_smbh
+              delta_mass_add=delta_mass_add+m_acc_smbh
            else
-!$omp atomic update
-              delta_mass_new(isink)=delta_mass_new(isink)+m_acc
+              delta_mass_add=delta_mass_add+m_acc
            end if
 
            m_acc=m_acc+m_acc_smbh
@@ -1241,6 +1260,26 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
         endif
      end do
   end do
+
+  ! Add to the global sink arrays. Several threads can hold cloud particles of
+  ! the same sink, hence the atomics.
+!$omp atomic update
+  msink_new(isink)=msink_new(isink)+msink_add
+!$omp atomic update
+  msmbh_new(isink)=msmbh_new(isink)+msmbh_add
+!$omp atomic update
+  dmfsink_new(isink)=dmfsink_new(isink)+dmfsink_add
+  do idim=1,ndim
+!$omp atomic update
+     xsink_new(isink,idim)=xsink_new(isink,idim)+xsink_add(idim)
+!$omp atomic update
+     vsink_new(isink,idim)=vsink_new(isink,idim)+vsink_add(idim)
+!$omp atomic update
+     lsink_new(isink,idim)=lsink_new(isink,idim)+lsink_add(idim)
+  end do
+!$omp atomic update
+  delta_mass_new(isink)=delta_mass_new(isink)+delta_mass_add
+
 end subroutine accrete_sink
 !##############################################################################
 !##############################################################################
