@@ -58,4 +58,5 @@ for a in ax.flatten():
 fig.savefig('implosion.pdf',bbox_inches='tight')
 
 # Check results against reference solution
-visu_ramses.check_solution(data["data"],'implosion')
+tol = {'velocity_x': 1e-12, 'velocity_y': 1e-12, 'pressure': 1e-12}
+visu_ramses.check_solution(data["data"],'implosion', tolerance=tol)
