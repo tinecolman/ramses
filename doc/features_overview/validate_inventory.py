@@ -36,18 +36,29 @@ DEF_RE = re.compile(r"""^\s*
 
 
 def index_tree(dirs):
-    """path -> set of routine names defined in it."""
+    """path -> set of routine names DEFINED in it.
+
+    Names declared inside an `interface` block are not definitions (they are
+    external or dummy procedures), so those blocks are skipped.
+    """
     code = {}
     for d in dirs:
         pats = (f"{ROOT}/{d}/*.f90", f"{ROOT}/{d}/*.F90", f"{ROOT}/{d}/*.f")
         for p in sorted(sum((glob.glob(x) for x in pats), [])):
             names = set()
+            iface = 0
             for line in open(p, errors="replace"):
                 line = line.split('!')[0]          # strip trailing comment
+                if re.match(r'^\s*interface\b', line, re.I):
+                    iface += 1
+                    continue
+                if re.match(r'^\s*end\s*interface\b', line, re.I):
+                    iface = max(0, iface - 1)
+                    continue
                 if re.match(r'^\s*end\b', line, re.I) or '::' in line:
                     continue
                 m = DEF_RE.match(line)
-                if m:
+                if m and not iface:
                     names.add(m.group(1).lower())
             code[f"{d}/{os.path.basename(p)}"] = names
     return code
@@ -64,6 +75,13 @@ def main():
     dirs = IN_SCOPE + (OUT_SCOPE if args.all_dirs else [])
     code = index_tree(dirs)
     inv = yaml.safe_load(open(os.path.join(HERE, "inventory.yaml")))
+
+    # files deliberately left out (obsolete, dead, vendored, ...)
+    excluded = {e["path"]: e.get("reason", "") for e in inv.get("excluded_files") or []}
+    for path in excluded:
+        if path not in code:
+            print(f"note: excluded_files lists {path}, which is not in the tree")
+        code.pop(path, None)
 
     errors = []
     claimed = collections.defaultdict(list)   # (file, routine) -> [feature/area]
@@ -104,6 +122,53 @@ def main():
                     else:
                         claimed[(path, name.lower())].append(where)
 
+    # ---- derived-field consistency (phase / role / scope / driver) ----
+    PHASES = {"params", "init", "step", "output", "finalise", "any"}
+    ROLES = {"driver", "shared", "private", "unused"}
+    SCOPES = {"area", "feature", "global"}
+    where_of = {}
+    for feat in inv["features"]:
+        for area in feat.get("areas") or []:
+            for r in (area.get("routines") or []):
+                where_of[str(r["name"]).lower()] = (feat["id"], area["id"])
+    where_of.setdefault("program", ("amr_core", "main_loop"))
+
+    for feat in inv["features"]:
+        for area in feat.get("areas") or []:
+            here = (feat["id"], area["id"])
+            tag = f"{feat['id']}/{area['id']}"
+            for r in (area.get("routines") or []):
+                n = r["name"]
+                cs = r.get("callers") or []
+                if r.get("phase") not in PHASES:
+                    errors.append(f"{tag}: {n} has phase {r.get('phase')!r}")
+                if r.get("role") not in ROLES:
+                    errors.append(f"{tag}: {n} has role {r.get('role')!r}")
+                if r.get("scope") and r["scope"] not in SCOPES:
+                    errors.append(f"{tag}: {n} has scope {r['scope']!r}")
+                if r.get("omp_from") and not r.get("omp"):
+                    errors.append(f"{tag}: {n} has omp_from but no omp")
+                role = r.get("role")
+                if role == "unused" and cs:
+                    errors.append(f"{tag}: {n} is role unused but has callers")
+                if role == "private" and len(cs) != 1:
+                    errors.append(f"{tag}: {n} is role private but has {len(cs)} callers")
+                if role == "shared" and len(cs) < 2:
+                    errors.append(f"{tag}: {n} is role shared but has {len(cs)} callers")
+                if (role == "driver") != bool(r.get("driver")):
+                    errors.append(f"{tag}: {n} role/driver disagree "
+                                  f"(role={role}, driver={r.get('driver')})")
+                locs = {where_of[c] for c in cs if c in where_of}
+                if locs:
+                    exp = ("area" if locs == {here}
+                           else "feature" if {x for x, _ in locs} == {here[0]}
+                           else "global")
+                    if r.get("scope") != exp:
+                        errors.append(f"{tag}: {n} scope is {r.get('scope')!r}, "
+                                      f"callers say {exp!r}")
+                elif r.get("scope"):
+                    errors.append(f"{tag}: {n} has scope but no locatable callers")
+
     for (path, name), wheres in sorted(claimed.items()):
         if len(wheres) > 1:
             errors.append(f"{path}::{name} listed {len(wheres)} times: "
@@ -137,7 +202,8 @@ def main():
     print(f"inventory: {sum(len(a.get('routines') or []) for f in inv['features'] for a in (f.get('areas') or []))} entries, "
           f"{len(inv['features'])} features")
     print(f"source:    {len(code)} files, {n_tot} routines "
-          f"({len(decl_only)} declaration-only files)")
+          f"({len(decl_only)} declaration-only files"
+          + (f", {len(excluded)} excluded" if excluded else "") + ")")
     n_src = len(code) - len(decl_only)
     n_src_cov = len((files_seen & set(code)) - set(decl_only))
     print(f"coverage:  {n_cov}/{n_tot} routines ({100*n_cov/max(n_tot,1):.0f}%), "
