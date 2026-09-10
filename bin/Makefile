@@ -88,6 +88,9 @@ ifeq ($(LIGHT_MPI_COMM), 1)
 endif
 # Add any user-provided flags from the command line
 DEFINES += $(USER_FLAGS)
+# Report make variable. Used by test suite coverage.
+print-%:
+	@echo '$($*)'
 #############################################################################
 # Compiler command for regular compilation (mpi or serial)
 F90 =

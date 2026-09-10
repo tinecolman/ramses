@@ -105,6 +105,13 @@ LOGFILE="${TEST_DIRECTORY}/test_suite.log";
 GIT_URL=$(git config --get remote.origin.url | sed 's/git@github.com:/https:\/\/github.com\//g');
 GIT_URL=${GIT_URL:0:$((${#GIT_URL}-4))};
 THIS_COMMIT=$(git rev-parse HEAD);
+THIS_COMMIT_SHORT=$(git rev-parse --short HEAD);
+THIS_COMMIT_DATE=$(git log -1 --format=%cd --date=format:%Y-%m-%d);
+THIS_BRANCH=$(git rev-parse --abbrev-ref HEAD);
+# branch names may contain "/" -- flatten for use in a directory name
+THIS_BRANCH_TAG=$(echo "${THIS_BRANCH}" | tr '/' '-');
+# Per-test build/run records, assembled into coverage_metadata.txt at the end
+METADATA_TMP=$(mktemp);
 echo > $LOGFILE;
 if [ ${MPI} -eq 1 ]; then
    RUN_TEST_BASE="mpirun -np ${NCPU} ${BIN_DIRECTORY}/${EXECNAME}";
@@ -335,6 +342,22 @@ for ((i=0;i<$ntests;i++)); do
    # Compile source
    echo "Compiling source" | tee -a $LOGFILE;
    MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS}";
+
+   # Record how this test is built and run, for coverage_metadata.txt.
+   # Used to distinguish between "never compiled" and "never executed".
+   if ${COVERAGE} ; then
+      TEST_DEFINES=$(make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS} print-DEFINES 2>/dev/null | grep -- '-D' | head -1);
+      {
+        echo "test    : ${testname[n]}";
+        echo "  ndim    : ${ndim}";
+        echo "  flags   : ${FLAGS}";
+        echo "  defines : ${TEST_DEFINES}";
+        echo "  mpi     : ${MPI}";
+        echo "  ncpu    : ${NCPU}";
+        echo "  restart : ${DO_RESTART}";
+        echo "  omp_threads : ${OMP_NUM_THREADS:-unset}";
+      } >> ${METADATA_TMP};
+   fi
    # if [ ${MPI} -eq 1 ]; then
    #    MAKESTRING="${MAKESTRING} -j ${NCPU}";
    # fi
@@ -567,15 +590,53 @@ rm $latexfile;
 # Generate total coverage data
 #######################################################################
 if ${COVERAGE} ; then
-   rm -r coverage
+   cd ${TEST_DIRECTORY};
+   rm -rf coverage
+   mkdir coverage
    ALL_TEST_DIRS=""
    for ((i=0;i<$ntests;i++)); do
       n=${testnum[i]};
       test_dir_name=${TEST_DIRECTORY}/${testname[n]};
       ALL_TEST_DIRS="${ALL_TEST_DIRS} ${test_dir_name}"
    done
-   mkdir coverage
-   python3 multi_gcov_aggregator.py ${ALL_TEST_DIRS} coverage
+
+   # Write metadata (needed by aggregator)
+   COVERAGE_METADATA="coverage/coverage_metadata.txt";
+   {
+     echo "# How this coverage run was produced.";
+     echo "";
+     echo "date          : $(date -u +%Y-%m-%dT%H:%M:%SZ)";
+     echo "branch        : ${THIS_BRANCH}";
+     echo "commit        : ${THIS_COMMIT}";
+     echo "commit_short  : ${THIS_COMMIT_SHORT}";
+     echo "commit_date   : ${THIS_COMMIT_DATE}";
+     echo "repository    : ${GIT_URL}";
+     echo "ntests        : ${ntests}";
+     echo "mpi           : ${MPI}";
+     echo "ncpu          : ${NCPU}";
+     echo "restart_mode  : ${RESTART_MODE}";
+     echo "omp_threads   : ${OMP_NUM_THREADS:-unset}";
+     echo "gcov          : $(gcov --version 2>/dev/null | head -1)";
+     echo "compiler      : $(${F90:-gfortran} --version 2>/dev/null | head -1)";
+     echo "";
+     echo "# One record per test, in the order they ran.";
+     echo "";
+     cat ${METADATA_TMP};
+   } > ${COVERAGE_METADATA};
+   rm -f ${METADATA_TMP};
+
+   python3 multi_gcov_aggregator.py ${ALL_TEST_DIRS} coverage --metadata ${COVERAGE_METADATA};
+
+   # Move test PDF to coverage dir, to keep everything together
+   if [ -f "${TEST_DIRECTORY}/test_results.pdf" ]; then
+      mv "${TEST_DIRECTORY}/test_results.pdf" coverage/;
+   fi
+
+   # Name the directory after the branch and commit it measured
+   COVERAGE_DIR="coverage_${THIS_BRANCH_TAG}_${THIS_COMMIT_DATE}_${THIS_COMMIT_SHORT}";
+   rm -rf "${COVERAGE_DIR}";
+   mv coverage "${COVERAGE_DIR}";
+   echo "Coverage results collected in tests/${COVERAGE_DIR}" | tee -a $LOGFILE;
 fi
 
 #######################################################################
@@ -605,6 +666,11 @@ if ${DELDATA} ; then
       make clean >> $LOGFILE 2>&1;
    fi
    rm -f ${EXECNAME}*d;
+fi
+
+# Move test log to coverage dir, now that it is complete
+if ${COVERAGE} && [ -d "${TEST_DIRECTORY}/${COVERAGE_DIR}" ] ; then
+   cp "${LOGFILE}" "${TEST_DIRECTORY}/${COVERAGE_DIR}/test_suite.log";
 fi
 
 if $all_tests_ok ; then
