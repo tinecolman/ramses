@@ -124,7 +124,7 @@ def main():
 
     # ---- derived-field consistency (phase / role / scope / driver) ----
     PHASES = {"params", "init", "step", "output", "finalise", "any"}
-    ROLES = {"driver", "shared", "private", "unused"}
+    ROLES = {"driver", "recursive", "shared", "private", "unused"}
     SCOPES = {"area", "feature", "global"}
     where_of = {}
     for feat in inv["features"]:
@@ -155,6 +155,9 @@ def main():
                     errors.append(f"{tag}: {n} is role private but has {len(cs)} callers")
                 if role == "shared" and len(cs) < 2:
                     errors.append(f"{tag}: {n} is role shared but has {len(cs)} callers")
+                if role == "recursive" and str(n).lower() not in [c.lower() for c in cs]:
+                    errors.append(f"{tag}: {n} is role recursive but does not "
+                                  f"call itself (callers: {cs})")
                 if (role == "driver") != bool(r.get("driver")):
                     errors.append(f"{tag}: {n} role/driver disagree "
                                   f"(role={role}, driver={r.get('driver')})")
