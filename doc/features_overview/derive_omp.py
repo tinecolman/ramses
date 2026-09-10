@@ -6,20 +6,25 @@ the `openmp` branch.  This script reads that branch straight out of git (no
 checkout needed), attributes every directive to the routine that contains it,
 and writes the result back into inventory.yaml.
 
-Per routine it records one derived `state`:
+Per routine it records one derived `state`. The vocabulary is deliberately
+about OpenMP threading only -- RAMSES is MPI-parallel everywhere, so "parallel"
+and "serial" would say nothing:
 
-  parallel   the routine opens an OpenMP parallel region -- it is where the
-             threading happens
-  threaded   no region of its own, but it has been adapted to run inside one
-             (threadprivate declarations, critical/atomic sections)
-  safe       runs inside a parallel region and needs no adaptation: no `save`
-             variables, no data-initialised locals, no DATA statements
-  unsafe     runs inside a parallel region but keeps state across calls that is
-             not threadprivate -- a race unless it is fixed or protected
-  serial     never runs inside a parallel region
+  opens_region  the routine opens an OpenMP parallel region -- it is where the
+                threading starts
+  adapted       no region of its own, but it has been adapted to run inside one
+                (threadprivate declarations, critical/atomic sections)
+  stateless     runs inside a parallel region and needs no adaptation: it keeps
+                nothing between calls -- no `save` variables, no
+                data-initialised locals, no DATA statements
+  race          runs inside a parallel region but keeps state across calls that
+                is not threadprivate
+  unthreaded    never runs inside a parallel region
 
-`safe` is inferred, not verified: it says no shared mutable state was found by
-static inspection, which is the necessary condition, not a proof.
+`stateless` names exactly what was checked and nothing more. It is inferred
+from the declarations in the routine, so it does not cover writes to module
+variables through `use` association; it is the necessary condition, not a
+proof.
 
 Usage:
     python3 doc/features_overview/derive_omp.py --report        # show, change nothing
@@ -132,7 +137,7 @@ def directives(lines, span):
             continue
         rest = m.group(1).strip().lower()
         head = rest.split('(')[0].split()[0] if rest else ""
-        if head == "parallel":
+        if head == "parallel":          # the OpenMP directive keyword
             reg += 1
             if rest.split()[1:2] and rest.split()[1] in REGION_KINDS:
                 loops += 1
@@ -261,9 +266,9 @@ def build(inv):
             if key not in keys:
                 continue
             reg, loops, tp, sync, tpn = directives(lines, span)
-            unsafe, other = hazards(lines, span, tpn)
+            offenders, other = hazards(lines, span, tpn)
             info[key] = dict(regions=reg, loops=loops, threadprivate=tp,
-                             sync=sync, unsafe=unsafe, data=other)
+                             sync=sync, offenders=offenders, data=other)
             # A routine carrying threadprivate/critical but opening no region of
             # its own can only be running inside someone else's region, so all
             # of its callees run under threads too. A routine that DOES open a
@@ -301,16 +306,16 @@ def build(inv):
 
     state = {}
     for key, d in info.items():
-        if d["regions"]:                          s = "parallel"
-        elif d["threadprivate"] or d["sync"]:     s = "threaded"
-        elif key in under:  s = "unsafe" if (d["unsafe"] or d["data"]) else "safe"
-        else:                                     s = "serial"
+        if d["regions"]:                          s = "opens_region"
+        elif d["threadprivate"] or d["sync"]:     s = "adapted"
+        elif key in under:  s = "race" if (d["offenders"] or d["data"]) else "stateless"
+        else:                                     s = "unthreaded"
         state[key] = dict(d, state=s, under_threads=key in under,
                           per_step=key in per_step)
     return routines, state, missing, fwd
 
 
-DONE = {"parallel", "threaded", "safe"}
+DONE = {"opens_region", "adapted", "stateless"}
 
 def bucket(r, d, fwd, state):
     """done | todo | n/a -- what the area-level progress bar counts."""
@@ -320,19 +325,19 @@ def bucket(r, d, fwd, state):
         return "na"       # a human ruled this one out of scope for OpenMP
     if d["state"] in DONE:
         return "done"
-    if d["state"] == "unsafe":
+    if d["state"] == "race":
         return "todo"
     if r["phase"] == "step" and d["per_step"]:
         key = f"{r['file']}::{r['name'].lower()}"
-        if any(state.get(c, {}).get("state") == "parallel" for c in fwd[key]):
-            return "done"          # serial wrapper around parallel work
+        if any(state.get(c, {}).get("state") == "opens_region" for c in fwd[key]):
+            return "done"          # single-threaded wrapper around a region
         return "todo"
     return "na"
 
 
 def report(inv, routines, state, fwd, only=None):
-    MARK = {"parallel": "P", "threaded": "T", "safe": "s",
-            "unsafe": "!", "serial": "."}
+    MARK = {"opens_region": "R", "adapted": "A", "stateless": "s",
+            "race": "!", "unthreaded": "."}
     for f in inv["features"]:
         if only and f["id"] not in only:
             continue
@@ -451,8 +456,8 @@ def rewrite(state):
                 for k in ("regions", "threadprivate", "sync"):
                     if d[k]:
                         final.append(f"{p}  {k}: {d[k]}")
-                if d["state"] == "unsafe" and d["unsafe"]:
-                    final.append(f"{p}  unprotected: [{', '.join(d['unsafe'])}]")
+                if d["state"] == "race" and d["offenders"]:
+                    final.append(f"{p}  unprotected: [{', '.join(d['offenders'])}]")
                 keep = KEEP.get(cur, {})
                 for k in ("na", "verified"):
                     if keep.get(k):
@@ -479,9 +484,9 @@ def disagrees(rec, derived):
     if r in ("", "-"):
         return False
     if r in ("yes", "y"):
-        return derived in ("serial", "unsafe")
+        return derived in ("unthreaded", "race")
     if r == "no":
-        return derived in ("parallel", "threaded")
+        return derived in ("opens_region", "adapted")
     return True          # todo / todo? / maybe / wip -- still an open question
 
 

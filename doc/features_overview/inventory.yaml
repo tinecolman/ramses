@@ -73,6 +73,18 @@
 #            verified  a human confirmed the derived state
 #            note      free text
 
+# Standing tasks, carried between review passes.
+open_tasks:
+  - id: verify-omp-states
+    what: >-
+      Verify the derived OpenMP state of every routine by hand, feature by
+      feature, and record the outcome as `omp: {verified: yes}`. The states are
+      derived from the `openmp` branch by derive_omp.py and only inspect each
+      routine's own declarations: `stateless` in particular does not cover
+      writes to module variables through `use` association.
+    raised: 2026-09-10
+    progress: "0 / 730 verified"
+
 # Files deliberately left out of the inventory.
 excluded_files:
   - path: poisson/multigrid_topdown.f90
