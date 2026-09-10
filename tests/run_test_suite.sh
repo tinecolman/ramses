@@ -278,6 +278,17 @@ done
 echo $line | tee -a $LOGFILE;
 
 #######################################################################
+# Remove old or incomplete gcov files from bin and tests
+#######################################################################
+if ${COVERAGE} ; then
+   rm -f ${BIN_DIRECTORY}/*.gc*;
+   for ((i=0;i<$ntests;i++)); do
+      n=${testnum[i]};
+      rm -f ${TEST_DIRECTORY}/${testname[n]}/*.gc*;
+   done
+fi
+
+#######################################################################
 # Loop through all tests
 #######################################################################
 for ((i=0;i<$ntests;i++)); do
@@ -337,6 +348,10 @@ for ((i=0;i<$ntests;i++)); do
       else
          make clean >> $LOGFILE 2>&1;
       fi
+   fi
+   # Remove leftover gcov files (e.g. after interuption)
+   if ${COVERAGE} ; then
+      rm -f ${BIN_DIRECTORY}/*.gc*;
    fi
 
    # Compile source
