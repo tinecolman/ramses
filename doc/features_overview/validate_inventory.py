@@ -126,12 +126,27 @@ def main():
     PHASES = {"params", "init", "step", "output", "finalise", "any"}
     ROLES = {"driver", "recursive", "shared", "private", "unused"}
     SCOPES = {"area", "feature", "global"}
-    where_of = {}
+    # a caller name resolves to a definition in the same file when there is one
+    # (Fortran contained/module scoping), else to every definition of that name
+    by_name = {}
+    by_file_name = {}
     for feat in inv["features"]:
         for area in feat.get("areas") or []:
             for r in (area.get("routines") or []):
-                where_of[str(r["name"]).lower()] = (feat["id"], area["id"])
-    where_of.setdefault("program", ("amr_core", "main_loop"))
+                nm = str(r["name"]).lower()
+                by_name.setdefault(nm, set()).add((feat["id"], area["id"]))
+                by_file_name[(r["file"], nm)] = (feat["id"], area["id"])
+    by_name.setdefault("program", {("amr_core", "main_loop")})
+
+    def resolve(caller, same_file):
+        if "::" in caller:                      # file-qualified caller
+            cf, cn = caller.rsplit("::", 1)
+            hit = by_file_name.get((cf, cn.lower()))
+            return {hit} if hit else set()
+        c = caller.lower()
+        if (same_file, c) in by_file_name:
+            return {by_file_name[(same_file, c)]}
+        return by_name.get(c, set())
 
     for feat in inv["features"]:
         for area in feat.get("areas") or []:
@@ -161,7 +176,9 @@ def main():
                 if (role == "driver") != bool(r.get("driver")):
                     errors.append(f"{tag}: {n} role/driver disagree "
                                   f"(role={role}, driver={r.get('driver')})")
-                locs = {where_of[c] for c in cs if c in where_of}
+                locs = set()
+                for c in cs:
+                    locs |= resolve(c, r["file"])
                 if locs:
                     exp = ("area" if locs == {here}
                            else "feature" if {x for x, _ in locs} == {here[0]}

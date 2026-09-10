@@ -14,9 +14,14 @@
 #            the routine is an entry point called directly from that driver.
 #   depth    shortest call distance from the program entry point; absent only
 #            when the routine is never referenced at all (role: unused).
-#   callers  routines whose body contains a `call` to this one.
+#   callers  routines whose body contains a call to this one. A call resolves to
+#            a definition in the same file when there is one, so the two distinct
+#            extend_arrays_if_needed routines stay separate. A caller is written
+#            file::name when its name is defined in more than one file.
+#   todo     something about this routine still needs checking.
 #   role     how the routine is reached
-#            driver    - called directly from amr_step, rt_step or the program unit
+#            driver    - an entry point: called directly from the program unit,
+#                        adaptive_loop, amr_step or rt_step (see the driver field)
 #            recursive - the routine calls itself (its own name is in callers)
 #            shared   - two or more callers
 #            private  - exactly one caller
@@ -83,9 +88,10 @@ features:
           - file: amr/init_amr.f90
             name: init_amr
             phase: init
-            role: private
+            role: driver
             scope: area
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
             omp:
               public: todo
@@ -94,16 +100,18 @@ features:
           - file: amr/init_refine.f90
             name: init_refine
             phase: init
-            role: private
+            role: driver
             scope: area
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
           - file: amr/init_refine.f90
             name: init_refine_2
             phase: init
-            role: private
+            role: driver
             scope: area
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
           - file: amr/adaptive_loop.f90
             name: adaptive_loop
@@ -116,9 +124,10 @@ features:
           - file: amr/amr_step.f90
             name: amr_step
             phase: step
-            role: recursive
+            role: driver
             scope: area
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop, amr_step]
           - file: amr/amr_step.f90
             name: rt_step
@@ -135,20 +144,6 @@ features:
             scope: area
             depth: 2
             callers: [set_signal_handler]
-          - file: amr/memory.f90
-            name: getmem
-            phase: any
-            role: private
-            scope: area
-            depth: 2
-            callers: [adaptive_loop]
-          - file: amr/memory.f90
-            name: writemem
-            phase: any
-            role: private
-            scope: area
-            depth: 2
-            callers: [adaptive_loop]
       - id: grid_setup
         title: AMR grid setup
         routines:
@@ -220,7 +215,7 @@ features:
             role: shared
             scope: global
             depth: 2
-            callers: [backup_part, barotropic_eos_temperature, cic_get_cells, cmp_eddington_tensor, cmp_flux_tensors, cmp_mag_flx, cmpflxm, create_cloud_from_sink, create_stellar, d1a, friedman, gather_ioni_flux, get_cell_index, hilbert2d, hilbert3d, init_amr, init_cosmo, init_file, init_flow_fine, init_hydro, init_part, init_poisson, init_refmap_fine, init_sed_table, init_time, init_tree, init_uv_background, inp_1d, inp_sed_table, integratespectrum, interpol_hydro, interpol_phi, load_ascii, load_dice, load_gadget, load_grafic, make_sink_from_clump, make_sn_stellar, read_amr_params, read_clumpfind_params, read_hll_eigenvalues, read_hydro_params, read_params, read_progenitor_data, read_sink_params, read_stellar_params, read_turb_fields, read_unbinding_params, rebin_log, remove_free, rt_init, rt_init_flow_fine, rt_init_hydro, savegadget, tsc_only, uslope, uslope_mag]
+            callers: [backup_part, barotropic_eos_temperature, cic_get_cells, cmp_eddington_tensor, cmp_flux_tensors, cmp_mag_flx, create_cloud_from_sink, create_stellar, d1a, friedman, gather_ioni_flux, get_cell_index, hilbert2d, hilbert3d, "hydro/interpol_hydro.f90::interpol_hydro", "hydro/umuscl.f90::uslope", init_amr, init_cosmo, init_file, init_flow_fine, init_hydro, init_part, init_poisson, init_refmap_fine, init_sed_table, init_time, init_tree, init_uv_background, inp_1d, inp_sed_table, integratespectrum, interpol_phi, load_ascii, load_dice, load_gadget, load_grafic, make_sink_from_clump, make_sn_stellar, "mhd/umuscl.f90::cmpflxm", "mhd/umuscl.f90::uslope", read_amr_params, read_clumpfind_params, read_hll_eigenvalues, read_hydro_params, read_params, read_progenitor_data, read_sink_params, read_stellar_params, read_turb_fields, read_unbinding_params, rebin_log, remove_free, rt_init, rt_init_flow_fine, rt_init_hydro, savegadget, tsc_only, uslope_mag]
           - file: amr/end.f90
             name: deallocate_amr
             phase: finalise
@@ -606,7 +601,7 @@ features:
             role: shared
             scope: global
             depth: 3
-            callers: [make_boundary_flag, make_boundary_force, make_boundary_hydro, rt_make_boundary_hydro]
+            callers: ["hydro/hydro_boundary.f90::make_boundary_hydro", make_boundary_flag, make_boundary_force, rt_make_boundary_hydro]
             omp:
               public: "-"
           - file: amr/physical_boundaries.f90
@@ -675,9 +670,10 @@ features:
           - file: amr/flag_utils.f90
             name: flag_coarse
             phase: step
-            role: shared
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop, flag, init_refine_2, load_balance]
             omp:
               public: "no"
@@ -882,7 +878,7 @@ features:
             role: private
             scope: area
             depth: 3
-            callers: [upload_fine]
+            callers: ["hydro/interpol_hydro.f90::upload_fine"]
             omp:
               public: "yes"
           - file: mhd/interpol_hydro.f90
@@ -891,7 +887,7 @@ features:
             role: private
             scope: area
             depth: 3
-            callers: [upload_fine]
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
             omp:
               public: "yes"
             omp_from: file
@@ -901,7 +897,7 @@ features:
             role: private
             scope: area
             depth: 3
-            callers: [upload_fine]
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
             omp:
               public: "yes"
             omp_from: file
@@ -911,7 +907,7 @@ features:
             role: private
             scope: area
             depth: 3
-            callers: [upload_fine]
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
             omp:
               public: "yes"
             omp_from: file
@@ -938,7 +934,7 @@ features:
             role: shared
             scope: global
             depth: 4
-            callers: [gather_stencil_amr, godfine1, make_grid_fine]
+            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
             omp:
               public: "yes"
           - file: mhd/interpol_hydro.f90
@@ -947,7 +943,7 @@ features:
             role: shared
             scope: global
             depth: 4
-            callers: [gather_stencil_amr, godfine1, make_grid_fine]
+            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
             omp:
               public: "yes"
             omp_from: file
@@ -960,64 +956,64 @@ features:
             callers: [make_grid_fine, rt_godfine1]
             omp:
               public: "yes"
-          - file: mhd/interpol_hydro.f90
-            name: compute_limiter_minmod
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: [interpol_hydro, rt_interpol_hydro]
-            omp:
-              public: "yes"
-            omp_from: file
           - file: hydro/interpol_hydro.f90
             name: compute_limiter_minmod
             phase: step
             role: shared
             scope: area
             depth: 5
-            callers: [interpol_hydro, rt_interpol_hydro]
-          - file: mhd/interpol_hydro.f90
-            name: compute_limiter_central
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: [interpol_hydro, rt_interpol_hydro]
-            omp:
-              public: "yes"
-            omp_from: file
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
           - file: hydro/interpol_hydro.f90
             name: compute_limiter_central
             phase: step
             role: shared
             scope: area
             depth: 5
-            callers: [interpol_hydro, rt_interpol_hydro]
-          - file: mhd/interpol_hydro.f90
-            name: compute_central
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: [interpol_hydro, rt_interpol_hydro]
-            omp:
-              public: "yes"
-            omp_from: file
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
           - file: hydro/interpol_hydro.f90
             name: compute_central
             phase: step
             role: shared
             scope: area
             depth: 5
-            callers: [interpol_hydro, rt_interpol_hydro]
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+          - file: mhd/interpol_hydro.f90
+            name: compute_limiter_minmod
+            phase: step
+            role: shared
+            scope: area
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            omp:
+              public: "yes"
+            omp_from: file
+          - file: mhd/interpol_hydro.f90
+            name: compute_limiter_central
+            phase: step
+            role: shared
+            scope: area
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            omp:
+              public: "yes"
+            omp_from: file
+          - file: mhd/interpol_hydro.f90
+            name: compute_central
+            phase: step
+            role: shared
+            scope: area
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            omp:
+              public: "yes"
+            omp_from: file
           - file: mhd/interpol_hydro.f90
             name: interpol_mag
             phase: step
             role: shared
             scope: global
             depth: 5
-            callers: [diffine1, interpol_hydro]
+            callers: [diffine1, "mhd/interpol_hydro.f90::interpol_hydro"]
             omp:
               public: "yes"
             omp_from: file
@@ -1102,9 +1098,10 @@ features:
           - file: amr/refine_utils.f90
             name: refine_coarse
             phase: step
-            role: shared
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop, init_refine_2, load_balance, refine]
             omp:
               public: "no"
@@ -1197,9 +1194,10 @@ features:
           - file: amr/init_time.f90
             name: init_time
             phase: step
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
             omp:
               public: "-"
@@ -1415,7 +1413,7 @@ features:
             role: private
             scope: area
             depth: 5
-            callers: [courant_fine]
+            callers: ["hydro/courant_fine.f90::courant_fine"]
             omp:
               public: "-"
           - file: amr/update_time.f90
@@ -1436,7 +1434,7 @@ features:
             role: shared
             scope: global
             depth: 4
-            callers: [courant_fine, set_uold]
+            callers: ["mhd/courant_fine.f90::courant_fine", "mhd/godunov_fine.f90::set_uold"]
             omp:
               public: "yes"
           - file: mhd/courant_fine.f90
@@ -1445,7 +1443,7 @@ features:
             role: private
             scope: feature
             depth: 5
-            callers: [courant_fine]
+            callers: ["mhd/courant_fine.f90::courant_fine"]
             omp:
               public: "yes"
           - file: mhd/godunov_fine.f90
@@ -1477,7 +1475,7 @@ features:
             scope: global
             depth: 2
             driver: amr_step
-            callers: [adaptive_loop, amr_step, courant_fine, create_sink, init_flow, init_refine_2, load_balance]
+            callers: [adaptive_loop, amr_step, create_sink, init_flow, init_refine_2, load_balance, "mhd/courant_fine.f90::courant_fine"]
             omp:
               public: "yes"
           - file: mhd/hydro_boundary.f90
@@ -1487,16 +1485,16 @@ features:
             scope: global
             depth: 2
             driver: amr_step
-            callers: [adaptive_loop, amr_step, courant_fine, create_sink, init_flow, init_refine_2, load_balance]
+            callers: [adaptive_loop, amr_step, create_sink, init_flow, init_refine_2, load_balance, "mhd/courant_fine.f90::courant_fine"]
             omp:
               public: "yes"
           - file: hydro/boundana.f90
             name: boundana
             phase: step
-            role: private
+            role: shared
             scope: area
             depth: 3
-            callers: [make_boundary_hydro]
+            callers: ["hydro/hydro_boundary.f90::make_boundary_hydro", "mhd/hydro_boundary.f90::make_boundary_hydro"]
       - id: initial_conditions
         title: analytic initial conditions
         routines:
@@ -1526,7 +1524,7 @@ features:
             role: private
             scope: area
             depth: 5
-            callers: [condinit]
+            callers: ["hydro/condinit.f90::condinit"]
             omp:
               public: "yes"
             omp_from: file
@@ -1536,7 +1534,7 @@ features:
             role: private
             scope: area
             depth: 5
-            callers: [condinit]
+            callers: ["mhd/condinit.f90::condinit"]
             omp:
               public: "yes"
             omp_from: file
@@ -1546,7 +1544,7 @@ features:
             role: private
             scope: area
             depth: 5
-            callers: [condinit]
+            callers: ["mhd/condinit.f90::condinit"]
             omp:
               public: "yes"
             omp_from: file
@@ -1556,7 +1554,7 @@ features:
             role: private
             scope: area
             depth: 5
-            callers: [condinit]
+            callers: ["mhd/condinit.f90::condinit"]
             omp:
               public: "yes"
             omp_from: file
@@ -1626,9 +1624,9 @@ features:
             name: godfine1
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 4
-            callers: [godunov_fine]
+            callers: ["hydro/godunov_fine.f90::godunov_fine"]
             omp:
               public: "yes"
               yomp: "Yes"
@@ -1639,63 +1637,63 @@ features:
             name: gather_stencil_unigrid
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 5
-            callers: [godfine1]
+            callers: ["hydro/godunov_fine.f90::godfine1"]
           - file: hydro/godunov_fine.f90
             name: gather_stencil_amr
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 5
-            callers: [godfine1]
+            callers: ["hydro/godunov_fine.f90::godfine1"]
           - file: hydro/umuscl.f90
             name: unsplit
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 5
-            callers: [godfine1]
+            callers: ["hydro/godunov_fine.f90::godfine1"]
             omp:
               public: "yes"
             omp_from: file
           - file: hydro/umuscl.f90
             name: ctoprim
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: hydro/umuscl.f90
             name: trace1d
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: hydro/umuscl.f90
             name: trace2d
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: hydro/umuscl.f90
             name: trace3d
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [unsplit]
             omp:
               public: "yes"
             omp_from: file
@@ -1732,10 +1730,10 @@ features:
           - file: hydro/umuscl.f90
             name: cmpflxm
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [unsplit]
             omp:
               public: "yes"
             omp_from: file
@@ -1763,9 +1761,9 @@ features:
             name: uslope
             phase: step
             role: shared
-            scope: feature
+            scope: area
             depth: 7
-            callers: [trace1d, trace2d, trace3d, tracex, tracexy, tracexyz]
+            callers: ["hydro/umuscl.f90::trace1d", "hydro/umuscl.f90::trace2d", "hydro/umuscl.f90::trace3d", tracex, tracexy, tracexyz]
             omp:
               public: "yes"
             omp_from: file
@@ -1832,35 +1830,35 @@ features:
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["hydro/umuscl.f90::cmpflxm"]
           - file: hydro/godunov_utils.f90
             name: riemann_approx
             phase: step
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["hydro/umuscl.f90::cmpflxm"]
           - file: hydro/godunov_utils.f90
             name: riemann_llf
             phase: step
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["hydro/umuscl.f90::cmpflxm"]
           - file: hydro/godunov_utils.f90
             name: riemann_hllc
             phase: step
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["hydro/umuscl.f90::cmpflxm"]
           - file: hydro/godunov_utils.f90
             name: riemann_hll
             phase: step
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["hydro/umuscl.f90::cmpflxm"]
       - id: slope_limiters
         title: slope limiters / reconstruction
         routines:
@@ -1888,59 +1886,59 @@ features:
           - file: hydro/slope_types.f90
             name: calc_uslope_minmod_average
             phase: step
-            role: private
+            role: shared
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope", "mhd/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_moncen
             phase: step
             role: private
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_positivity_preserving
             phase: step
-            role: private
+            role: shared
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope", "mhd/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_superbee
             phase: step
             role: private
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_ultrabee
             phase: step
             role: private
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_unstable
             phase: step
             role: private
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_vanLeer
             phase: step
-            role: private
+            role: shared
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope", "mhd/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: calc_uslope_vanLeer_bis
             phase: step
-            role: private
+            role: shared
             scope: feature
             depth: 8
-            callers: [uslope]
+            callers: ["hydro/umuscl.f90::uslope", "mhd/umuscl.f90::uslope"]
           - file: hydro/slope_types.f90
             name: slope_minmod
             phase: step
@@ -2005,7 +2003,7 @@ features:
             role: private
             scope: area
             depth: 4
-            callers: [godunov_fine]
+            callers: ["mhd/godunov_fine.f90::godunov_fine"]
             omp:
               public: "yes"
           - file: mhd/uplmde.f90
@@ -2043,7 +2041,7 @@ features:
             role: private
             scope: area
             depth: 5
-            callers: [godfine1]
+            callers: ["mhd/godunov_fine.f90::godfine1"]
             omp:
               public: "yes"
             omp_from: file
@@ -2059,55 +2057,55 @@ features:
           - file: mhd/umuscl.f90
             name: ctoprim
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [mag_unsplit]
+            omp:
+              public: "yes"
+            omp_from: file
+          - file: mhd/umuscl.f90
+            name: uslope_mag
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [mag_unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: mhd/umuscl.f90
             name: trace1d
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [mag_unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: mhd/umuscl.f90
             name: trace2d
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [mag_unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: mhd/umuscl.f90
             name: trace3d
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 6
-            callers: [mag_unsplit, unsplit]
+            callers: [mag_unsplit]
             omp:
               public: "yes"
             omp_from: file
           - file: mhd/umuscl.f90
             name: cmpflxm
-            phase: step
-            role: shared
-            scope: feature
-            depth: 6
-            callers: [mag_unsplit, unsplit]
-            omp:
-              public: "yes"
-            omp_from: file
-          - file: mhd/umuscl.f90
-            name: uslope_mag
             phase: step
             role: private
             scope: area
@@ -2141,7 +2139,7 @@ features:
             role: shared
             scope: feature
             depth: 7
-            callers: [trace1d, trace2d, trace3d, tracex, tracexy, tracexyz]
+            callers: ["mhd/umuscl.f90::trace1d", "mhd/umuscl.f90::trace2d", "mhd/umuscl.f90::trace3d", tracex, tracexy, tracexyz]
             omp:
               public: "yes"
             omp_from: file
@@ -2154,7 +2152,7 @@ features:
             role: shared
             scope: feature
             depth: 7
-            callers: [cmp_mag_flx, cmpflxm]
+            callers: [cmp_mag_flx, "mhd/umuscl.f90::cmpflxm"]
             omp:
               public: "-"
             omp_from: file
@@ -2164,7 +2162,7 @@ features:
             role: shared
             scope: feature
             depth: 7
-            callers: [cmp_mag_flx, cmpflxm]
+            callers: [cmp_mag_flx, "mhd/umuscl.f90::cmpflxm"]
             omp:
               public: "-"
             omp_from: file
@@ -2174,7 +2172,7 @@ features:
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["mhd/umuscl.f90::cmpflxm"]
             omp:
               public: "-"
             omp_from: file
@@ -2194,7 +2192,7 @@ features:
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["mhd/umuscl.f90::cmpflxm"]
             omp:
               public: "-"
             omp_from: file
@@ -2204,7 +2202,7 @@ features:
             role: private
             scope: feature
             depth: 7
-            callers: [cmpflxm]
+            callers: ["mhd/umuscl.f90::cmpflxm"]
             omp:
               public: "-"
             omp_from: file
@@ -2214,7 +2212,7 @@ features:
             role: shared
             scope: feature
             depth: 7
-            callers: [cmp_mag_flx, cmpflxm]
+            callers: [cmp_mag_flx, "mhd/umuscl.f90::cmpflxm"]
             omp:
               public: "-"
             omp_from: file
@@ -2306,9 +2304,10 @@ features:
           - file: hydro/init_hydro.f90
             name: init_hydro
             phase: init
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
             omp:
               public: "todo?"
@@ -2378,7 +2377,7 @@ features:
             role: shared
             scope: feature
             depth: 5
-            callers: [ana_disk_potential_condinit, condinit]
+            callers: [ana_disk_potential_condinit, "hydro/condinit.f90::condinit", "mhd/condinit.f90::condinit"]
             omp:
               public: "-"
       - id: dice_ic
@@ -2971,9 +2970,10 @@ features:
           - file: poisson/init_poisson.f90
             name: init_poisson
             phase: init
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
             omp:
               public: "no"
@@ -3007,16 +3007,18 @@ features:
           - file: pm/init_part.f90
             name: init_part
             phase: init
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
           - file: pm/particle_tree.f90
             name: init_tree
             phase: init
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
             omp:
               public: "todo?"
@@ -3585,9 +3587,10 @@ features:
           - file: hydro/cooling_module.f90
             name: set_table
             phase: step
-            role: shared
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop, cooling_fine]
             omp:
               public: "-"
@@ -3702,10 +3705,10 @@ features:
           - file: hydro/cooling_module.f90
             name: HsurH0
             phase: step
-            role: shared
-            scope: feature
+            role: private
+            scope: area
             depth: 5
-            callers: [evol_single_cell, rt_evol_single_cell]
+            callers: [evol_single_cell]
             omp:
               public: "-"
             omp_from: file
@@ -3953,9 +3956,9 @@ features:
             name: taux_rec
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 6
-            callers: [cmp_chem_eq]
+            callers: ["hydro/cooling_module.f90::cmp_chem_eq"]
             omp:
               public: "-"
             omp_from: file
@@ -3965,9 +3968,9 @@ features:
             name: taux_ion
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 6
-            callers: [cmp_chem_eq]
+            callers: ["hydro/cooling_module.f90::cmp_chem_eq"]
             omp:
               public: "-"
             omp_from: file
@@ -4181,20 +4184,6 @@ features:
             callers: [update_coolrates_tables]
             notes:
               public: saved cooling tables should NOT be threadprivate
-          - file: rt/rt_cooling_module.f90
-            name: HsurH0
-            phase: step
-            role: shared
-            scope: feature
-            depth: 5
-            callers: [evol_single_cell, rt_evol_single_cell]
-          - file: rt/rt_cooling_module.f90
-            name: cmp_chem_eq
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: [cmp_cooling, cmp_equilibrium_abundances]
           - file: rt/coolrates_module.f90
             name: comp_table_rates
             phase: step
@@ -4205,21 +4194,26 @@ features:
             notes:
               public: saved cooling tables should NOT be threadprivate
           - file: rt/rt_cooling_module.f90
+            name: cmp_chem_eq
+            phase: step
+            role: private
+            scope: global
+            depth: 5
+            callers: [cmp_equilibrium_abundances]
+          - file: rt/rt_cooling_module.f90
+            name: HsurH0
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [rt_evol_single_cell]
+          - file: rt/rt_cooling_module.f90
             name: rt_solve_cooling
             phase: step
             role: shared
             scope: feature
             depth: 5
             callers: [coolfine1, rt_evol_single_cell]
-          - file: rt/coolrates_module.f90
-            name: inp_coolrates_table
-            phase: step
-            role: shared
-            scope: area
-            depth: 6
-            callers: [cmp_chem_eq, compcoolrate, cool_step]
-            notes:
-              public: saved cooling tables should NOT be threadprivate
           - file: rt/coolrates_module.f90
             name: protected_exp
             phase: step
@@ -4254,6 +4248,15 @@ features:
             scope: area
             depth: 6
             callers: [comp_table_rates]
+            notes:
+              public: saved cooling tables should NOT be threadprivate
+          - file: rt/coolrates_module.f90
+            name: inp_coolrates_table
+            phase: step
+            role: shared
+            scope: area
+            depth: 6
+            callers: [compcoolrate, cool_step, "rt/rt_cooling_module.f90::cmp_chem_eq"]
             notes:
               public: saved cooling tables should NOT be threadprivate
           - file: rt/rt_cooling_module.f90
@@ -4714,9 +4717,10 @@ features:
           - file: rt/rt_init_hydro.f90
             name: rt_init_hydro
             phase: init
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
           - file: rt/rt_init.f90
             name: read_rt_groups
@@ -5798,13 +5802,6 @@ features:
             depth: 2
             callers: [read_params]
           - file: pm/merger_tree.f90
-            name: extend_arrays_if_needed
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [make_galaxies, output_cone]
-          - file: pm/merger_tree.f90
             name: make_merger_tree
             phase: step
             role: private
@@ -5939,6 +5936,13 @@ features:
             callers: [make_galaxies]
           - file: pm/clfind_commons.f90
             name: stellar_mass
+            phase: step
+            role: private
+            scope: area
+            depth: 7
+            callers: [make_galaxies]
+          - file: pm/merger_tree.f90
+            name: extend_arrays_if_needed
             phase: step
             role: private
             scope: area
@@ -6136,9 +6140,10 @@ features:
           - file: turb/init_turb.f90
             name: init_turb
             phase: init
-            role: private
+            role: driver
             scope: global
             depth: 2
+            driver: adaptive_loop
             callers: [adaptive_loop]
           - file: turb/turb_force_utils.f90
             name: spin_up
@@ -6389,14 +6394,15 @@ features:
             role: shared
             scope: global
             depth: 4
+            todo: "Defined in amr/light_cone.f90 and described as light-cone geometry, but pm/merger_tree.f90 calls it from four sites. Confirm the reuse is intended."
             callers: [make_galaxies, output_cone]
           - file: amr/light_cone.f90
             name: extend_arrays_if_needed
             phase: output
-            role: shared
-            scope: global
+            role: private
+            scope: area
             depth: 4
-            callers: [make_galaxies, output_cone]
+            callers: [output_cone]
           - file: amr/light_cone.f90
             name: init_cosmo_cone
             phase: output
@@ -6470,7 +6476,7 @@ features:
               public: nothing to do
           - file: amr/movie.f90
             name: set_movie_vars
-            phase: output
+            phase: init
             role: private
             scope: area
             depth: 3
@@ -6504,7 +6510,7 @@ features:
             role: shared
             scope: global
             depth: 5
-            callers: [cmp_new_cpu_map, write_screen]
+            callers: [cmp_new_cpu_map, "hydro/write_screen.f90::write_screen", "mhd/write_screen.f90::write_screen"]
           - file: amr/sort.f90
             name: quick_sort_1_dp
             phase: any
@@ -6642,9 +6648,10 @@ features:
           - file: amr/timer.f90
             name: timer
             phase: any
-            role: shared
+            role: driver
             scope: global
             depth: 2
+            driver: amr_step
             callers: [adaptive_loop, amr_step, rt_step]
           - file: amr/timer.f90
             name: wallclock
@@ -6730,7 +6737,7 @@ features:
             role: shared
             scope: global
             depth: 4
-            callers: [build_parent_comms_mg, check_tree, cic_amr, cic_cell, cic_get_cells, cic_only, diffine1, ensure_ref_rules, feedbk, godfine1, init_gas_cic, init_gas_ngp, interpol_phi, interpolate_and_correct_coarse, interpolate_and_correct_fine, move1, neighborsearch, ngp_amr_gas, rt_godfine1, sink_rt_vsweep_stellar, star_rt_vsweep, sync, tsc_amr, tsc_cell, tsc_only, unbinding_neighborsearch]
+            callers: [build_parent_comms_mg, check_tree, cic_amr, cic_cell, cic_get_cells, cic_only, diffine1, ensure_ref_rules, feedbk, "hydro/godunov_fine.f90::godfine1", init_gas_cic, init_gas_ngp, interpol_phi, interpolate_and_correct_coarse, interpolate_and_correct_fine, "mhd/godunov_fine.f90::godfine1", move1, neighborsearch, ngp_amr_gas, rt_godfine1, sink_rt_vsweep_stellar, star_rt_vsweep, sync, tsc_amr, tsc_cell, tsc_only, unbinding_neighborsearch]
             omp:
               public: "yes"
             omp_from: file
@@ -6778,7 +6785,7 @@ features:
             role: shared
             scope: global
             depth: 5
-            callers: [diffine1, gather_stencil_amr, godfine1, move_gas_tracer, rt_godfine1]
+            callers: [diffine1, gather_stencil_amr, "mhd/godunov_fine.f90::godfine1", move_gas_tracer, rt_godfine1]
             omp:
               public: "yes"
             omp_from: file
@@ -6829,7 +6836,7 @@ features:
             scope: global
             depth: 2
             driver: amr_step
-            callers: [adaptive_loop, amr_step, courant_fine, create_sink, diffusion, f_gas_sink, force_fine, init_flow, init_flow_fine, init_refine_2, kinetic_feedback, load_balance, make_sn_stellar, multigrid_fine, multipole_fine, multipole_from_current_level, phi_fine_cg, rho_fine, rho_only, rho_star_only, rt_init_flow, rt_step, star_formation]
+            callers: [adaptive_loop, amr_step, create_sink, diffusion, f_gas_sink, force_fine, init_flow, init_flow_fine, init_refine_2, kinetic_feedback, load_balance, make_sn_stellar, "mhd/courant_fine.f90::courant_fine", multigrid_fine, multipole_fine, multipole_from_current_level, phi_fine_cg, rho_fine, rho_only, rho_star_only, rt_init_flow, rt_step, star_formation]
             omp:
               public: "Yes"
               yomp: "Yes"
@@ -6871,4 +6878,24 @@ features:
             omp:
               public: "Yes"
               yomp: "Yes"
+      - id: memory
+        title: memory reporting
+        note: "Utilities area: routines stay here even when they have a single caller."
+        routines:
+          - file: amr/memory.f90
+            name: getmem
+            phase: any
+            role: driver
+            scope: global
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
+          - file: amr/memory.f90
+            name: writemem
+            phase: any
+            role: driver
+            scope: global
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
 
