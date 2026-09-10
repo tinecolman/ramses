@@ -127,7 +127,7 @@ def main():
     ROLES = {"driver", "recursive", "shared", "private", "unused"}
     SCOPES = {"area", "feature", "global"}
     # written by derive_omp.py; see the header of inventory.yaml
-    OMP_STATES = {"parallel", "threaded", "safe", "unsafe", "serial"}
+    OMP_STATES = {"opens_region", "adapted", "stateless", "race", "unthreaded"}
     OMP_KEYS = {"state", "progress", "regions", "threadprivate", "sync",
                 "unprotected", "recorded", "disagrees", "na", "verified", "note"}
     OMP_PROGRESS = {"done", "todo", "na"}
@@ -171,20 +171,20 @@ def main():
                     if omp.get("state") not in OMP_STATES:
                         errors.append(f"{tag}: {n} has omp state "
                                       f"{omp.get('state')!r}")
-                    if (omp.get("state") == "unsafe") != bool(omp.get("unprotected")):
+                    if (omp.get("state") == "race") != bool(omp.get("unprotected")):
                         errors.append(f"{tag}: {n} omp state/unprotected "
                                       f"disagree ({omp.get('state')})")
                     if omp.get("progress") not in OMP_PROGRESS:
                         errors.append(f"{tag}: {n} has omp progress "
                                       f"{omp.get('progress')!r}")
                     if omp.get("progress") == "done" and omp["state"] not in (
-                            "parallel", "threaded", "safe", "serial"):
+                            "opens_region", "adapted", "stateless", "unthreaded"):
                         errors.append(f"{tag}: {n} progress done but state "
                                       f"{omp['state']}")
                     if omp.get("na") and omp.get("progress") != "na":
                         errors.append(f"{tag}: {n} has omp na but progress "
                                       f"{omp.get('progress')!r}")
-                    if omp.get("regions") and omp["state"] != "parallel":
+                    if omp.get("regions") and omp["state"] != "opens_region":
                         errors.append(f"{tag}: {n} has regions but state "
                                       f"{omp['state']}")
                     for k in omp:
