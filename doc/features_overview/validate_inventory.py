@@ -126,6 +126,11 @@ def main():
     PHASES = {"params", "init", "step", "output", "finalise", "any"}
     ROLES = {"driver", "recursive", "shared", "private", "unused"}
     SCOPES = {"area", "feature", "global"}
+    # written by derive_omp.py; see the header of inventory.yaml
+    OMP_STATES = {"parallel", "threaded", "safe", "unsafe", "serial"}
+    OMP_KEYS = {"state", "progress", "regions", "threadprivate", "sync",
+                "unprotected", "recorded", "disagrees", "na", "verified", "note"}
+    OMP_PROGRESS = {"done", "todo", "na"}
     # a caller name resolves to a definition in the same file when there is one
     # (Fortran contained/module scoping), else to every definition of that name
     by_name = {}
@@ -161,8 +166,30 @@ def main():
                     errors.append(f"{tag}: {n} has role {r.get('role')!r}")
                 if r.get("scope") and r["scope"] not in SCOPES:
                     errors.append(f"{tag}: {n} has scope {r['scope']!r}")
-                if r.get("omp_from") and not r.get("omp"):
-                    errors.append(f"{tag}: {n} has omp_from but no omp")
+                omp = r.get("omp") or {}
+                if omp:
+                    if omp.get("state") not in OMP_STATES:
+                        errors.append(f"{tag}: {n} has omp state "
+                                      f"{omp.get('state')!r}")
+                    if (omp.get("state") == "unsafe") != bool(omp.get("unprotected")):
+                        errors.append(f"{tag}: {n} omp state/unprotected "
+                                      f"disagree ({omp.get('state')})")
+                    if omp.get("progress") not in OMP_PROGRESS:
+                        errors.append(f"{tag}: {n} has omp progress "
+                                      f"{omp.get('progress')!r}")
+                    if omp.get("progress") == "done" and omp["state"] not in (
+                            "parallel", "threaded", "safe", "serial"):
+                        errors.append(f"{tag}: {n} progress done but state "
+                                      f"{omp['state']}")
+                    if omp.get("na") and omp.get("progress") != "na":
+                        errors.append(f"{tag}: {n} has omp na but progress "
+                                      f"{omp.get('progress')!r}")
+                    if omp.get("regions") and omp["state"] != "parallel":
+                        errors.append(f"{tag}: {n} has regions but state "
+                                      f"{omp['state']}")
+                    for k in omp:
+                        if k not in OMP_KEYS:
+                            errors.append(f"{tag}: {n} has unknown omp key {k!r}")
                 role = r.get("role")
                 if role == "unused" and cs:
                     errors.append(f"{tag}: {n} is role unused but has callers")
