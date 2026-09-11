@@ -131,6 +131,9 @@ def main():
     OMP_KEYS = {"state", "progress", "regions", "threadprivate", "sync",
                 "unprotected", "recorded", "disagrees", "na", "verified", "note"}
     OMP_PROGRESS = {"done", "todo", "na"}
+    # written by derive_coverage.py from a coverage run
+    COV_KEYS = {"pct", "covered", "total", "notbuilt", "status", "na", "note"}
+    COV_STATUS = {"not_measured"}
     # a caller name resolves to a definition in the same file when there is one
     # (Fortran contained/module scoping), else to every definition of that name
     by_name = {}
@@ -190,6 +193,28 @@ def main():
                     for k in omp:
                         if k not in OMP_KEYS:
                             errors.append(f"{tag}: {n} has unknown omp key {k!r}")
+                cov = r.get("coverage") or {}
+                if cov:
+                    for k in cov:
+                        if k not in COV_KEYS:
+                            errors.append(f"{tag}: {n} has unknown coverage key {k!r}")
+                    if cov.get("status"):
+                        if cov["status"] not in COV_STATUS:
+                            errors.append(f"{tag}: {n} has coverage status "
+                                          f"{cov['status']!r}")
+                    else:
+                        c, t = cov.get("covered"), cov.get("total")
+                        if not isinstance(c, int) or not isinstance(t, int):
+                            errors.append(f"{tag}: {n} coverage covered/total "
+                                          f"not integers")
+                        elif c > t:
+                            errors.append(f"{tag}: {n} coverage covered {c} "
+                                          f"exceeds total {t}")
+                        elif t and abs(cov.get("pct", -1) - 100.0*c/t) > 0.05:
+                            errors.append(f"{tag}: {n} coverage pct "
+                                          f"{cov.get('pct')} disagrees with {c}/{t}")
+                        if cov.get("notbuilt", 0) > t:
+                            errors.append(f"{tag}: {n} coverage notbuilt exceeds total")
                 role = r.get("role")
                 if role == "unused" and cs:
                     errors.append(f"{tag}: {n} is role unused but has callers")
