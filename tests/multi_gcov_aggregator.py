@@ -306,13 +306,25 @@ class GCovParser:
         Find the lines that no build of this run ever compiled, by replaying
         the preprocessor directives against the -D flags of every build.
         """
-        for source_file in self.coverage_data:
+        for source_file, coverage in self.coverage_data.items():
             path = os.path.normpath(os.path.join(self.source_root, source_file))
             if not os.path.exists(path):
                 continue
             with open(path, errors="replace") as file:
                 lines = file.read().split("\n")
-            dead = unbuilt_lines(lines, macro_sets)
+            dead, undecided = unbuilt_lines(lines, macro_sets)
+            for number, directive in undecided:
+                print(f"Warning: cannot evaluate `{directive}` at {source_file}:{number} "
+                      f"for every build; the code it gates is taken as compiled",
+                      file=sys.stderr)
+            # A count means gcov saw the line compiled, whatever the
+            # directives say: the replay of the preprocessor is wrong there.
+            # The count wins, so the line is still reported correctly.
+            wrong = sorted(n for n in dead if n in coverage and isinstance(coverage[n][0], int))
+            if wrong:
+                print(f"Warning: {len(wrong)} lines of {source_file} have gcov counts but were "
+                      f"judged never compiled (first: line {wrong[0]}, `{label_of(dead[wrong[0]])}`)",
+                      file=sys.stderr)
             if dead:
                 # A declaration or a comment in a dead block is still not a
                 # line that could have run, so it stays "-" rather than
