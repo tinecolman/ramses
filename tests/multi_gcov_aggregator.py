@@ -391,16 +391,16 @@ class GCovParser:
 
             # print stats on current file and add to total
             if num_lines_tot>0:
-                coverage = 100 * num_lines_exec / num_lines_tot
-                print(f"{source_file:50s} {coverage:7.2f}%  {f'{num_lines_exec}/{num_lines_tot}':>16}"
+                percent = 100 * num_lines_exec / num_lines_tot
+                print(f"{source_file:50s} {percent:7.2f}%  {f'{num_lines_exec}/{num_lines_tot}':>16}"
                       f"  {num_lines_notbuilt if num_lines_notbuilt else '':>9}", file=f)
                 full_code_tot = full_code_tot + num_lines_tot
                 full_code_coverage = full_code_coverage + num_lines_exec
                 full_code_notbuilt = full_code_notbuilt + num_lines_notbuilt
 
-        coverage = 100*full_code_coverage/full_code_tot if full_code_tot else 0.0
+        total_percent = 100*full_code_coverage/full_code_tot if full_code_tot else 0.0
         print("-" * 90, file=f)
-        print(f"{'TOTAL':50s} {coverage:7.2f}%  {f'{full_code_coverage}/{full_code_tot}':>16}"
+        print(f"{'TOTAL':50s} {total_percent:7.2f}%  {f'{full_code_coverage}/{full_code_tot}':>16}"
               f"  {full_code_notbuilt:>9}", file=f)
         f.close()
 
@@ -412,7 +412,7 @@ class GCovParser:
         # what the preprocessor kept out of every build
         self.save_notbuilt_report(output_directory, notbuilt_rows, full_code_notbuilt)
 
-        print(f"\033[92mTotal code coverage {coverage:.2f}% ({full_code_coverage}/{full_code_tot})\033[0m")
+        print(f"\033[92mTotal code coverage {total_percent:.2f}% ({full_code_coverage}/{full_code_tot})\033[0m")
         if full_code_notbuilt:
             print(f"{full_code_notbuilt} lines were never compiled by any build (see coverage_notbuilt.txt)")
         if moved_total:
