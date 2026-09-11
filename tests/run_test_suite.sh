@@ -642,6 +642,27 @@ if ${COVERAGE} ; then
 
    python3 multi_gcov_aggregator.py ${ALL_TEST_DIRS} coverage --metadata ${COVERAGE_METADATA};
 
+   # TEMPORARY (do not commit the output): keep each test's own .gcov files, so
+   # the reports can be regenerated later without re-running the whole suite.
+   # They are deleted from the test directories by the cleanup below.
+   # Set to false to go back to keeping only the aggregated files.
+   KEEP_PER_TEST_GCOV=true;
+   if ${KEEP_PER_TEST_GCOV} ; then
+      for ((i=0;i<$ntests;i++)); do
+         n=${testnum[i]};
+         # by leaf name, which is unique and is the label the aggregator uses
+         leafname=$(basename ${testname[n]});
+         if ls ${TEST_DIRECTORY}/${testname[n]}/*.gcov > /dev/null 2>&1 ; then
+            mkdir -p coverage/gcov_per_test/${leafname};
+            cp ${TEST_DIRECTORY}/${testname[n]}/*.gcov coverage/gcov_per_test/${leafname}/;
+         fi
+      done
+      echo "Kept per-test gcov files in coverage/gcov_per_test. To rebuild the" | tee -a $LOGFILE;
+      echo "reports without re-running the tests:" | tee -a $LOGFILE;
+      echo "  python3 multi_gcov_aggregator.py <dir>/gcov_per_test/*/ <outdir> \\" | tee -a $LOGFILE;
+      echo "      --metadata <dir>/coverage_metadata.txt" | tee -a $LOGFILE;
+   fi
+
    # Move test PDF to coverage dir, to keep everything together
    if [ -f "${TEST_DIRECTORY}/test_results.pdf" ]; then
       mv "${TEST_DIRECTORY}/test_results.pdf" coverage/;
