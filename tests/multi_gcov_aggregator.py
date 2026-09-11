@@ -79,7 +79,7 @@ DECLARATION = re.compile(r"""^(integer|real|double\s*precision|complex|logical|
     character|type|class|procedure|dimension|allocatable|pointer|target|save|
     parameter|common|equivalence|data|external|intrinsic|optional|intent|public|
     private|protected|sequence|generic|final|import|abstract|enum|enumerator|
-    volatile|asynchronous|bind|value|namelist|implicit|use|module|program|
+    volatile|asynchronous|bind|value|namelist|implicit|use|module|
     contains|interface|include|format)\b""", re.I | re.X)
 END_OF_BLOCK = re.compile(r"^end\s*(if|do|select|where|forall|associate|block|"
                           r"type|interface|module|program|subroutine|function|"
@@ -99,6 +99,12 @@ FUNCTION = re.compile(r"\bfunction\b", re.I)
 #                   `end subroutine` in a full run, 368 were counted and 157
 #                   were not, split by exactly that.
 #   NNN format      a format statement never executes.
+#   declarations    gfortran emits code at routine entry for allocatable
+#                   locals (marked unallocated, freed again on exit) and for
+#                   arrays sized at run time, e.g. dimension(1:ncpu), and gcov
+#                   attributes that code to the declaration. The count is
+#                   just a multiple of the number of calls, and whether it
+#                   appears depends on which kind of locals a routine has.
 NOT_COVERABLE = re.compile(r"^end\s*(module|subroutine|function)\b"
                            r"|^\d+\s+format\b", re.I)
 
@@ -119,6 +125,11 @@ def strip_comment(line):
         else:
             out.append(c)
     return ''.join(out)
+
+
+def is_declaration(line):
+    """A specification statement. `real function f(x)` is a routine header."""
+    return bool(DECLARATION.match(line)) and not FUNCTION.search(line.split('::')[0])
 
 
 def executable_lines(lines):
@@ -142,7 +153,7 @@ def executable_lines(lines):
             code.add(number)
         elif NO_CODE.match(line) or END_OF_BLOCK.match(line):
             continue
-        elif DECLARATION.match(line) and not FUNCTION.search(line.split('::')[0]):
+        elif is_declaration(line):
             continue
         else:
             code.add(number)
@@ -350,7 +361,8 @@ class GCovParser:
                 for line_number, (count, line_content, directories) in sorted(coverage.items()):
                     # put back gcov synthax, for easier visual identification of unexecuted code
                     gate = dead.get(line_number)
-                    if NOT_COVERABLE.match(line_content.strip()):
+                    stripped = line_content.strip()
+                    if NOT_COVERABLE.match(stripped) or is_declaration(stripped):
                         count = "-"
                     elif gate is not None and not isinstance(count, int):
                         count = "-----"  # never compiled, not a gap a namelist can close
