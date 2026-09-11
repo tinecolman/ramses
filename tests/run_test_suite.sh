@@ -361,7 +361,7 @@ for ((i=0;i<$ntests;i++)); do
    # Record how this test is built and run, for coverage_metadata.txt.
    # Used to distinguish between "never compiled" and "never executed".
    if ${COVERAGE} ; then
-      TEST_DEFINES=$(make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS} print-DEFINES 2>/dev/null | grep -- '-D' | head -1);
+      TEST_DEFINES=$(make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS} print-FFLAGS_BASE 2>/dev/null | grep -o -- '-D[^[:space:]]*' | paste -sd' ');
       {
         echo "test    : ${testname[n]}";
         echo "  ndim    : ${ndim}";
