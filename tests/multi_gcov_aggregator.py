@@ -356,7 +356,7 @@ class GCovParser:
                         count = "-----"  # never compiled, not a gap a namelist can close
                         num_lines_notbuilt = num_lines_notbuilt+1
                         notbuilt_here[re.sub(r'\s+', ' ', gate).strip()] += 1
-                    elif count==0 or count=='#':
+                    elif count==0:
                         count = "#####"
                     file.write(f"{count:>12}: {line_number:>6}: {line_content}\n")
 
