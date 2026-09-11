@@ -7,7 +7,7 @@
 #   -----    never compiled by any build; counted as uncovered
 #   -        not executable (comment, declaration, continuation line, ...)
 # Telling "-----" from "-" needs the -D flags of every build, which
-# run_test_suite.sh records in coverage_metadata.txt (passed with --metadata).
+# run_test_suite.sh records in build_records/ (passed with --build-records).
 #
 # Known issues:
 # - in rt_spectra, gcov identified some variable declarations as executed.
@@ -538,14 +538,18 @@ class GCovParser:
 
 def build_records(path):
     """
-    Read the build records run_test_suite.sh writes to coverage_metadata.txt,
-    as {"test": "hydro/advect1d", "run": <timestamp, "" if not recorded>,
-    "macros": <the -D flags of the build>}.
+    Read the build records run_test_suite.sh writes, as
+    {"test": "hydro/advect1d", "run": <timestamp, "" if not recorded>,
+    "macros": <the -D flags of the build>}. `path` is the build_records/
+    directory, or a single file holding records, such as the
+    coverage_metadata.txt of coverage directories made before build_records/.
     """
     records = []
     if not path or not os.path.exists(path):
         return records
-    for line in open(path, errors="replace"):
+    files = sorted(glob(os.path.join(path, "*.txt"))) if os.path.isdir(path) else [path]
+    lines = [line for f in files for line in open(f, errors="replace")]
+    for line in lines:
         m = re.match(r'^test\s*:\s*(\S+)', line)
         if m:
             records.append({"test": m.group(1), "run": "", "defines": ""})
@@ -584,8 +588,9 @@ if __name__ == "__main__":
     parser.add_argument("gcov_dirs", nargs='+', help="Directories containing GCOV files, one per test "
                              "(searched recursively, so each may hold one subdirectory per run).")
     parser.add_argument("output_dir", help="Directory to save aggregated coverage data.")
-    parser.add_argument("--metadata", default=None,
-                        help="coverage_metadata.txt, for the -D flags of each build.")
+    parser.add_argument("--build-records", default=None,
+                        help="The build_records/ directory, for the -D flags of each build "
+                             "(or the coverage_metadata.txt of older coverage directories).")
     parser.add_argument("--source-root",
                         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin"),
                         help="Directory the Source: paths in the .gcov files are relative "
@@ -594,13 +599,13 @@ if __name__ == "__main__":
 
     aggregator = GCovParser(source_root=args.source_root)
     aggregator.parse_directories(args.gcov_dirs)
-    records = build_records(args.metadata)
+    records = build_records(args.build_records)
     if records:
         print(f"Read {len(records)} build records ({len(distinct(r['macros'] for r in records))} "
-              f"distinct build configurations) from {args.metadata}")
+              f"distinct build configurations) from {args.build_records}")
         aggregator.mark_unbuilt(records)
     else:
-        print("No build metadata given: never-compiled lines will be reported as not executable.",
+        print("No build records given: never-compiled lines will be reported as not executable.",
               file=sys.stderr)
     aggregator.save_aggregated_coverage(args.output_dir)
     print(f"Aggregated coverage data saved in directory: {args.output_dir}")

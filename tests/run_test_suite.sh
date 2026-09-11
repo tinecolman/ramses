@@ -112,8 +112,8 @@ THIS_BRANCH=$(git rev-parse --abbrev-ref HEAD);
 THIS_BRANCH_TAG=$(echo "${THIS_BRANCH}" | tr '/' '-');
 # When this run started (UTC), to name its log and PDF in the coverage dir
 RUN_STAMP=$(date -u +%Y-%m-%d_%H-%M-%S);
-# Per-test build/run records, one file per test, kept in build_records/ of
-# the coverage dir and assembled into coverage_metadata.txt at the end
+# Per-test build/run records, one file per test, added at the end to
+# build_records/ of the coverage dir
 RECORDS_TMP=$(mktemp -d);
 echo > $LOGFILE;
 if [ ${MPI} -eq 1 ]; then
@@ -361,7 +361,7 @@ for ((i=0;i<$ntests;i++)); do
    echo "Compiling source" | tee -a $LOGFILE;
    MAKESTRING="make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS}";
 
-   # Record how this test is built and run, for coverage_metadata.txt.
+   # Record how this test is built and run, for build_records/.
    # Used to distinguish between "never compiled" and "never executed".
    if ${COVERAGE} ; then
       TEST_DEFINES=$(make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS} print-FFLAGS_BASE 2>/dev/null | grep -o -- '-D[^[:space:]]*' | paste -sd' ');
@@ -644,7 +644,7 @@ if ${COVERAGE} ; then
    done
    rm -rf ${RECORDS_TMP};
 
-   # Write metadata (needed by aggregator)
+   # Write metadata
    COVERAGE_METADATA="coverage/coverage_metadata.txt";
    {
      echo "# How this coverage run was produced.";
@@ -658,13 +658,11 @@ if ${COVERAGE} ; then
      echo "gcov          : $(gcov --version 2>/dev/null | head -1)";
      echo "compiler      : $(${F90:-gfortran} --version 2>/dev/null | head -1)";
      echo "";
-     echo "# One record per run of each test. A run's gcov files, log and PDF";
-     echo "# carry its run timestamp in their name.";
-     echo "";
-     cat coverage/build_records/*.txt 2>/dev/null;
+     echo "# How each test was built and run is in build_records/, one record per";
+     echo "# run. A run's gcov files, log and PDF carry its run timestamp in their name.";
    } > ${COVERAGE_METADATA};
 
-   if python3 multi_gcov_aggregator.py coverage/gcov_per_test/*/ coverage --metadata ${COVERAGE_METADATA} ; then
+   if python3 multi_gcov_aggregator.py coverage/gcov_per_test/*/ coverage --build-records coverage/build_records ; then
       aggregated=true;
    else
       aggregated=false;
@@ -679,7 +677,7 @@ if ${COVERAGE} ; then
       echo "Kept per-test gcov files in coverage/gcov_per_test. To rebuild the" | tee -a $LOGFILE;
       echo "reports without re-running the tests:" | tee -a $LOGFILE;
       echo "  python3 multi_gcov_aggregator.py <dir>/gcov_per_test/*/ <outdir> \\" | tee -a $LOGFILE;
-      echo "      --metadata <dir>/coverage_metadata.txt" | tee -a $LOGFILE;
+      echo "      --build-records <dir>/build_records" | tee -a $LOGFILE;
    elif ${aggregated} ; then
       rm -rf coverage/gcov_per_test;
    fi
