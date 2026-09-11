@@ -108,6 +108,11 @@ FUNCTION = re.compile(r"\bfunction\b", re.I)
 NOT_COVERABLE = re.compile(r"^end\s*(module|subroutine|function)\b"
                            r"|^\d+\s+format\b", re.I)
 
+# The directories bin/Makefile takes sources from (its VPATH, for every
+# SOLVER), searched for files that end up without any coverage data.
+SOURCE_DIRS = ("amr", "aton", "hydro", "io", "mhd", "pm", "poisson", "rhd",
+               "rt", "turb")
+
 
 def strip_comment(line):
     """Drop a trailing ! comment, ignoring ! inside a string."""
@@ -307,6 +312,25 @@ class GCovParser:
             if dead:
                 self.notbuilt[source_file] = dead
 
+    def files_without_data(self):
+        """
+        Source files no .gcov file mentions, as paths relative to source_root
+        like the Source: paths. A directory where that holds for every file
+        is given as a single entry.
+        """
+        seen = {os.path.normpath(s) for s in self.coverage_data}
+        entries = []
+        for d in SOURCE_DIRS:
+            files = sorted(glob(os.path.join(self.source_root, "..", d, "*.f90")) +
+                           glob(os.path.join(self.source_root, "..", d, "*.F")))
+            files = [os.path.relpath(p, self.source_root) for p in files]
+            missing = [p for p in files if p not in seen]
+            if missing and len(missing) == len(files):
+                entries.append(f"{os.path.dirname(files[0])}/  (all {len(files)} files)")
+            else:
+                entries += missing
+        return entries
+
     def save_aggregated_coverage(self, output_directory):
         """
         Save the aggregated coverage data for each source file.
@@ -402,6 +426,16 @@ class GCovParser:
         print("-" * 90, file=f)
         print(f"{'TOTAL':50s} {total_percent:7.2f}%  {f'{full_code_coverage}/{full_code_tot}':>16}"
               f"  {full_code_notbuilt:>9}", file=f)
+
+        missing = self.files_without_data()
+        if missing:
+            print("\n\nSource files without any coverage data, left out of the totals above:\n"
+                  "no build of this run compiled them, or they hold no executable code\n"
+                  "(modules of variables and parameters). Expected here are rhd/ and aton/,\n"
+                  "which are not actively supported, and the obsolete\n"
+                  "poisson/multigrid_topdown.f90.\n", file=f)
+            for entry in missing:
+                print(f"  {entry}", file=f)
         f.close()
 
         # which tests reached which line: a sidecar, because listing them in the
