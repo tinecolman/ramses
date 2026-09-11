@@ -261,8 +261,19 @@ class GCovParser:
                     count = int(count)
 
                 line_number = int(line_number)
+                # line 0 holds gcov's header records, not source lines
+                if line_number == 0:
+                    continue
                 # Aggregate counts and keep line content
-                current_count, current_line_content, directories = self.coverage_data[source_file][line_number]
+                lines = self.coverage_data[source_file]
+                # Counts can only be added up if every .gcov file was made
+                # from the same version of the source.
+                if line_number in lines and lines[line_number][1] != line_content:
+                    sys.exit(f"Error: line {line_number} of {source_file} differs between .gcov files\n"
+                             f"  earlier files: {lines[line_number][1]}\n"
+                             f"  {file_path}: {line_content}\n"
+                             "The .gcov files were made from different versions of the source.")
+                current_count, _, directories = lines[line_number]
 
                 if isinstance(count, int) and count > 0 and directory is not None:
                     directories.append(directory)
@@ -273,13 +284,7 @@ class GCovParser:
                     else:
                         current_count = count
 
-                if line_content != current_line_content and current_line_content != "":
-                    print(f"Warning: Line content mismatch in {source_file} at line {line_number}",file=sys.stderr)
-                    print(f"  Previous line content: {current_line_content}", file=sys.stderr)
-                    print(f"  Current line content: {line_content}", file=sys.stderr)
-                    print("  Using previous line content and count for aggregation.", file=sys.stderr)
-                else:
-                    self.coverage_data[source_file][line_number] = (current_count, line_content, directories)
+                self.coverage_data[source_file][line_number] = (current_count, line_content, directories)
 
     def parse_directories(self, directories):
         """
