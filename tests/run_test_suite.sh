@@ -367,6 +367,7 @@ for ((i=0;i<$ntests;i++)); do
       TEST_DEFINES=$(make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS} print-FFLAGS_BASE 2>/dev/null | grep -o -- '-D[^[:space:]]*' | paste -sd' ');
       {
         echo "test    : ${testname[n]}";
+        echo "  run     : ${RUN_STAMP}";
         echo "  date    : $(date -u +%Y-%m-%dT%H:%M:%SZ)";
         echo "  ndim    : ${ndim}";
         echo "  flags   : ${FLAGS}";
@@ -616,8 +617,9 @@ if ${COVERAGE} ; then
    # Name the directory after the branch and commit it measured
    COVERAGE_DIR="coverage_${THIS_BRANCH_TAG}_${THIS_COMMIT_DATE}_${THIS_COMMIT_SHORT}";
 
-   # Coverage can be collected in batches: the tests of earlier runs on the
-   # same commit are kept, and a test that is run again replaces its old data.
+   # Coverage can be collected in several runs on the same commit: earlier
+   # runs are kept, and a test that is run again adds to its earlier data,
+   # e.g. with another build of RAMSES.
    if [ -d "${COVERAGE_DIR}/gcov_per_test" ] ; then
       echo "Adding to the coverage of earlier runs in tests/${COVERAGE_DIR}" | tee -a $LOGFILE;
       cp -r "${COVERAGE_DIR}/gcov_per_test" "${COVERAGE_DIR}/build_records" coverage/ 2>/dev/null;
@@ -626,18 +628,18 @@ if ${COVERAGE} ; then
       echo "tests/${COVERAGE_DIR} has no per-test gcov files to add to: replacing it" | tee -a $LOGFILE;
    fi
 
-   # Collect each test's .gcov files in a directory <category>_<testname>, and
-   # its build record in build_records/<category>_<testname>.txt. The
-   # aggregator labels each test by this name.
+   # Collect each test's .gcov files in gcov_per_test/<category>_<testname>/,
+   # one subdirectory per run, and add the build record of this run to
+   # build_records/<category>_<testname>.txt. The aggregator labels each test
+   # by this name, and sums the runs of a test.
    mkdir -p coverage/build_records;
    for ((i=0;i<$ntests;i++)); do
       n=${testnum[i]};
       label=${testname[n]//\//_};
       if ls ${TEST_DIRECTORY}/${testname[n]}/*.gcov > /dev/null 2>&1 ; then
-         rm -rf coverage/gcov_per_test/${label};
-         mkdir -p coverage/gcov_per_test/${label};
-         cp ${TEST_DIRECTORY}/${testname[n]}/*.gcov coverage/gcov_per_test/${label}/;
-         cp ${RECORDS_TMP}/${label}.txt coverage/build_records/${label}.txt;
+         mkdir -p coverage/gcov_per_test/${label}/${RUN_STAMP};
+         cp ${TEST_DIRECTORY}/${testname[n]}/*.gcov coverage/gcov_per_test/${label}/${RUN_STAMP}/;
+         cat ${RECORDS_TMP}/${label}.txt >> coverage/build_records/${label}.txt;
       fi
    done
    rm -rf ${RECORDS_TMP};
@@ -656,7 +658,8 @@ if ${COVERAGE} ; then
      echo "gcov          : $(gcov --version 2>/dev/null | head -1)";
      echo "compiler      : $(${F90:-gfortran} --version 2>/dev/null | head -1)";
      echo "";
-     echo "# One record per test. The tests may come from several runs, see their date.";
+     echo "# One record per run of each test. A run's gcov files, log and PDF";
+     echo "# carry its run timestamp in their name.";
      echo "";
      cat coverage/build_records/*.txt 2>/dev/null;
    } > ${COVERAGE_METADATA};

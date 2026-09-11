@@ -291,10 +291,12 @@ class GCovParser:
 
     def parse_directories(self, directories):
         """
-        Parse all GCOV files from multiple directories.
+        Parse all GCOV files from multiple directories, one per test. The
+        files of a test may sit in subdirectories, one per run of the test
+        (e.g. with different builds); their counts are summed.
         """
         for directory in directories:
-            for file_path in glob(os.path.join(directory, "*.gcov")):
+            for file_path in glob(os.path.join(directory, "**", "*.gcov"), recursive=True):
                 # normpath first: a trailing slash would make basename empty
                 self.parse_gcov_file(file_path,
                                      os.path.basename(os.path.normpath(directory)))
@@ -508,7 +510,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Aggregate GCOV files for a Fortran program with multiple source files.")
-    parser.add_argument("gcov_dirs", nargs='+', help="Directories containing GCOV files (multiple directories allowed).")
+    parser.add_argument("gcov_dirs", nargs='+', help="Directories containing GCOV files, one per test "
+                             "(searched recursively, so each may hold one subdirectory per run).")
     parser.add_argument("output_dir", help="Directory to save aggregated coverage data.")
     parser.add_argument("--metadata", default=None,
                         help="coverage_metadata.txt, for the -D flags of each build.")
