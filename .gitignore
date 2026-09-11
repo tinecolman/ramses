@@ -35,17 +35,4 @@ tests/coverage_*/*
 *.log
 # IDEs files
 .vscode
-#local stuff
-tests/turb/driving-1d
-tests/star/SNFB/cosmo_128
-tests/poisson/cosmo/cosmo_128
-tests/star/sfvirialtrue-sfmodel0/dwarf_galaxy
-tests/sink/one-sink-SN
-tests/sink/debug-setup
-tests/rt/SPACE-stromgren2d
-tests/poisson/jeans
-tests/mhd/debug-collapse
-tests/mhd/2nd-collapse
-tests/lib/collapse
-tests/hydro/decaying-turbulence/ic
-*coverage_report.txt
+
