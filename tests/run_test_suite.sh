@@ -475,7 +475,7 @@ for ((i=0;i<$ntests;i++)); do
    # move coverage files to test dir
    if ${COVERAGE} ; then
       $RETURN_TO_BIN;
-      gcov *.gcno > coverage_stats.txt
+      gcov *.gcno > ${TEST_DIRECTORY}/${testname[n]}/coverage_stats.txt
       cd -
       mv ${BIN_DIRECTORY}/*.gc* .
    fi
