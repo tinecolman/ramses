@@ -255,7 +255,10 @@ class GCovParser:
                 # source, rather than guessed at from the text of the line.
                 if count == "#####":  # Line not executed
                     count = 0
-                elif count.endswith("*"):  # Branch execution
+                elif count.endswith("*"):
+                    # The line ran, but one of its blocks did not. That block
+                    # is often compiler-generated (a failed allocation, the
+                    # inside of an intrinsic), so the line counts as executed.
                     count = int(count[:-1])
                 elif count != "-":
                     count = int(count)
