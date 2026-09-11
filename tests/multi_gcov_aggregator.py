@@ -226,10 +226,13 @@ class GCovParser:
         self.coverage_data = defaultdict(lambda: defaultdict(lambda: ("-", "", [])))
         self.source_root = source_root
         self.notbuilt = {}  # {source_file: {line_number: gating directive}}
+        # {source_file: {(test label, run)}}: the builds that compiled it
+        self.built_by = defaultdict(set)
 
     def parse_gcov_file(self, file_path, directory=None):
         """
-        Parse a single GCOV file and extract coverage data.
+        Parse a single GCOV file and extract coverage data. Returns the
+        source file it describes.
         """
         source_file = None
         with open(file_path, 'r') as file:
@@ -288,6 +291,7 @@ class GCovParser:
                         current_count = count
 
                 self.coverage_data[source_file][line_number] = (current_count, line_content, directories)
+        return source_file
 
     def parse_directories(self, directories):
         """
@@ -296,22 +300,48 @@ class GCovParser:
         (e.g. with different builds); their counts are summed.
         """
         for directory in directories:
+            # normpath first: a trailing slash would make basename empty
+            label = os.path.basename(os.path.normpath(directory))
             for file_path in glob(os.path.join(directory, "**", "*.gcov"), recursive=True):
-                # normpath first: a trailing slash would make basename empty
-                self.parse_gcov_file(file_path,
-                                     os.path.basename(os.path.normpath(directory)))
+                source_file = self.parse_gcov_file(file_path, label)
+                # gcov writes a .gcov file for every source file a build
+                # compiled, whether it ran or not: this is how we know which
+                # builds compiled which file
+                run = os.path.relpath(os.path.dirname(file_path), directory)
+                self.built_by[source_file].add((label, "" if run == "." else run))
 
-    def mark_unbuilt(self, macro_sets):
+    def macro_sets_of(self, source_file, records, every_build, unmatched):
         """
-        Find the lines that no build of this run ever compiled, by replaying
-        the preprocessor directives against the -D flags of every build.
+        The -D flags of the builds that compiled source_file. When one of
+        them has no build record, the flags of every build: that can only
+        overlook never-compiled lines, not invent them.
         """
+        sets = []
+        for label, run in sorted(self.built_by[source_file]):
+            matched = [r["macros"] for r in records if describes(r, label, run)]
+            if not matched:
+                unmatched.add((label, run))
+                return every_build
+            sets += matched
+        return distinct(sets)
+
+    def mark_unbuilt(self, records):
+        """
+        Find the lines that no build ever compiled, by replaying the
+        preprocessor directives of each source file against the -D flags of
+        the builds that compiled it. Checking a file against every build
+        instead would take, e.g., the NENER>0 of hydro builds as proof that
+        a block of mhd/umuscl.f90 was compiled.
+        """
+        every_build = distinct(r["macros"] for r in records)
+        unmatched = set()
         for source_file, coverage in self.coverage_data.items():
             path = os.path.normpath(os.path.join(self.source_root, source_file))
             if not os.path.exists(path):
                 continue
             with open(path, errors="replace") as file:
                 lines = file.read().split("\n")
+            macro_sets = self.macro_sets_of(source_file, records, every_build, unmatched)
             dead, undecided = unbuilt_lines(lines, macro_sets)
             for number, directive in undecided:
                 print(f"Warning: cannot evaluate `{directive}` at {source_file}:{number} "
@@ -333,6 +363,9 @@ class GCovParser:
                 dead = {n: gate for n, gate in dead.items() if n in code}
             if dead:
                 self.notbuilt[source_file] = dead
+        for label, run in sorted(unmatched):
+            print(f"Warning: no build record for {label}{f' (run {run})' if run else ''}; "
+                  "the files it compiled are checked against every build", file=sys.stderr)
 
     def files_without_data(self):
         """
@@ -503,19 +536,45 @@ class GCovParser:
                 print("", file=f)
 
 
-def macro_sets_from_metadata(path):
+def build_records(path):
     """
-    Read the -D flags of every build recorded by run_test_suite.sh.
+    Read the build records run_test_suite.sh writes to coverage_metadata.txt,
+    as {"test": "hydro/advect1d", "run": <timestamp, "" if not recorded>,
+    "macros": <the -D flags of the build>}.
     """
-    sets, seen = [], set()
+    records = []
     if not path or not os.path.exists(path):
-        return sets
+        return records
     for line in open(path, errors="replace"):
-        m = re.match(r'^\s*defines\s*:\s*(.*)$', line, re.I)
-        if m and m.group(1).strip() and m.group(1) not in seen:
-            seen.add(m.group(1))
-            sets.append(parse_defines(m.group(1)))
-    return sets
+        m = re.match(r'^test\s*:\s*(\S+)', line)
+        if m:
+            records.append({"test": m.group(1), "run": "", "defines": ""})
+            continue
+        m = re.match(r'^\s+(run|defines)\s*:\s*(.*)$', line)
+        if m and records:
+            records[-1][m.group(1)] = m.group(2).strip()
+    return [{"test": r["test"], "run": r["run"], "macros": parse_defines(r["defines"])}
+            for r in records if r["defines"]]
+
+
+def describes(record, label, run):
+    """
+    Whether a build record is that of `run` of the test labelled `label`.
+    Labels are <category>_<test>, or just <test> in coverage directories made
+    before that. `run` is the subdirectory holding the run's .gcov files, ""
+    when a test's files are not split by run.
+    """
+    names = (record["test"].replace("/", "_"), os.path.basename(record["test"]))
+    return label in names and (not run or record["run"] == run)
+
+
+def distinct(macro_sets):
+    """The different builds among macro_sets, in order."""
+    out = []
+    for ms in macro_sets:
+        if ms not in out:
+            out.append(ms)
+    return out
 
 
 if __name__ == "__main__":
@@ -535,10 +594,11 @@ if __name__ == "__main__":
 
     aggregator = GCovParser(source_root=args.source_root)
     aggregator.parse_directories(args.gcov_dirs)
-    macro_sets = macro_sets_from_metadata(args.metadata)
-    if macro_sets:
-        print(f"Read {len(macro_sets)} distinct build configurations from {args.metadata}")
-        aggregator.mark_unbuilt(macro_sets)
+    records = build_records(args.metadata)
+    if records:
+        print(f"Read {len(records)} build records ({len(distinct(r['macros'] for r in records))} "
+              f"distinct build configurations) from {args.metadata}")
+        aggregator.mark_unbuilt(records)
     else:
         print("No build metadata given: never-compiled lines will be reported as not executable.",
               file=sys.stderr)
