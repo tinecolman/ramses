@@ -112,8 +112,8 @@ THIS_BRANCH=$(git rev-parse --abbrev-ref HEAD);
 THIS_BRANCH_TAG=$(echo "${THIS_BRANCH}" | tr '/' '-');
 # When this run started (UTC), to name its log and PDF in the coverage dir
 RUN_STAMP=$(date -u +%Y-%m-%d_%H-%M-%S);
-# Per-test build/run records, one file per test, kept with each test's gcov
-# files and assembled into coverage_metadata.txt at the end
+# Per-test build/run records, one file per test, kept in build_records/ of
+# the coverage dir and assembled into coverage_metadata.txt at the end
 RECORDS_TMP=$(mktemp -d);
 echo > $LOGFILE;
 if [ ${MPI} -eq 1 ]; then
@@ -620,14 +620,16 @@ if ${COVERAGE} ; then
    # same commit are kept, and a test that is run again replaces its old data.
    if [ -d "${COVERAGE_DIR}/gcov_per_test" ] ; then
       echo "Adding to the coverage of earlier runs in tests/${COVERAGE_DIR}" | tee -a $LOGFILE;
-      cp -r "${COVERAGE_DIR}/gcov_per_test" coverage/;
+      cp -r "${COVERAGE_DIR}/gcov_per_test" "${COVERAGE_DIR}/build_records" coverage/ 2>/dev/null;
       cp "${COVERAGE_DIR}"/test_results*.pdf "${COVERAGE_DIR}"/test_suite*.log coverage/ 2>/dev/null;
    elif [ -d "${COVERAGE_DIR}" ] ; then
       echo "tests/${COVERAGE_DIR} has no per-test gcov files to add to: replacing it" | tee -a $LOGFILE;
    fi
 
-   # Collect each test's .gcov files and build record in a directory
-   # <category>_<testname>. The aggregator labels each test by this name.
+   # Collect each test's .gcov files in a directory <category>_<testname>, and
+   # its build record in build_records/<category>_<testname>.txt. The
+   # aggregator labels each test by this name.
+   mkdir -p coverage/build_records;
    for ((i=0;i<$ntests;i++)); do
       n=${testnum[i]};
       label=${testname[n]//\//_};
@@ -635,7 +637,7 @@ if ${COVERAGE} ; then
          rm -rf coverage/gcov_per_test/${label};
          mkdir -p coverage/gcov_per_test/${label};
          cp ${TEST_DIRECTORY}/${testname[n]}/*.gcov coverage/gcov_per_test/${label}/;
-         cp ${RECORDS_TMP}/${label}.txt coverage/gcov_per_test/${label}/build_record.txt;
+         cp ${RECORDS_TMP}/${label}.txt coverage/build_records/${label}.txt;
       fi
    done
    rm -rf ${RECORDS_TMP};
@@ -656,7 +658,7 @@ if ${COVERAGE} ; then
      echo "";
      echo "# One record per test. The tests may come from several runs, see their date.";
      echo "";
-     cat coverage/gcov_per_test/*/build_record.txt 2>/dev/null;
+     cat coverage/build_records/*.txt 2>/dev/null;
    } > ${COVERAGE_METADATA};
 
    if python3 multi_gcov_aggregator.py coverage/gcov_per_test/*/ coverage --metadata ${COVERAGE_METADATA} ; then
