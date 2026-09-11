@@ -110,8 +110,11 @@ THIS_COMMIT_DATE=$(git log -1 --format=%cd --date=format:%Y-%m-%d);
 THIS_BRANCH=$(git rev-parse --abbrev-ref HEAD);
 # branch names may contain "/" -- flatten for use in a directory name
 THIS_BRANCH_TAG=$(echo "${THIS_BRANCH}" | tr '/' '-');
-# Per-test build/run records, assembled into coverage_metadata.txt at the end
-METADATA_TMP=$(mktemp);
+# When this run started (UTC), to name its log and PDF in the coverage dir
+RUN_STAMP=$(date -u +%Y-%m-%d_%H-%M-%S);
+# Per-test build/run records, one file per test, kept with each test's gcov
+# files and assembled into coverage_metadata.txt at the end
+RECORDS_TMP=$(mktemp -d);
 echo > $LOGFILE;
 if [ ${MPI} -eq 1 ]; then
    RUN_TEST_BASE="mpirun -np ${NCPU} ${BIN_DIRECTORY}/${EXECNAME}";
@@ -364,6 +367,7 @@ for ((i=0;i<$ntests;i++)); do
       TEST_DEFINES=$(make EXEC=${EXECNAME} MPI=${MPI} GCOV=${GCOV} ${FLAGS} print-FFLAGS_BASE 2>/dev/null | grep -o -- '-D[^[:space:]]*' | paste -sd' ');
       {
         echo "test    : ${testname[n]}";
+        echo "  date    : $(date -u +%Y-%m-%dT%H:%M:%SZ)";
         echo "  ndim    : ${ndim}";
         echo "  flags   : ${FLAGS}";
         echo "  defines : ${TEST_DEFINES}";
@@ -371,7 +375,7 @@ for ((i=0;i<$ntests;i++)); do
         echo "  ncpu    : ${NCPU}";
         echo "  restart : ${DO_RESTART}";
         echo "  omp_threads : ${OMP_NUM_THREADS:-unset}";
-      } >> ${METADATA_TMP};
+      } > ${RECORDS_TMP}/${testname[n]//\//_}.txt;
    fi
    # if [ ${MPI} -eq 1 ]; then
    #    MAKESTRING="${MAKESTRING} -j ${NCPU}";
@@ -609,67 +613,85 @@ if ${COVERAGE} ; then
    rm -rf coverage
    mkdir coverage
 
+   # Name the directory after the branch and commit it measured
+   COVERAGE_DIR="coverage_${THIS_BRANCH_TAG}_${THIS_COMMIT_DATE}_${THIS_COMMIT_SHORT}";
+
+   # Coverage can be collected in batches: the tests of earlier runs on the
+   # same commit are kept, and a test that is run again replaces its old data.
+   if [ -d "${COVERAGE_DIR}/gcov_per_test" ] ; then
+      echo "Adding to the coverage of earlier runs in tests/${COVERAGE_DIR}" | tee -a $LOGFILE;
+      cp -r "${COVERAGE_DIR}/gcov_per_test" coverage/;
+      cp "${COVERAGE_DIR}"/test_results*.pdf "${COVERAGE_DIR}"/test_suite*.log coverage/ 2>/dev/null;
+   elif [ -d "${COVERAGE_DIR}" ] ; then
+      echo "tests/${COVERAGE_DIR} has no per-test gcov files to add to: replacing it" | tee -a $LOGFILE;
+   fi
+
+   # Collect each test's .gcov files and build record in a directory
+   # <category>_<testname>. The aggregator labels each test by this name.
+   for ((i=0;i<$ntests;i++)); do
+      n=${testnum[i]};
+      label=${testname[n]//\//_};
+      if ls ${TEST_DIRECTORY}/${testname[n]}/*.gcov > /dev/null 2>&1 ; then
+         rm -rf coverage/gcov_per_test/${label};
+         mkdir -p coverage/gcov_per_test/${label};
+         cp ${TEST_DIRECTORY}/${testname[n]}/*.gcov coverage/gcov_per_test/${label}/;
+         cp ${RECORDS_TMP}/${label}.txt coverage/gcov_per_test/${label}/build_record.txt;
+      fi
+   done
+   rm -rf ${RECORDS_TMP};
+
    # Write metadata (needed by aggregator)
    COVERAGE_METADATA="coverage/coverage_metadata.txt";
    {
      echo "# How this coverage run was produced.";
      echo "";
-     echo "date          : $(date -u +%Y-%m-%dT%H:%M:%SZ)";
      echo "branch        : ${THIS_BRANCH}";
      echo "commit        : ${THIS_COMMIT}";
      echo "commit_short  : ${THIS_COMMIT_SHORT}";
      echo "commit_date   : ${THIS_COMMIT_DATE}";
      echo "repository    : ${GIT_URL}";
-     echo "ntests        : ${ntests}";
-     echo "mpi           : ${MPI}";
-     echo "ncpu          : ${NCPU}";
-     echo "restart_mode  : ${RESTART_MODE}";
-     echo "omp_threads   : ${OMP_NUM_THREADS:-unset}";
+     echo "ntests        : $(ls -d coverage/gcov_per_test/*/ 2>/dev/null | wc -l)";
      echo "gcov          : $(gcov --version 2>/dev/null | head -1)";
      echo "compiler      : $(${F90:-gfortran} --version 2>/dev/null | head -1)";
      echo "";
-     echo "# One record per test, in the order they ran.";
+     echo "# One record per test. The tests may come from several runs, see their date.";
      echo "";
-     cat ${METADATA_TMP};
+     cat coverage/gcov_per_test/*/build_record.txt 2>/dev/null;
    } > ${COVERAGE_METADATA};
-   rm -f ${METADATA_TMP};
 
-   # Collect each test's .gcov files in a directory <category>_<testname>
-   # The aggregator labels each test by this directory name.
-   PER_TEST_DIRS="";
-   for ((i=0;i<$ntests;i++)); do
-      n=${testnum[i]};
-      label=${testname[n]//\//_};
-      if ls ${TEST_DIRECTORY}/${testname[n]}/*.gcov > /dev/null 2>&1 ; then
-         mkdir -p coverage/gcov_per_test/${label};
-         cp ${TEST_DIRECTORY}/${testname[n]}/*.gcov coverage/gcov_per_test/${label}/;
-         PER_TEST_DIRS="${PER_TEST_DIRS} coverage/gcov_per_test/${label}";
-      fi
-   done
+   if python3 multi_gcov_aggregator.py coverage/gcov_per_test/*/ coverage --metadata ${COVERAGE_METADATA} ; then
+      aggregated=true;
+   else
+      aggregated=false;
+      echo "Coverage aggregation failed: tests/${COVERAGE_DIR} is left unchanged," | tee -a $LOGFILE;
+      echo "the data of this run is in tests/coverage" | tee -a $LOGFILE;
+   fi
 
-   python3 multi_gcov_aggregator.py ${PER_TEST_DIRS} coverage --metadata ${COVERAGE_METADATA};
-
-   # Keep each test's own .gcov files, to be able to regenerate report later
+   # Keep each test's own .gcov files, to be able to regenerate the report
+   # later and to add later runs on the same commit to it
    KEEP_PER_TEST_GCOV=true;
-   if ${KEEP_PER_TEST_GCOV} ; then
+   if ${aggregated} && ${KEEP_PER_TEST_GCOV} ; then
       echo "Kept per-test gcov files in coverage/gcov_per_test. To rebuild the" | tee -a $LOGFILE;
       echo "reports without re-running the tests:" | tee -a $LOGFILE;
       echo "  python3 multi_gcov_aggregator.py <dir>/gcov_per_test/*/ <outdir> \\" | tee -a $LOGFILE;
       echo "      --metadata <dir>/coverage_metadata.txt" | tee -a $LOGFILE;
-   else
+   elif ${aggregated} ; then
       rm -rf coverage/gcov_per_test;
    fi
 
-   # Move test PDF to coverage dir, to keep everything together
+   # Move test PDF to coverage dir, to keep everything together. Each run
+   # gets its own, since a directory can collect several runs.
    if [ -f "${TEST_DIRECTORY}/test_results.pdf" ]; then
-      mv "${TEST_DIRECTORY}/test_results.pdf" coverage/;
+      mv "${TEST_DIRECTORY}/test_results.pdf" coverage/test_results_${RUN_STAMP}.pdf;
    fi
 
-   # Name the directory after the branch and commit it measured
-   COVERAGE_DIR="coverage_${THIS_BRANCH_TAG}_${THIS_COMMIT_DATE}_${THIS_COMMIT_SHORT}";
-   rm -rf "${COVERAGE_DIR}";
-   mv coverage "${COVERAGE_DIR}";
-   echo "Coverage results collected in tests/${COVERAGE_DIR}" | tee -a $LOGFILE;
+   if ${aggregated} ; then
+      rm -rf "${COVERAGE_DIR}";
+      mv coverage "${COVERAGE_DIR}";
+      echo "Coverage results collected in tests/${COVERAGE_DIR}" | tee -a $LOGFILE;
+   else
+      COVERAGE_DIR="coverage";
+   fi
 fi
 
 #######################################################################
@@ -701,9 +723,10 @@ if ${DELDATA} ; then
    rm -f ${EXECNAME}*d;
 fi
 
-# Move test log to coverage dir, now that it is complete
+# Copy test log to coverage dir, now that it is complete. Like the PDF, each
+# run gets its own.
 if ${COVERAGE} && [ -d "${TEST_DIRECTORY}/${COVERAGE_DIR}" ] ; then
-   cp "${LOGFILE}" "${TEST_DIRECTORY}/${COVERAGE_DIR}/test_suite.log";
+   cp "${LOGFILE}" "${TEST_DIRECTORY}/${COVERAGE_DIR}/test_suite_${RUN_STAMP}.log";
 fi
 
 if $all_tests_ok ; then
