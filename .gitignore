@@ -35,4 +35,3 @@ tests/coverage_*/*
 *.log
 # IDEs files
 .vscode
-
