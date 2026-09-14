@@ -134,6 +134,28 @@ def main():
     # written by derive_coverage.py from a coverage run
     COV_KEYS = {"pct", "covered", "total", "notbuilt", "status", "na", "note"}
     COV_STATUS = {"not_measured"}
+    # not yet collected; documented in the header of inventory.yaml so that
+    # whoever fills them has a target. The page renders a dimension only once
+    # it has data, so declaring the keys here costs nothing until then.
+    BENCH_KEYS = {"pct", "covered", "total", "benchmarks", "na", "note"}
+    DOCS_KEYS = {"state", "header", "lecture", "na", "note"}
+    DOCS_STATES = {"documented", "partial", "undocumented"}
+
+    # ---- feature-level metadata (lecture / summary) ----
+    lecture_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "..", "dev_docs", "lecture")
+    for feat in inv["features"]:
+        fid = feat["id"]
+        if not (feat.get("summary") or "").strip():
+            errors.append(f"{fid}: no summary")
+        lec = feat.get("lecture")
+        if not lec:
+            errors.append(f"{fid}: no lecture (use `none` for a documentation gap)")
+        elif lec != "none":
+            for f in lec.split():
+                if not os.path.isfile(os.path.join(lecture_dir, f)):
+                    errors.append(f"{fid}: lecture: no such file: "
+                                  f"doc/dev_docs/lecture/{f}")
     # a caller name resolves to a definition in the same file when there is one
     # (Fortran contained/module scoping), else to every definition of that name
     by_name = {}
@@ -193,6 +215,16 @@ def main():
                     for k in omp:
                         if k not in OMP_KEYS:
                             errors.append(f"{tag}: {n} has unknown omp key {k!r}")
+                bench = r.get("benchmark") or {}
+                for k in bench:
+                    if k not in BENCH_KEYS:
+                        errors.append(f"{tag}: {n} has unknown benchmark key {k!r}")
+                docs = r.get("docs") or {}
+                for k in docs:
+                    if k not in DOCS_KEYS:
+                        errors.append(f"{tag}: {n} has unknown docs key {k!r}")
+                if docs.get("state") and docs["state"] not in DOCS_STATES:
+                    errors.append(f"{tag}: {n} has docs state {docs['state']!r}")
                 cov = r.get("coverage") or {}
                 if cov:
                     for k in cov:

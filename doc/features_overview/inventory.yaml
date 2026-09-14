@@ -73,6 +73,56 @@ coverage_from: coverage_features_overview_2026-09-10_7b6d29b8
 #                      the area progress figure
 #            verified  a human confirmed the derived state
 #            note      free text
+#
+#   The status dimensions. Each is an optional mapping on a routine, and the
+#   page renders a column, a header bar, a legend entry and a filter for every
+#   one that has data somewhere in this file. A dimension with no data anywhere
+#   is not rendered at all, so a new one costs one entry in DIMS in
+#   page/tail.part and nothing else.
+#
+#   coverage  test coverage of the routine's own lines, written by
+#             derive_coverage.py from the run named in coverage_from at the top
+#             of this file. Lines behind a preprocessor directive that no build
+#             enabled count as uncovered, because RAMSES is recompiled to switch
+#             a physics module on.
+#               pct covered total notbuilt   the figures
+#               status  not_measured, with note saying why
+#               na      why coverage does not apply here
+#
+#   benchmark NOT YET COLLECTED. Same shape as coverage, for the benchmark
+#             suite rather than the test suite: which routines any benchmark
+#             actually exercises.
+#               pct covered total   the figures
+#               benchmarks          the benchmark names that reach it
+#               na / note           as for coverage
+#
+#   docs      NOT YET COLLECTED. Whether the routine carries enough
+#             documentation to be worked on by someone who did not write it.
+#               state   documented | partial | undocumented
+#               header  the routine has a header comment block
+#               lecture the lecture file that covers it, if any
+#               note    free text
+#
+# Per feature:
+#   lecture   space-separated file names under doc/dev_docs/lecture/ that cover
+#             this feature, or `none`. `none` marks a real documentation gap.
+#   summary   one or two sentences: what this part of the code does. Drafted
+#             from the lectures and the wiki, corrected by review.
+#   review    present while this feature is being worked through in the current
+#             review pass; the text says which pass. Also accepted on an area
+#             and on a routine, so a pass can narrow as it goes. The page's
+#             "Under review" filter shows exactly what carries it, at any of
+#             the three levels. Remove it when the pass is finished -- unlike
+#             `todo` it is not a standing note, it is where we are right now.
+#
+#   Features are listed in the order a run reaches them, and are deliberately
+#   not grouped under headings. A top-level split was tried -- first
+#   physics / numerics / analysis / infrastructure, then the four toctree
+#   captions of doc/dev_docs/lecture/lectures.rst -- and taken out again both
+#   times: the code does not partition that way, and the headings read as
+#   claims that it does. The clump finder is used by sink formation; the
+#   coupling a grouping cannot express is derived from `callers` and shown on
+#   each feature instead.
 
 # Standing tasks, carried between review passes.
 open_tasks:
@@ -100,7 +150,13 @@ version: 1
 
 features:
   - id: amr_core
-    title: "AMR core, grid driver and utilities"
+    title: "Program core"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; pass started 2026-09-14
+    lecture: general.rst parameters.rst output.rst
+    summary: >-
+      Top level orchestration of the code.
     modules:          # declaration-only modules owned by this feature
       - amr/amr_commons.f90
       - amr/amr_constants.f90
@@ -108,15 +164,64 @@ features:
       - amr/constants.f90
       - amr/mpi_mod.f90
     areas:
-      - id: main_loop
-        title: main time-step driver
-        note: "Top-level orchestration; amr_step dispatches into every other feature."
+      - id: setup
+        title: Simulation setup
         routines:
+          - file: amr/read_params.f90
+            name: read_params
+            phase: params
+            role: driver
+            scope: feature
+            depth: 1
+            driver: program
+            callers: [program]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 55.8
+              covered: 86
+              total: 154
+              notbuilt: 45
+          - file: amr/read_params.f90
+            name: read_run_params
+            phase: params
+            role: private
+            scope: area
+            depth: 2
+            callers: [read_params]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 66.7
+              covered: 14
+              total: 21
+          - file: amr/read_params.f90
+            name: read_output_params
+            phase: params
+            role: private
+            scope: area
+            depth: 2
+            callers: [read_params]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 65.0
+              covered: 26
+              total: 40
           - file: amr/ramses.f90
             name: initialize_mpi
             phase: init
             role: driver
-            scope: area
+            scope: feature
             depth: 1
             driver: program
             callers: [program]
@@ -129,71 +234,190 @@ features:
               covered: 5
               total: 7
               notbuilt: 2
-          - file: amr/ramses.f90
-            name: set_signal_handler
+          - file: amr/init_time.f90
+            name: init_time
             phase: init
             role: driver
-            scope: area
-            depth: 1
-            driver: program
-            callers: [program]
+            scope: feature
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
             omp:
               state: unthreaded
               progress: na
+              recorded: "-"
+              note: nothing to do
             coverage:
-              pct: 33.3
-              covered: 2
+              pct: 22.7
+              covered: 42
+              total: 185
+              notbuilt: 138
+      - id: expansion
+        title: expansion history and growth factors
+        routines:
+          - file: amr/update_time.f90
+            name: getProperTime
+            phase: init
+            role: private
+            scope: global
+            depth: 3
+            callers: [init_part]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 8
+          - file: amr/init_time.f90
+            name: init_cosmo
+            phase: init
+            role: private
+            scope: feature
+            depth: 3
+            callers: [init_time]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 50.9
+              covered: 54
+              total: 106
+          - file: amr/init_time.f90
+            name: init_file
+            phase: init
+            role: private
+            scope: feature
+            depth: 3
+            callers: [init_time]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 71.4
+              covered: 30
+              total: 42
+          - file: amr/init_time.f90
+            name: friedman
+            phase: init
+            role: private
+            scope: feature
+            depth: 3
+            callers: [init_time]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 89.1
+              covered: 49
+              total: 55
+          - file: amr/init_time.f90
+            name: dadtau
+            phase: init
+            role: private
+            scope: area
+            depth: 4
+            callers: [friedman]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 100.0
+              covered: 4
+              total: 4
+          - file: amr/init_time.f90
+            name: dadt
+            phase: init
+            role: private
+            scope: area
+            depth: 4
+            callers: [friedman]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 100.0
+              covered: 4
+              total: 4
+          - file: amr/init_time.f90
+            name: d1a
+            phase: init
+            role: private
+            scope: area
+            depth: 4
+            callers: [init_cosmo]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 66.7
+              covered: 8
+              total: 12
+          - file: amr/init_time.f90
+            name: fpeebl
+            phase: init
+            role: private
+            scope: area
+            depth: 4
+            callers: [init_cosmo]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 100.0
+              covered: 6
               total: 6
-              notbuilt: 4
-          - file: amr/init_amr.f90
-            name: init_amr
+          - file: amr/init_time.f90
+            name: rombint
             phase: init
-            role: driver
+            role: shared
             scope: area
-            depth: 2
-            driver: adaptive_loop
-            callers: [adaptive_loop]
+            depth: 5
+            callers: [d1a, fpeebl]
             omp:
               state: unthreaded
               progress: na
-              recorded: "todo"
-              disagrees: true
-              note: assignement after reading restart could be openmp
+              recorded: "-"
+              note: nothing to do
             coverage:
-              pct: 74.4
-              covered: 238
-              total: 320
-              notbuilt: 12
-          - file: amr/init_refine.f90
-            name: init_refine
+              pct: 96.8
+              covered: 30
+              total: 31
+          - file: amr/init_time.f90
+            name: fy
             phase: init
-            role: driver
+            role: shared
             scope: area
-            depth: 2
-            driver: adaptive_loop
-            callers: [adaptive_loop]
+            depth: 5
+            callers: [fpeebl, rombint]
             omp:
               state: unthreaded
               progress: na
+              recorded: "-"
+              note: nothing to do
             coverage:
               pct: 100.0
-              covered: 18
-              total: 18
-          - file: amr/init_refine.f90
-            name: init_refine_2
-            phase: init
-            role: driver
-            scope: area
-            depth: 2
-            driver: adaptive_loop
-            callers: [adaptive_loop]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 71
-              total: 71
+              covered: 4
+              total: 4
+      - id: main_loop
+        title: main time-step driver
+        routines:
           - file: amr/adaptive_loop.f90
             name: adaptive_loop
             phase: step
@@ -241,6 +465,64 @@ features:
               pct: 100.0
               covered: 29
               total: 29
+          - file: amr/update_time.f90
+            name: update_time
+            phase: step
+            role: driver
+            scope: area
+            depth: 3
+            driver: amr_step
+            callers: [amr_step]
+            omp:
+              state: unthreaded
+              progress: done
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 95.3
+              covered: 61
+              total: 64
+      - id: time_step
+        title: determine the time step
+        routines:
+          - file: pm/newdt_fine.f90
+            name: newdt_fine
+            phase: step
+            role: driver
+            scope: feature
+            depth: 3
+            driver: amr_step
+            callers: [amr_step]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 74.4
+              covered: 64
+              total: 86
+              notbuilt: 6
+      - id: output
+        title: write simulation snapshot
+        routines:
+          - file: amr/ramses.f90
+            name: set_signal_handler
+            phase: init
+            role: driver
+            scope: feature
+            depth: 1
+            driver: program
+            callers: [program]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 33.3
+              covered: 2
+              total: 6
+              notbuilt: 4
           - file: amr/ramses.f90
             name: output_signal
             phase: output
@@ -255,298 +537,6 @@ features:
               pct: 0.0
               covered: 0
               total: 3
-      - id: grid_setup
-        title: AMR grid setup
-        routines:
-          - file: amr/read_params.f90
-            name: read_params
-            phase: params
-            role: driver
-            scope: feature
-            depth: 1
-            driver: program
-            callers: [program]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 55.8
-              covered: 86
-              total: 154
-              notbuilt: 45
-          - file: amr/read_params.f90
-            name: read_run_params
-            phase: params
-            role: private
-            scope: area
-            depth: 2
-            callers: [read_params]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 66.7
-              covered: 14
-              total: 21
-          - file: amr/read_params.f90
-            name: read_amr_params
-            phase: params
-            role: private
-            scope: area
-            depth: 2
-            callers: [read_params]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 50.0
-              covered: 17
-              total: 34
-          - file: amr/read_params.f90
-            name: read_output_params
-            phase: params
-            role: private
-            scope: area
-            depth: 2
-            callers: [read_params]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 65.0
-              covered: 26
-              total: 40
-      - id: units
-        title: unit scalings
-        routines:
-          - file: amr/units.f90
-            name: units
-            phase: any
-            role: shared
-            scope: global
-            depth: 3
-            callers: [accrete_sink, add_uv_background, ana_disk_potential_condinit, average_sn, backup_amr, calc_equilibrium_xion, calc_stellar_mass_params, collapse_condinit, collapse_jeans_length_refine, compute_accretion_rate, compute_clump_properties_round2, coolfine1, create_cloud_from_sink, dice_init_uold, feedbk, flag_formation_sites, getagegyr, getagesec, gravana, heat_unresolved_hii_regions_vsweep, init_flow_fine, init_gas_cic, init_sink, init_time, kinetic_feedback, load_dice, make_sink_from_clump, make_sn_stellar, output_frame, output_info, output_rt_stats, print_sink_properties, print_stellar_properties, read_clumpfind_params, read_sink_params, read_stellar_params, rho_ana, rt_init_flow_fine, rt_init_xion_vsweep, rt_region_condinit, rt_sources_vsweep, rt_units, sedov_blast, sink_rt_vsweep_stellar, star_formation, star_rt_vsweep, trim_clumps, update_rt_c, update_sink, userflag_fine]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 100.0
-              covered: 10
-              total: 10
-      - id: shutdown
-        title: clean shutdown and deallocation
-        routines:
-          - file: amr/end.f90
-            name: clean_stop
-            phase: finalise
-            role: shared
-            scope: global
-            depth: 2
-            callers: [backup_part, barotropic_eos_temperature, cic_get_cells, cmp_eddington_tensor, cmp_flux_tensors, cmp_mag_flx, create_cloud_from_sink, create_stellar, d1a, friedman, gather_ioni_flux, get_cell_index, hilbert2d, hilbert3d, "hydro/interpol_hydro.f90::interpol_hydro", "hydro/umuscl.f90::uslope", init_amr, init_cosmo, init_file, init_flow_fine, init_hydro, init_part, init_poisson, init_refmap_fine, init_sed_table, init_time, init_tree, init_uv_background, inp_1d, inp_sed_table, integratespectrum, interpol_phi, load_ascii, load_dice, load_gadget, load_grafic, make_sink_from_clump, make_sn_stellar, "mhd/umuscl.f90::cmpflxm", "mhd/umuscl.f90::uslope", read_amr_params, read_clumpfind_params, read_hll_eigenvalues, read_hydro_params, read_params, read_progenitor_data, read_sink_params, read_stellar_params, read_turb_fields, read_unbinding_params, rebin_log, remove_free, rt_init, rt_init_flow_fine, rt_init_hydro, savegadget, tsc_only, uslope_mag]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 6
-          - file: amr/end.f90
-            name: deallocate_amr
-            phase: finalise
-            role: shared
-            scope: area
-            depth: 3
-            callers: [clean_end, clean_stop]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 97.1
-              covered: 33
-              total: 34
-              notbuilt: 1
-          - file: amr/end.f90
-            name: deallocate_pm
-            phase: finalise
-            role: shared
-            scope: area
-            depth: 3
-            callers: [clean_end, clean_stop]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 100.0
-              covered: 12
-              total: 12
-          - file: amr/end.f90
-            name: deallocate_poisson
-            phase: finalise
-            role: shared
-            scope: area
-            depth: 3
-            callers: [clean_end, clean_stop]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 100.0
-              covered: 9
-              total: 9
-          - file: amr/end.f90
-            name: clean_end
-            phase: finalise
-            role: shared
-            scope: global
-            depth: 4
-            callers: [load_tracers_bin_v1, load_tracers_bin_v2, update_time]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 7
-              total: 7
-      - id: dump_helpers
-        title: typed dump helpers
-        routines:
-          - file: io/dump_utils.f90
-            name: dump_header_info
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 3
-              total: 3
-          - file: io/dump_utils.f90
-            name: int16dump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 5
-          - file: io/dump_utils.f90
-            name: int32dump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 5
-              total: 5
-          - file: io/dump_utils.f90
-            name: int64dump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 5
-          - file: io/dump_utils.f90
-            name: int8dump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 5
-              total: 5
-          - file: io/dump_utils.f90
-            name: logicaldump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 5
-          - file: io/dump_utils.f90
-            name: real32dump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 5
-          - file: io/dump_utils.f90
-            name: real64dump
-            phase: output
-            role: shared
-            scope: global
-            depth: 5
-            callers: [backup_hydro, backup_part, rt_backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 5
-              total: 5
-          - file: io/dump_utils.f90
-            name: dump_var_info
-            phase: output
-            role: shared
-            scope: area
-            depth: 6
-            callers: [int16dump, int32dump, int64dump, int8dump, logicaldump, real32dump, real64dump]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 2
-              total: 2
-      - id: output
-        title: AMR grid output
-        routines:
           - file: amr/output_amr.f90
             name: dump_all
             phase: output
@@ -612,340 +602,117 @@ features:
               covered: 37
               total: 43
               notbuilt: 1
-          - file: amr/output_amr.f90
-            name: backup_amr
-            phase: output
-            role: private
-            scope: area
+      - id: shutdown
+        title: program termination
+        routines:
+          - file: amr/end.f90
+            name: clean_stop
+            phase: finalise
+            role: shared
+            scope: global
+            depth: 2
+            callers: [backup_part, barotropic_eos_temperature, cic_get_cells, cmp_eddington_tensor, cmp_flux_tensors, cmp_mag_flx, create_cloud_from_sink, create_stellar, d1a, friedman, gather_ioni_flux, get_cell_index, hilbert2d, hilbert3d, "hydro/interpol_hydro.f90::interpol_hydro", "hydro/umuscl.f90::uslope", init_amr, init_cosmo, init_file, init_flow_fine, init_hydro, init_part, init_poisson, init_refmap_fine, init_sed_table, init_time, init_tree, init_uv_background, inp_1d, inp_sed_table, integratespectrum, interpol_phi, load_ascii, load_dice, load_gadget, load_grafic, make_sink_from_clump, make_sn_stellar, "mhd/umuscl.f90::cmpflxm", "mhd/umuscl.f90::uslope", read_amr_params, read_clumpfind_params, read_hll_eigenvalues, read_hydro_params, read_params, read_progenitor_data, read_sink_params, read_stellar_params, read_turb_fields, read_unbinding_params, rebin_log, remove_free, rt_init, rt_init_flow_fine, rt_init_hydro, savegadget, tsc_only, uslope_mag]
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 6
+          - file: amr/end.f90
+            name: clean_end
+            phase: finalise
+            role: shared
+            scope: global
             depth: 4
-            callers: [dump_all]
+            callers: [load_tracers_bin_v1, load_tracers_bin_v2, update_time]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 7
+              total: 7
+  - id: mesh
+    title: "Mesh data structures"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; pass started 2026-09-14
+    lecture: refinement.rst amr.rst
+    summary: >-
+      Management of the AMR grid: refinement/de-refinement, neighbor searching
+      and book-keeping
+    areas:
+      - id: setup
+        title: AMR grid setup
+        routines:
+          - file: amr/read_params.f90
+            name: read_amr_params
+            phase: params
+            role: private
+            scope: global
+            depth: 2
+            callers: [read_params]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 50.0
+              covered: 17
+              total: 34
+          - file: amr/init_amr.f90
+            name: init_amr
+            phase: init
+            role: driver
+            scope: global
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
             omp:
               state: unthreaded
               progress: na
               recorded: "todo"
               disagrees: true
-              note: gathering can be openmp-ized?
+              note: assignement after reading restart could be openmp
             coverage:
-              pct: 91.1
-              covered: 102
-              total: 112
-          - file: amr/output_amr.f90
-            name: savegadget
-            phase: output
-            role: private
-            scope: area
-            depth: 4
-            callers: [dump_all]
+              pct: 74.4
+              covered: 238
+              total: 320
+              notbuilt: 12
+          - file: amr/init_refine.f90
+            name: init_refine
+            phase: init
+            role: driver
+            scope: global
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
             omp:
               state: unthreaded
               progress: na
-              recorded: "-"
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 48
-              notbuilt: 4
-  - id: domains
-    title: "Domain decomposition, load balancing and communication"
-    areas:
-      - id: load_balancing
-        title: load balancing
-        note: "Working. Can be improved?"
-        routines:
-          - file: amr/load_balance.f90
-            name: cmp_minmaxorder
-            phase: step
-            role: shared
-            scope: global
-            depth: 3
-            callers: [authorize_fine, cmp_new_cpu_map, init_amr]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 36.1
-              covered: 26
-              total: 72
-              notbuilt: 1
-          - file: amr/bisection.f90
-            name: build_bisection
-            phase: step
-            role: shared
-            scope: global
-            depth: 3
-            callers: [cmp_new_cpu_map, init_amr]
-            omp:
-              state: unthreaded
-              progress: todo
-              recorded: "-"
-              note: code not supported
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 158
-              notbuilt: 4
-          - file: amr/load_balance.f90
-            name: cmp_cpumap
-            phase: step
-            role: shared
-            scope: global
-            depth: 3
-            callers: [create_cloud_from_sink, flag_formation_sites, init_amr, load_ascii, load_dice, load_gadget, load_grafic, load_tracers, load_tracers_bin_v1, load_tracers_bin_v2, make_grid_coarse, make_grid_fine]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 90.9
-              covered: 10
-              total: 11
-          - file: amr/load_balance.f90
-            name: load_balance
-            phase: step
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step, init_refine, init_refine_2]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              recorded: "yes"
-            coverage:
-              pct: 90.0
-              covered: 126
-              total: 140
-              notbuilt: 2
-          - file: amr/load_balance.f90
-            name: defrag
-            phase: step
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 2
-              sync: 2
-              recorded: "yes"
-            coverage:
-              pct: 84.6
-              covered: 330
-              total: 390
-          - file: amr/hilbert.f90
-            name: hilbert1d
-            phase: step
-            role: shared
-            scope: area
-            depth: 4
-            callers: [cmp_minmaxorder, cmp_ordering]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 75.0
-              covered: 3
-              total: 4
-              notbuilt: 1
-          - file: amr/hilbert.f90
-            name: hilbert2d
-            phase: step
-            role: shared
-            scope: area
-            depth: 4
-            callers: [cmp_minmaxorder, cmp_ordering]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 86.7
-              covered: 26
-              total: 30
-              notbuilt: 1
-          - file: amr/hilbert.f90
-            name: hilbert3d
-            phase: step
-            role: shared
-            scope: area
-            depth: 4
-            callers: [cmp_minmaxorder, cmp_ordering]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 88.2
-              covered: 30
-              total: 34
-              notbuilt: 1
-          - file: amr/bisection.f90
-            name: init_bisection_histogram
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [build_bisection]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "-"
-              note: code not supported
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 45
-              notbuilt: 1
-          - file: amr/bisection.f90
-            name: build_bisection_histogram
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [build_bisection]
-            omp:
-              state: unthreaded
-              progress: todo
-              recorded: "-"
-              note: code not supported
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 28
-          - file: amr/bisection.f90
-            name: round_to_bisec_res
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [build_bisection]
-            omp:
-              state: unthreaded
-              progress: todo
-              recorded: "-"
-              note: code not supported
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 2
-          - file: amr/bisection.f90
-            name: splitsort_bisection_histogram
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [build_bisection]
-            omp:
-              state: unthreaded
-              progress: todo
-              recorded: "-"
-              note: code not supported
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 33
-          - file: amr/load_balance.f90
-            name: cmp_ordering
-            phase: step
-            role: shared
-            scope: area
-            depth: 4
-            callers: [cmp_cpumap, cmp_cpumap_modified, cmp_dommap, cmp_new_cpu_map]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 54.3
-              covered: 19
-              total: 35
-              notbuilt: 1
-          - file: amr/bisection.f90
-            name: cmp_bisection_cpumap
-            phase: step
-            role: shared
-            scope: area
-            depth: 4
-            callers: [cmp_cpumap, cmp_cpumap_modified, cmp_new_cpu_map]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-              note: code not supported
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 9
-          - file: amr/load_balance.f90
-            name: cmp_new_cpu_map
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [load_balance]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 2
-              threadprivate: 1
-              sync: 3
-              recorded: "yes"
-            coverage:
-              pct: 85.3
-              covered: 157
-              total: 184
-              notbuilt: 5
-          - file: amr/load_balance.f90
-            name: cmp_cpumap_modified
-            phase: step
-            role: private
-            scope: global
-            depth: 4
-            callers: [create_cloud_from_sink]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 24
-          - file: amr/load_balance.f90
-            name: cmp_dommap
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [cmp_new_cpu_map]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
             coverage:
               pct: 100.0
-              covered: 7
-              total: 7
-      - id: boundary_setup
-        title: physical boundary bookkeeping
+              covered: 18
+              total: 18
+          - file: amr/init_refine.f90
+            name: init_refine_2
+            phase: init
+            role: driver
+            scope: global
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 71
+              total: 71
+      - id: boundaries
+        title: ghost regions outside the computational domain
         routines:
           - file: amr/physical_boundaries.f90
             name: set_boundary_references
@@ -966,7 +733,7 @@ features:
             name: make_boundary_coarse
             phase: step
             role: private
-            scope: global
+            scope: feature
             depth: 3
             callers: [flag_coarse]
             omp:
@@ -983,7 +750,7 @@ features:
             name: make_boundary_flag
             phase: step
             role: shared
-            scope: global
+            scope: feature
             depth: 4
             callers: [authorize_fine, ensure_ref_rules, init_flag, smooth_fine, userflag_fine]
             omp:
@@ -1000,7 +767,7 @@ features:
             name: init_boundary_fine
             phase: step
             role: private
-            scope: global
+            scope: feature
             depth: 4
             callers: [authorize_fine]
             omp:
@@ -1013,18 +780,14 @@ features:
               pct: 100.0
               covered: 52
               total: 52
-  - id: refinement
-    title: "Refinement: flagging, interpolation, grid linked list"
-    areas:
       - id: flagging
-        title: flagging
-        note: DONE
+        title: mark cells for refinement using a number of criteria
         routines:
           - file: amr/flag_utils.f90
             name: flag
             phase: init
             role: private
-            scope: global
+            scope: feature
             depth: 3
             callers: [init_refine]
             omp:
@@ -1038,7 +801,7 @@ features:
             name: init_refmap
             phase: init
             role: private
-            scope: global
+            scope: feature
             depth: 3
             callers: [init_refine]
             omp:
@@ -1183,26 +946,10 @@ features:
               covered: 11
               total: 11
           - file: amr/flag_utils.f90
-            name: poisson_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [userflag_fine]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-              note: called by userflag_refine
-            coverage:
-              pct: 56.5
-              covered: 13
-              total: 23
-          - file: amr/flag_utils.f90
             name: geometry_refine
             phase: step
             role: shared
-            scope: area
+            scope: global
             depth: 4
             callers: [hydro_flag, userflag_fine]
             omp:
@@ -1214,45 +961,11 @@ features:
               pct: 85.2
               covered: 23
               total: 27
-          - file: hydro/hydro_flag.f90
-            name: hydro_flag
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [userflag_fine]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 98.5
-              covered: 64
-              total: 65
-          - file: rt/rt_hydro_flag.f90
-            name: rt_hydro_flag
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [userflag_fine]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 7.5
-              covered: 4
-              total: 53
           - file: amr/flag_utils.f90
             name: count_nbors2
             phase: step
             role: shared
-            scope: global
+            scope: feature
             depth: 4
             callers: [authorize_fine, init_boundary_fine]
             omp:
@@ -1281,495 +994,14 @@ features:
               pct: 0.0
               covered: 0
               total: 112
-          - file: hydro/godunov_utils.f90
-            name: hydro_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [hydro_flag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 81.8
-              covered: 54
-              total: 66
-          - file: mhd/godunov_utils.f90
-            name: hydro_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [hydro_flag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "-"
-            coverage:
-              pct: 62.6
-              covered: 67
-              total: 107
-          - file: hydro/hydro_flag.f90
-            name: collapse_jeans_length_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [hydro_flag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 29
-          - file: hydro/hydro_flag.f90
-            name: jeans_length_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [hydro_flag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "-"
-              note: called by hydro_flag
-            coverage:
-              pct: 100.0
-              covered: 18
-              total: 18
-          - file: rt/rt_godunov_utils.f90
-            name: rt_hydro_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [rt_hydro_flag]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 7
-      - id: interpolation
-        title: interpolation
-        note: DONE
-        routines:
-          - file: hydro/interpol_hydro.f90
-            name: upload_fine
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: amr_step
-            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 25
-              total: 25
-          - file: mhd/interpol_hydro.f90
-            name: upload_fine
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: amr_step
-            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 2
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 95
-              total: 95
-          - file: rt/rt_interpol_hydro.f90
-            name: rt_upload_fine
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: rt_step
-            callers: [adaptive_loop, init_refine_2, rt_init_flow, rt_step]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 25
-              total: 25
-          - file: hydro/interpol_hydro.f90
-            name: upl
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: ["hydro/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 64.9
-              covered: 50
-              total: 77
-          - file: mhd/interpol_hydro.f90
-            name: upl
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: ["mhd/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 72.0
-              covered: 85
-              total: 118
-          - file: mhd/interpol_hydro.f90
-            name: upl_left
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: ["mhd/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 17
-              total: 17
-          - file: mhd/interpol_hydro.f90
-            name: upl_right
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: ["mhd/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 17
-              total: 17
-          - file: rt/rt_interpol_hydro.f90
-            name: rt_upl
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: [rt_upload_fine]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 13
-              total: 13
-          - file: poisson/interpol_phi.f90
-            name: save_phi_old
-            phase: step
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-            coverage:
-              pct: 100.0
-              covered: 19
-              total: 19
-          - file: hydro/interpol_hydro.f90
-            name: interpol_hydro
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 97.1
-              covered: 68
-              total: 70
-          - file: mhd/interpol_hydro.f90
-            name: interpol_hydro
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 92.2
-              covered: 71
-              total: 77
-          - file: rt/rt_interpol_hydro.f90
-            name: rt_interpol_hydro
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [make_grid_fine, rt_godfine1]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 21
-              total: 21
-          - file: hydro/interpol_hydro.f90
-            name: compute_limiter_minmod
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 100.0
-              covered: 9
-              total: 9
-          - file: hydro/interpol_hydro.f90
-            name: compute_limiter_central
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-            coverage:
-              pct: 100.0
-              covered: 60
-              total: 60
-          - file: hydro/interpol_hydro.f90
-            name: compute_central
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 100.0
-              covered: 4
-              total: 4
-          - file: mhd/interpol_hydro.f90
-            name: compute_limiter_minmod
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 9
-              total: 9
-          - file: mhd/interpol_hydro.f90
-            name: compute_limiter_central
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 60
-              total: 60
-          - file: mhd/interpol_hydro.f90
-            name: compute_central
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 4
-          - file: mhd/interpol_hydro.f90
-            name: interpol_mag
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: [diffine1, "mhd/interpol_hydro.f90::interpol_hydro"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 18
-              total: 18
-          - file: poisson/interpol_phi.f90
-            name: interpol_phi
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: [cmp_residual_cg, gradient_phi, make_fine_bc_rhs, make_initial_phi]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate
-            coverage:
-              pct: 91.2
-              covered: 31
-              total: 34
-          - file: mhd/interpol_hydro.f90
-            name: interpol_faces
-            phase: step
-            role: private
-            scope: area
-            depth: 6
-            callers: [interpol_mag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 88
-              total: 88
-          - file: mhd/interpol_hydro.f90
-            name: copy_from_refined_faces
-            phase: step
-            role: private
-            scope: area
-            depth: 6
-            callers: [interpol_mag]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 46
-              total: 46
-          - file: mhd/interpol_hydro.f90
-            name: cmp_central_faces
-            phase: step
-            role: private
-            scope: area
-            depth: 6
-            callers: [interpol_mag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 56
-              total: 56
-          - file: mhd/interpol_hydro.f90
-            name: compute_1d_tvd
-            phase: step
-            role: private
-            scope: area
-            depth: 7
-            callers: [interpol_faces]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 68.8
-              covered: 11
-              total: 16
-          - file: mhd/interpol_hydro.f90
-            name: compute_2d_tvd
-            phase: step
-            role: private
-            scope: area
-            depth: 7
-            callers: [interpol_faces]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 69.0
-              covered: 20
-              total: 29
-      - id: grid_linked_list
-        title: grid linked list
-        note: "Working, but scales bad"
+      - id: refinement
+        title: adding/removing grids from the octree
         routines:
           - file: amr/refine_utils.f90
             name: refine
             phase: init
             role: private
-            scope: global
+            scope: feature
             depth: 3
             callers: [init_refine]
             omp:
@@ -1907,97 +1139,11 @@ features:
               covered: 129
               total: 165
               notbuilt: 5
-  - id: timestepping
-    title: Time-step computation and synchronisation
-    areas:
-      - id: time_step
-        title: Time step
-        note: DONE
+      - id: memory_management
+        title: grid memory compaction
         routines:
-          - file: amr/update_time.f90
-            name: getProperTime
-            phase: init
-            role: private
-            scope: global
-            depth: 3
-            callers: [init_part]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 8
-          - file: amr/init_time.f90
-            name: init_time
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: adaptive_loop
-            callers: [adaptive_loop]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 22.7
-              covered: 42
-              total: 185
-              notbuilt: 138
-          - file: amr/init_time.f90
-            name: init_cosmo
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: [init_time]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 50.9
-              covered: 54
-              total: 106
-          - file: amr/init_time.f90
-            name: init_file
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: [init_time]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 71.4
-              covered: 30
-              total: 42
-          - file: amr/init_time.f90
-            name: friedman
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: [init_time]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 89.1
-              covered: 49
-              total: 55
-          - file: pm/newdt_fine.f90
-            name: newdt_fine
+          - file: amr/load_balance.f90
+            name: defrag
             phase: step
             role: driver
             scope: global
@@ -2007,102 +1153,73 @@ features:
             omp:
               state: opens_region
               progress: done
-              regions: 1
-              threadprivate: 1
+              regions: 2
+              sync: 2
               recorded: "yes"
             coverage:
-              pct: 74.4
-              covered: 64
-              total: 86
-              notbuilt: 6
-          - file: amr/update_time.f90
-            name: update_time
+              pct: 84.6
+              covered: 330
+              total: 390
+      - id: neighbour_search
+        title: grid neighbour lookup
+        note: "Routines stay in this area even when they have a single caller."
+        routines:
+          - file: amr/nbors_utils.f90
+            name: getnborgrids
             phase: step
-            role: driver
+            role: shared
             scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step]
+            depth: 4
+            callers: [authorize_fine, getnbor, getnborfather, hydro_flag, make_grid_fine, move_gas_tracer, rt_hydro_flag, smooth_fine]
             omp:
-              state: unthreaded
+              state: stateless
               progress: done
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 95.3
-              covered: 61
-              total: 64
-          - file: amr/init_time.f90
-            name: d1a
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [init_cosmo]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 66.7
-              covered: 8
-              total: 12
-          - file: amr/init_time.f90
-            name: fpeebl
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [init_cosmo]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
+              recorded: "yes"
+              note: threadprivate save
             coverage:
               pct: 100.0
               covered: 6
               total: 6
-          - file: amr/init_time.f90
-            name: dadtau
+          - file: amr/nbors_utils.f90
+            name: getnborcells
             phase: step
-            role: private
-            scope: area
+            role: shared
+            scope: global
             depth: 4
-            callers: [friedman]
+            callers: [count_nbors, count_nbors2, getnbor, getnborfather, hydro_flag, make_grid_fine, rt_hydro_flag]
             omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
+              state: stateless
+              progress: done
+              recorded: "yes"
+              note: threadprivate save
             coverage:
               pct: 100.0
-              covered: 4
-              total: 4
-          - file: amr/init_time.f90
-            name: dadt
+              covered: 11
+              total: 11
+          - file: amr/nbors_utils.f90
+            name: get3cubefather
             phase: step
-            role: private
-            scope: area
+            role: shared
+            scope: global
             depth: 4
-            callers: [friedman]
+            callers: [build_parent_comms_mg, check_tree, cic_amr, cic_cell, cic_get_cells, cic_only, diffine1, ensure_ref_rules, feedbk, "hydro/godunov_fine.f90::godfine1", init_gas_cic, init_gas_ngp, interpol_phi, interpolate_and_correct_coarse, interpolate_and_correct_fine, "mhd/godunov_fine.f90::godfine1", move1, neighborsearch, ngp_amr_gas, rt_godfine1, sink_rt_vsweep_stellar, star_rt_vsweep, sync, tsc_amr, tsc_cell, tsc_only, unbinding_neighborsearch]
             omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
+              state: adapted
+              progress: done
+              threadprivate: 2
+              recorded: "yes"
+              note: threadprivate save
             coverage:
               pct: 100.0
-              covered: 4
-              total: 4
-          - file: pm/newdt_fine.f90
-            name: newdt2
+              covered: 39
+              total: 39
+          - file: amr/nbors_utils.f90
+            name: get3cubepos
             phase: step
             role: private
             scope: area
-            depth: 4
-            callers: [newdt_fine]
+            depth: 5
+            callers: [get3cubefather]
             omp:
               state: adapted
               progress: done
@@ -2111,191 +1228,417 @@ features:
               note: threadprivate save
             coverage:
               pct: 100.0
-              covered: 19
-              total: 19
-          - file: hydro/courant_fine.f90
-            name: courant_fine
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [newdt_fine]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "Yes"
-            coverage:
-              pct: 94.1
-              covered: 64
-              total: 68
-              notbuilt: 4
-          - file: mhd/courant_fine.f90
-            name: courant_fine
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [newdt_fine]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 93.5
-              covered: 72
-              total: 77
-              notbuilt: 5
-          - file: mhd/godunov_fine.f90
-            name: update_cosmomag
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [update_time]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              recorded: "yes"
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 11
-              notbuilt: 1
-          - file: amr/init_time.f90
-            name: rombint
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: [d1a, fpeebl]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 96.8
-              covered: 30
-              total: 31
-          - file: amr/init_time.f90
-            name: fy
-            phase: step
-            role: shared
-            scope: area
-            depth: 5
-            callers: [fpeebl, rombint]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 100.0
-              covered: 4
-              total: 4
-          - file: amr/update_time.f90
-            name: getAgeGyr
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: [star_rt_vsweep, update_sed_group_props]
-            omp:
-              state: race
-              progress: todo
-              unprotected: [scale_init, scale_t_gyr]
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 6
-          - file: hydro/courant_fine.f90
-            name: cmpdt
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: ["hydro/courant_fine.f90::courant_fine"]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-            coverage:
-              pct: 82.7
-              covered: 43
-              total: 52
-          - file: amr/update_time.f90
-            name: getAgeSec
-            phase: step
-            role: unused
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-              note: nothing to do
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 6
-      - id: timestep_mhd
-        title: timestep mhd
-        routines:
-          - file: mhd/courant_fine.f90
-            name: velocity_fine
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: ["mhd/courant_fine.f90::courant_fine", "mhd/godunov_fine.f90::set_uold"]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 49
-              total: 49
-          - file: mhd/courant_fine.f90
-            name: cmpdt
+              covered: 10
+              total: 10
+          - file: amr/nbors_utils.f90
+            name: getnborgrids_check
             phase: step
             role: private
             scope: feature
             depth: 5
-            callers: ["mhd/courant_fine.f90::courant_fine"]
+            callers: [init_boundary_fine]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 100.0
+              covered: 6
+              total: 6
+          - file: amr/nbors_utils.f90
+            name: get3cubefather_grids
+            phase: step
+            role: private
+            scope: global
+            depth: 5
+            callers: [build_parent_comms_mg]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 2
+              recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 23.1
+              covered: 9
+              total: 39
+          - file: amr/nbors_utils.f90
+            name: getnborfather
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: [diffine1, gather_stencil_amr, "mhd/godunov_fine.f90::godfine1", move_gas_tracer, rt_godfine1]
             omp:
               state: adapted
               progress: done
               threadprivate: 1
               recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 52.9
+              covered: 27
+              total: 51
+          - file: amr/nbors_utils.f90
+            name: get_grids_of_nbor_cells
+            phase: step
+            role: shared
+            scope: area
+            depth: 6
+            callers: [get3cubefather_grids, get3cubepos]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate save
             coverage:
               pct: 100.0
-              covered: 48
-              total: 48
-          - file: mhd/godunov_fine.f90
-            name: scale_cosmomag
-            phase: step
+              covered: 30
+              total: 30
+      - id: output
+        title: write AMR structure
+        routines:
+          - file: amr/output_amr.f90
+            name: backup_amr
+            phase: output
             role: private
-            scope: feature
-            depth: 5
-            callers: [update_cosmomag]
+            scope: global
+            depth: 4
+            callers: [dump_all]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "todo"
+              disagrees: true
+              note: gathering can be openmp-ized?
+            coverage:
+              pct: 91.1
+              covered: 102
+              total: 112
+      - id: shutdown
+        title: mesh deallocation
+        routines:
+          - file: amr/end.f90
+            name: deallocate_amr
+            phase: finalise
+            role: shared
+            scope: global
+            depth: 3
+            callers: [clean_end, clean_stop]
             omp:
               state: stateless
               progress: done
+            coverage:
+              pct: 97.1
+              covered: 33
+              total: 34
+              notbuilt: 1
+  - id: domains
+    title: "Domain decomposition"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; pass started 2026-09-14
+    lecture: mpi.rst
+    summary: >-
+      Divide the computational domain among MPI ranks.
+    areas:
+      - id: load_balancing
+        title: load balancing
+        routines:
+          - file: amr/load_balance.f90
+            name: cmp_minmaxorder
+            phase: step
+            role: shared
+            scope: global
+            depth: 3
+            callers: [authorize_fine, cmp_new_cpu_map, init_amr]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
               recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 36.1
+              covered: 26
+              total: 72
+              notbuilt: 1
+          - file: amr/load_balance.f90
+            name: cmp_cpumap
+            phase: step
+            role: shared
+            scope: global
+            depth: 3
+            callers: [create_cloud_from_sink, flag_formation_sites, init_amr, load_ascii, load_dice, load_gadget, load_grafic, load_tracers, load_tracers_bin_v1, load_tracers_bin_v2, make_grid_coarse, make_grid_fine]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 90.9
+              covered: 10
+              total: 11
+          - file: amr/load_balance.f90
+            name: load_balance
+            phase: step
+            role: driver
+            scope: global
+            depth: 3
+            driver: amr_step
+            callers: [amr_step, init_refine, init_refine_2]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              recorded: "yes"
+            coverage:
+              pct: 90.0
+              covered: 126
+              total: 140
+              notbuilt: 2
+          - file: amr/load_balance.f90
+            name: cmp_ordering
+            phase: step
+            role: shared
+            scope: area
+            depth: 4
+            callers: [cmp_cpumap, cmp_cpumap_modified, cmp_dommap, cmp_new_cpu_map]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 54.3
+              covered: 19
+              total: 35
+              notbuilt: 1
+          - file: amr/load_balance.f90
+            name: cmp_new_cpu_map
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [load_balance]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 2
+              threadprivate: 1
+              sync: 3
+              recorded: "yes"
+            coverage:
+              pct: 85.3
+              covered: 157
+              total: 184
+              notbuilt: 5
+          - file: amr/load_balance.f90
+            name: cmp_cpumap_modified
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [create_cloud_from_sink]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate save
             coverage:
               pct: 0.0
               covered: 0
-              total: 13
+              total: 24
+          - file: amr/load_balance.f90
+            name: cmp_dommap
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [cmp_new_cpu_map]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 100.0
+              covered: 7
+              total: 7
+      - id: hilbert_decomposition
+        title: Hilbert curve ordering
+        routines:
+          - file: amr/hilbert.f90
+            name: hilbert1d
+            phase: step
+            role: shared
+            scope: feature
+            depth: 4
+            callers: [cmp_minmaxorder, cmp_ordering]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 75.0
+              covered: 3
+              total: 4
+              notbuilt: 1
+          - file: amr/hilbert.f90
+            name: hilbert2d
+            phase: step
+            role: shared
+            scope: feature
+            depth: 4
+            callers: [cmp_minmaxorder, cmp_ordering]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 86.7
+              covered: 26
+              total: 30
+              notbuilt: 1
+          - file: amr/hilbert.f90
+            name: hilbert3d
+            phase: step
+            role: shared
+            scope: feature
+            depth: 4
+            callers: [cmp_minmaxorder, cmp_ordering]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 88.2
+              covered: 30
+              total: 34
+              notbuilt: 1
+      - id: bisection_decomposition
+        title: bisection ordering
+        routines:
+          - file: amr/bisection.f90
+            name: build_bisection
+            phase: step
+            role: shared
+            scope: global
+            depth: 3
+            callers: [cmp_new_cpu_map, init_amr]
+            omp:
+              state: unthreaded
+              progress: todo
+              recorded: "-"
+              note: code not supported
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 158
+              notbuilt: 4
+          - file: amr/bisection.f90
+            name: init_bisection_histogram
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [build_bisection]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "-"
+              note: code not supported
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 45
+              notbuilt: 1
+          - file: amr/bisection.f90
+            name: build_bisection_histogram
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [build_bisection]
+            omp:
+              state: unthreaded
+              progress: todo
+              recorded: "-"
+              note: code not supported
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 28
+          - file: amr/bisection.f90
+            name: round_to_bisec_res
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [build_bisection]
+            omp:
+              state: unthreaded
+              progress: todo
+              recorded: "-"
+              note: code not supported
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 2
+          - file: amr/bisection.f90
+            name: splitsort_bisection_histogram
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [build_bisection]
+            omp:
+              state: unthreaded
+              progress: todo
+              recorded: "-"
+              note: code not supported
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 33
+          - file: amr/bisection.f90
+            name: cmp_bisection_cpumap
+            phase: step
+            role: shared
+            scope: feature
+            depth: 4
+            callers: [cmp_cpumap, cmp_cpumap_modified, cmp_new_cpu_map]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+              note: code not supported
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 9
   - id: hydrodynamics
     title: "Hydrodynamics and MHD: drivers, boundaries and initial conditions"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; pass started 2026-09-14
+    lecture: hydro.rst
+    summary: >-
+      Solves the Euler equations for mass, momentum and total energy in
+      conservative form, with the induction equation alongside for MHD. This
+      feature holds the update driver, the source terms, the boundary
+      conditions and the initial conditions; the scheme that computes the
+      fluxes is in hydro_solver and mhd_solver.
     tests: [tests/hydro, tests/mhd]
     modules:          # declaration-only modules owned by this feature
       - amr/dice_commons.f90
@@ -2418,6 +1761,128 @@ features:
               pct: 78.6
               covered: 33
               total: 42
+      - id: hydro_courant
+        title: hydro Courant condition
+        routines:
+          - file: hydro/courant_fine.f90
+            name: courant_fine
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [newdt_fine]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "Yes"
+            coverage:
+              pct: 94.1
+              covered: 64
+              total: 68
+              notbuilt: 4
+          - file: hydro/courant_fine.f90
+            name: cmpdt
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: ["hydro/courant_fine.f90::courant_fine"]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+            coverage:
+              pct: 82.7
+              covered: 43
+              total: 52
+      - id: mhd_courant
+        title: MHD Courant condition and comoving field rescaling
+        routines:
+          - file: mhd/courant_fine.f90
+            name: courant_fine
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [newdt_fine]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 93.5
+              covered: 72
+              total: 77
+              notbuilt: 5
+          - file: mhd/courant_fine.f90
+            name: velocity_fine
+            phase: step
+            role: shared
+            scope: feature
+            depth: 4
+            callers: ["mhd/courant_fine.f90::courant_fine", "mhd/godunov_fine.f90::set_uold"]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 49
+              total: 49
+          - file: mhd/godunov_fine.f90
+            name: update_cosmomag
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [update_time]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              recorded: "yes"
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 11
+              notbuilt: 1
+          - file: mhd/courant_fine.f90
+            name: cmpdt
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: ["mhd/courant_fine.f90::courant_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 48
+              total: 48
+          - file: mhd/godunov_fine.f90
+            name: scale_cosmomag
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [update_cosmomag]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 13
       - id: hydro_source_terms
         title: hydro source terms
         routines:
@@ -2529,6 +1994,448 @@ features:
               pct: 96.9
               covered: 62
               total: 64
+      - id: hydro_interpolation
+        title: hydro prolongation into new cells
+        routines:
+          - file: hydro/interpol_hydro.f90
+            name: upload_fine
+            phase: step
+            role: driver
+            scope: global
+            depth: 2
+            driver: amr_step
+            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 25
+              total: 25
+          - file: hydro/interpol_hydro.f90
+            name: upl
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["hydro/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 64.9
+              covered: 50
+              total: 77
+          - file: hydro/interpol_hydro.f90
+            name: interpol_hydro
+            phase: step
+            role: shared
+            scope: global
+            depth: 4
+            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 97.1
+              covered: 68
+              total: 70
+          - file: hydro/interpol_hydro.f90
+            name: compute_limiter_minmod
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in mhd/interpol_hydro.f90. Only one of the
+              two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 9
+              total: 9
+          - file: hydro/interpol_hydro.f90
+            name: compute_limiter_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in mhd/interpol_hydro.f90. Only one of the
+              two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+            coverage:
+              pct: 100.0
+              covered: 60
+              total: 60
+          - file: hydro/interpol_hydro.f90
+            name: compute_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              The mhd copy of this routine uses 0.5d0 where this one uses 0.25d0 for
+              the same central difference. See the todo on
+              mhd/interpol_hydro.f90::compute_central.
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 4
+              total: 4
+      - id: mhd_interpolation
+        title: MHD prolongation, divergence-free on faces
+        routines:
+          - file: mhd/interpol_hydro.f90
+            name: upload_fine
+            phase: step
+            role: driver
+            scope: global
+            depth: 2
+            driver: amr_step
+            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 2
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 95
+              total: 95
+          - file: mhd/interpol_hydro.f90
+            name: upl
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 72.0
+              covered: 85
+              total: 118
+          - file: mhd/interpol_hydro.f90
+            name: upl_left
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 17
+              total: 17
+          - file: mhd/interpol_hydro.f90
+            name: upl_right
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 17
+              total: 17
+          - file: mhd/interpol_hydro.f90
+            name: interpol_hydro
+            phase: step
+            role: shared
+            scope: global
+            depth: 4
+            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 92.2
+              covered: 71
+              total: 77
+          - file: mhd/interpol_hydro.f90
+            name: compute_limiter_minmod
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in hydro/interpol_hydro.f90. Only one of
+              the two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 9
+              total: 9
+          - file: mhd/interpol_hydro.f90
+            name: compute_limiter_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in hydro/interpol_hydro.f90. Only one of
+              the two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 60
+              total: 60
+          - file: mhd/interpol_hydro.f90
+            name: compute_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              Uses 0.5d0 where hydro/interpol_hydro.f90 and this file's own
+              compute_limiter_central both use 0.25d0 for the same central
+              difference. xc and the u2 = u2 + w*xc reconstruction are identical in
+              the two files, so nothing downstream compensates: interpol_type=3
+              gives twice the hydro slope. The header comment also reads 'MinMod
+              slope', copied from compute_limiter_minmod. 0% covered, reached by no
+              test, and interpol_type=3 appears in no shipped namelist. Likely a
+              bug, but needs someone who knows MHD prolongation to confirm it is not
+              a deliberate normalisation.
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 4
+          - file: mhd/interpol_hydro.f90
+            name: interpol_mag
+            phase: step
+            role: shared
+            scope: feature
+            depth: 5
+            callers: [diffine1, "mhd/interpol_hydro.f90::interpol_hydro"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 18
+              total: 18
+          - file: mhd/interpol_hydro.f90
+            name: interpol_faces
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [interpol_mag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 88
+              total: 88
+          - file: mhd/interpol_hydro.f90
+            name: copy_from_refined_faces
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [interpol_mag]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 46
+              total: 46
+          - file: mhd/interpol_hydro.f90
+            name: cmp_central_faces
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [interpol_mag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 56
+              total: 56
+          - file: mhd/interpol_hydro.f90
+            name: compute_1d_tvd
+            phase: step
+            role: private
+            scope: area
+            depth: 7
+            callers: [interpol_faces]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 68.8
+              covered: 11
+              total: 16
+          - file: mhd/interpol_hydro.f90
+            name: compute_2d_tvd
+            phase: step
+            role: private
+            scope: area
+            depth: 7
+            callers: [interpol_faces]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 69.0
+              covered: 20
+              total: 29
+      - id: flagging
+        title: refinement criteria on the gas state
+        routines:
+          - file: hydro/hydro_flag.f90
+            name: hydro_flag
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [userflag_fine]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 98.5
+              covered: 64
+              total: 65
+          - file: hydro/godunov_utils.f90
+            name: hydro_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [hydro_flag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 81.8
+              covered: 54
+              total: 66
+          - file: mhd/godunov_utils.f90
+            name: hydro_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [hydro_flag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "-"
+            coverage:
+              pct: 62.6
+              covered: 67
+              total: 107
+          - file: hydro/hydro_flag.f90
+            name: jeans_length_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [hydro_flag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "-"
+              note: called by hydro_flag
+            coverage:
+              pct: 100.0
+              covered: 18
+              total: 18
+          - file: hydro/hydro_flag.f90
+            name: collapse_jeans_length_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [hydro_flag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 29
       - id: boundaries
         title: hydro/MHD boundary conditions
         routines:
@@ -3170,7 +3077,7 @@ features:
             name: velana_ponomarenko
             phase: step
             role: private
-            scope: global
+            scope: feature
             depth: 5
             callers: [velocity_fine]
             omp:
@@ -3185,7 +3092,7 @@ features:
             name: velana
             phase: step
             role: private
-            scope: global
+            scope: feature
             depth: 5
             callers: [velocity_fine]
             omp:
@@ -3200,6 +3107,14 @@ features:
               total: 13
   - id: hydro_solver
     title: "Hydrodynamics: Godunov solver"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; pass started 2026-09-14
+    lecture: godunov.rst
+    summary: >-
+      The unsplit second-order MUSCL-Hancock Godunov scheme that produces the
+      hydrodynamic fluxes: slope limiting, the predictor trace step, and the
+      Riemann solver at each cell face (exact, acoustic, LLF, HLL or HLLC).
     tests: [tests/hydro]
     areas:
       - id: godunov_solver
@@ -3721,6 +3636,13 @@ features:
               total: 6
   - id: mhd_solver
     title: "MHD: Godunov solver"
+    lecture: godunov.rst
+    summary: >-
+      The MHD Godunov scheme: the same predictor-corrector structure as the
+      hydro solver, but with face-centred magnetic fields and the EMF computed
+      at cell edges by constrained transport, so that the divergence of B
+      stays zero to machine precision. Riemann solvers are Roe, HLL, HLLD,
+      Lax-Friedrichs and upwind.
     tests: [tests/mhd]
     areas:
       - id: godunov_solver
@@ -4071,6 +3993,12 @@ features:
               total: 10
   - id: gravity
     title: "Gravity: Poisson solvers and force"
+    lecture: gravity.rst
+    summary: >-
+      Self-gravity: builds the Poisson source term from the gas and the
+      particles, solves the Poisson equation with multigrid or conjugate
+      gradient, takes the gradient of the potential for the force, and applies
+      it to the gas. Analytic external gravity fields live here too.
     tests: [tests/poisson]
     modules:          # declaration-only modules owned by this feature
       - poisson/poisson_commons.f90
@@ -4117,7 +4045,6 @@ features:
               total: 43
       - id: multigrid
         title: multigrid
-        note: DONE
         routines:
           - file: poisson/multigrid_fine_commons.f90
             name: multigrid_fine
@@ -4529,7 +4456,6 @@ features:
               notbuilt: 4
       - id: conjugent_gradient
         title: Conjugent Gradient
-        note: DONE
         routines:
           - file: poisson/phi_fine_cg.f90
             name: phi_fine_cg
@@ -4584,7 +4510,6 @@ features:
               total: 37
       - id: force_calculation
         title: Force calculation
-        note: DONE
         routines:
           - file: poisson/force_fine.f90
             name: force_fine
@@ -4619,9 +4544,63 @@ features:
               pct: 100.0
               covered: 54
               total: 54
+      - id: interpolation
+        title: potential prolongation
+        routines:
+          - file: poisson/interpol_phi.f90
+            name: save_phi_old
+            phase: step
+            role: driver
+            scope: global
+            depth: 3
+            driver: amr_step
+            callers: [amr_step]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+            coverage:
+              pct: 100.0
+              covered: 19
+              total: 19
+          - file: poisson/interpol_phi.f90
+            name: interpol_phi
+            phase: step
+            role: shared
+            scope: feature
+            depth: 5
+            callers: [cmp_residual_cg, gradient_phi, make_fine_bc_rhs, make_initial_phi]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate
+            coverage:
+              pct: 91.2
+              covered: 31
+              total: 34
+      - id: flagging
+        title: Lagrangian (mass-based) refinement criterion
+        routines:
+          - file: amr/flag_utils.f90
+            name: poisson_refine
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [userflag_fine]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+              note: called by userflag_refine
+            coverage:
+              pct: 56.5
+              covered: 13
+              total: 23
       - id: external_gravity
         title: external gravity
-        note: DONE
         routines:
           - file: poisson/gravana.f90
             name: gravana
@@ -4708,6 +4687,20 @@ features:
               covered: 67
               total: 98
               notbuilt: 13
+          - file: amr/end.f90
+            name: deallocate_poisson
+            phase: finalise
+            role: shared
+            scope: global
+            depth: 3
+            callers: [clean_end, clean_stop]
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 9
+              total: 9
       - id: output
         title: gravity output
         routines:
@@ -4730,6 +4723,13 @@ features:
               notbuilt: 4
   - id: particles
     title: "Particles: CIC projection, particle tree, advection"
+    lecture: particles.rst
+    summary: >-
+      The particle-mesh machinery in pm/: particles held in global arrays and
+      navigated by linked lists, projected onto the grid with cloud-in-cell
+      for the Poisson source term, advected, and passed between levels and MPI
+      domains. Every particle family -- dark matter, stars, sinks, tracers --
+      moves through this code.
     modules:          # declaration-only modules owned by this feature
       - pm/pm_parameters.f90
     areas:
@@ -4845,9 +4845,36 @@ features:
               pct: 0.0
               covered: 0
               total: 29
+          - file: pm/gadgetreadfile.f90
+            name: gadgetreadheader
+            phase: init
+            role: shared
+            scope: global
+            depth: 4
+            callers: [init_cosmo, load_gadget]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 28
+          - file: amr/end.f90
+            name: deallocate_pm
+            phase: finalise
+            role: shared
+            scope: global
+            depth: 3
+            callers: [clean_end, clean_stop]
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 12
+              total: 12
       - id: poisson_source_term_calculation_cic
         title: "poisson source term calculation (CIC)"
-        note: DONE
         routines:
           - file: hydro/init_dice.f90
             name: multipole_from_current_level
@@ -5010,7 +5037,6 @@ features:
               total: 154
       - id: particle_tree
         title: particle tree
-        note: DONE almost
         routines:
           - file: pm/particle_tree.f90
             name: make_tree_fine
@@ -5250,7 +5276,6 @@ features:
               total: 33
       - id: position_and_velocity_update
         title: position and velocity update
-        note: "DONE (these are cheap)"
         routines:
           - file: pm/synchro_fine.f90
             name: synchro_fine_static
@@ -5370,6 +5395,26 @@ features:
               covered: 165
               total: 186
               notbuilt: 2
+      - id: time_step
+        title: particle time-step constraint
+        routines:
+          - file: pm/newdt_fine.f90
+            name: newdt2
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [newdt_fine]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: threadprivate save
+            coverage:
+              pct: 100.0
+              covered: 19
+              total: 19
       - id: particle_types
         title: particle type predicates and packing helpers
         routines:
@@ -5563,37 +5608,6 @@ features:
               pct: 0.0
               covered: 0
               total: 10
-      - id: gadget_io
-        title: GADGET-format particle I/O
-        routines:
-          - file: pm/gadgetreadfile.f90
-            name: gadgetreadheader
-            phase: init
-            role: shared
-            scope: global
-            depth: 4
-            callers: [init_cosmo, load_gadget]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 28
-          - file: pm/gadgetreadfile.f90
-            name: gadgetwritefile
-            phase: output
-            role: private
-            scope: global
-            depth: 5
-            callers: [savegadget]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 25
       - id: output
         title: particle output
         routines:
@@ -5614,10 +5628,16 @@ features:
               notbuilt: 5
   - id: cooling
     title: "Cooling, heating and equation of state"
+    lecture: cooling.rst
+    summary: >-
+      Radiative cooling and heating: the net cooling rate added to the energy
+      equation, in five flavours from a simple ISM prescription, through
+      equilibrium cooling with a UV background (the default), to
+      non-equilibrium chemistry coupled to radiative transfer. Also holds the
+      equation of state and the UV-background rate tables.
     areas:
       - id: regular_cooling
         title: regular cooling
-        note: "Done, scales perfectly for GALAXY"
         routines:
           - file: hydro/cooling_module.f90
             name: set_table
@@ -6861,6 +6881,12 @@ features:
               total: 8
   - id: rt
     title: "Radiative transfer (RT)"
+    lecture: none
+    summary: >-
+      RAMSES-RT: moment-based radiative transfer with the M1 closure,
+      transporting photons in a small number of frequency groups on the same
+      mesh as the gas, sourced by stars and sinks through SED tables, and
+      coupled to the non-equilibrium chemistry in cooling.
     tests: [tests/rt]
     modules:          # declaration-only modules owned by this feature
       - rt/rt_hydro_commons.f90
@@ -7080,6 +7106,94 @@ features:
               pct: 100.0
               covered: 20
               total: 20
+      - id: interpolation
+        title: RT prolongation into new cells
+        routines:
+          - file: rt/rt_interpol_hydro.f90
+            name: rt_upload_fine
+            phase: step
+            role: driver
+            scope: global
+            depth: 2
+            driver: rt_step
+            callers: [adaptive_loop, init_refine_2, rt_init_flow, rt_step]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 25
+              total: 25
+          - file: rt/rt_interpol_hydro.f90
+            name: rt_upl
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: [rt_upload_fine]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 13
+              total: 13
+          - file: rt/rt_interpol_hydro.f90
+            name: rt_interpol_hydro
+            phase: step
+            role: shared
+            scope: global
+            depth: 4
+            callers: [make_grid_fine, rt_godfine1]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 21
+              total: 21
+      - id: flagging
+        title: refinement criteria on the radiation state
+        routines:
+          - file: rt/rt_hydro_flag.f90
+            name: rt_hydro_flag
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [userflag_fine]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 7.5
+              covered: 4
+              total: 53
+          - file: rt/rt_godunov_utils.f90
+            name: rt_hydro_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [rt_hydro_flag]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 7
       - id: stellar_sources
         title: stellar radiation injected into the grid
         note: Defined in rt/rt_spectra.f90 alongside the SED tables they read.
@@ -7318,6 +7432,23 @@ features:
               pct: 0.0
               covered: 0
               total: 23
+          - file: amr/update_time.f90
+            name: getAgeGyr
+            phase: step
+            role: shared
+            scope: feature
+            depth: 5
+            callers: [star_rt_vsweep, update_sed_group_props]
+            omp:
+              state: race
+              progress: todo
+              unprotected: [scale_init, scale_t_gyr]
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 6
           - file: rt/rt_spectra.f90
             name: integrateSpectrum
             phase: step
@@ -7444,6 +7575,19 @@ features:
               pct: 0.0
               covered: 0
               total: 24
+          - file: amr/update_time.f90
+            name: getAgeSec
+            phase: step
+            role: unused
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+              note: nothing to do
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 6
       - id: rt
         title: rt
         routines:
@@ -7790,6 +7934,12 @@ features:
               total: 24
   - id: subgrid
     title: "Subgrid models: star formation and supernova feedback"
+    lecture: subgrid.rst
+    summary: >-
+      Processes that happen below the resolution: star formation, which
+      decides where and how much gas turns into star particles, and supernova
+      feedback, which injects mass, momentum and energy back into the
+      surrounding cells.
     tests: [tests/star]
     areas:
       - id: star_formation
@@ -7921,6 +8071,12 @@ features:
               total: 147
   - id: sinks
     title: "Sink particles: creation, accretion, stellars and feedback"
+    lecture: subgrid.rst
+    summary: >-
+      Sink particles, used where the subgrid model needs star formation or
+      supermassive black holes: creation from dense gas, accretion of the
+      surrounding gas, sink-sink forces and merging, the stellar particles
+      spawned from them, and their HII-region and supernova feedback.
     tests: [tests/sink]
     modules:          # declaration-only modules owned by this feature
       - pm/sink_feedback_parameters.f90
@@ -8684,6 +8840,13 @@ features:
               total: 9
   - id: clumps
     title: "Clump finding (PHEW)"
+    lecture: none
+    summary: >-
+      PHEW, the on-the-fly clump finder: locates density peaks, segments the
+      grid into their watershed basins, merges them across saddle points
+      against a noise threshold, and computes their properties. It is used on
+      its own, and as the halo finder that feeds merger trees and sink
+      creation.
     areas:
       - id: peak_finding
         title: density peak identification and segmentation
@@ -9265,6 +9428,11 @@ features:
               total: 9
   - id: merger_trees
     title: Particle unbinding and merger trees
+    lecture: none
+    summary: >-
+      Particle unbinding, which decides which particles are gravitationally
+      bound to which clump, and the merger trees built from the clump
+      catalogue across snapshots, with optional mock galaxies.
     areas:
       - id: unbinding
         title: particle unbinding from clumps
@@ -9967,6 +10135,12 @@ features:
               notbuilt: 10
   - id: tracers
     title: Tracer particles
+    lecture: none
+    summary: >-
+      Monte Carlo tracer particles (Cadiou et al. 2018), which follow the mass
+      flux between cells rather than the local velocity field, so they sample
+      the Lagrangian history of the gas without the drift a velocity-advected
+      tracer accumulates.
     tests: [tests/tracer]
     areas:
       - id: pm
@@ -10282,6 +10456,11 @@ features:
               total: 143
   - id: turb
     title: Turbulence
+    lecture: none
+    summary: >-
+      Driven turbulence: a force field generated in Fourier space as an
+      Ornstein-Uhlenbeck process, transformed to real space and applied to the
+      gas every step, with its own time-step control, RNG and field I/O.
     tests: [tests/turb]
     modules:          # declaration-only modules owned by this feature
       - turb/turb_commons.f90
@@ -10741,11 +10920,60 @@ features:
               pct: 100.0
               covered: 18
               total: 18
-  - id: additional_output
-    title: Additional output
+  - id: gadget_output
+    title: "GADGET-format output"
+    lecture: none
+    summary: >-
+      Writes the particles as a GADGET snapshot instead of a RAMSES one,
+      for tools that read that format. Reached from dump_all like any
+      other output; shares nothing with the GADGET *reading* path, which
+      stays with particles.
     areas:
-      - id: light_cone
-        title: light cone output
+      - id: snapshot
+        title: GADGET snapshot writing
+        routines:
+          - file: amr/output_amr.f90
+            name: savegadget
+            phase: output
+            role: private
+            scope: global
+            depth: 4
+            callers: [dump_all]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 48
+              notbuilt: 4
+          - file: pm/gadgetreadfile.f90
+            name: gadgetwritefile
+            phase: output
+            role: private
+            scope: area
+            depth: 5
+            callers: [savegadget]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 25
+  - id: light_cone
+    title: "Light cone output"
+    lecture: none
+    summary: >-
+      Builds the past light cone of a chosen observer as the run proceeds:
+      each step works out which cells fall inside the cone, replicating the
+      box as a cosmological volume requires, and writes them out. Shares no
+      code with the movie output -- the two were one feature only because
+      neither writes a snapshot.
+    areas:
+      - id: setup
+        title: light cone parameters
         routines:
           - file: amr/read_params.f90
             name: read_lightcone_params
@@ -10763,22 +10991,9 @@ features:
               pct: 66.7
               covered: 4
               total: 6
-          - file: amr/light_cone.f90
-            name: output_cone
-            phase: output
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 172
+      - id: selection
+        title: which cells fall inside the cone
+        routines:
           - file: amr/light_cone.f90
             name: perform_my_selection
             phase: output
@@ -10794,20 +11009,6 @@ features:
               pct: 0.0
               covered: 0
               total: 64
-          - file: amr/light_cone.f90
-            name: extend_arrays_if_needed
-            phase: output
-            role: private
-            scope: area
-            depth: 4
-            callers: [output_cone]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 48
           - file: amr/light_cone.f90
             name: init_cosmo_cone
             phase: output
@@ -10921,8 +11122,49 @@ features:
               pct: 0.0
               covered: 0
               total: 2
-      - id: movie
-        title: movie frame output
+      - id: output
+        title: cone output
+        routines:
+          - file: amr/light_cone.f90
+            name: output_cone
+            phase: output
+            role: driver
+            scope: global
+            depth: 3
+            driver: amr_step
+            callers: [amr_step]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 172
+          - file: amr/light_cone.f90
+            name: extend_arrays_if_needed
+            phase: output
+            role: private
+            scope: area
+            depth: 4
+            callers: [output_cone]
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 48
+  - id: movie
+    title: "Movie output"
+    lecture: none
+    summary: >-
+      Projects the grid onto a fixed camera at a fixed cadence and writes the
+      frames while the run proceeds, so a simulation can be watched without
+      keeping a full snapshot for every frame.
+    areas:
+      - id: setup
+        title: movie parameters
         routines:
           - file: amr/read_params.f90
             name: read_movie_params
@@ -10954,6 +11196,9 @@ features:
               pct: 49.3
               covered: 33
               total: 67
+      - id: frames
+        title: frame projection and output
+        routines:
           - file: amr/movie.f90
             name: output_frame
             phase: output
@@ -10972,7 +11217,33 @@ features:
               notbuilt: 5
   - id: utilities
     title: Shared utilities
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; pass started 2026-09-14
+    lecture: none
+    summary: >-
+      Code shared by everything else and owned by nothing in particular:
+      sorting, the random number generator, timers, file and path helpers,
+      grid neighbour lookup, the virtual-boundary MPI exchanges, and memory
+      reporting.
     areas:
+      - id: units
+        title: unit scalings
+        routines:
+          - file: amr/units.f90
+            name: units
+            phase: any
+            role: shared
+            scope: global
+            depth: 3
+            callers: [accrete_sink, add_uv_background, ana_disk_potential_condinit, average_sn, backup_amr, calc_equilibrium_xion, calc_stellar_mass_params, collapse_condinit, collapse_jeans_length_refine, compute_accretion_rate, compute_clump_properties_round2, coolfine1, create_cloud_from_sink, dice_init_uold, feedbk, flag_formation_sites, getagegyr, getagesec, gravana, heat_unresolved_hii_regions_vsweep, init_flow_fine, init_gas_cic, init_sink, init_time, kinetic_feedback, load_dice, make_sink_from_clump, make_sn_stellar, output_frame, output_info, output_rt_stats, print_sink_properties, print_stellar_properties, read_clumpfind_params, read_sink_params, read_stellar_params, rho_ana, rt_init_flow_fine, rt_init_xion_vsweep, rt_region_condinit, rt_sources_vsweep, rt_units, sedov_blast, sink_rt_vsweep_stellar, star_formation, star_rt_vsweep, trim_clumps, update_rt_c, update_sink, userflag_fine]
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 10
+              total: 10
       - id: sorting
         title: sorting utilities
         note: "Utilities area: routines stay here even when they have a single caller."
@@ -11378,143 +11649,135 @@ features:
               pct: 60.0
               covered: 9
               total: 15
-      - id: neighbour_search
-        title: grid neighbour lookup
-        note: "Utilities area: routines stay here even when they have a single caller."
+      - id: dump_helpers
+        title: typed dump helpers
         routines:
-          - file: amr/nbors_utils.f90
-            name: getnborgrids
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [authorize_fine, getnbor, getnborfather, hydro_flag, make_grid_fine, move_gas_tracer, rt_hydro_flag, smooth_fine]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 100.0
-              covered: 6
-              total: 6
-          - file: amr/nbors_utils.f90
-            name: getnborcells
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [count_nbors, count_nbors2, getnbor, getnborfather, hydro_flag, make_grid_fine, rt_hydro_flag]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 100.0
-              covered: 11
-              total: 11
-          - file: amr/nbors_utils.f90
-            name: get3cubefather
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [build_parent_comms_mg, check_tree, cic_amr, cic_cell, cic_get_cells, cic_only, diffine1, ensure_ref_rules, feedbk, "hydro/godunov_fine.f90::godfine1", init_gas_cic, init_gas_ngp, interpol_phi, interpolate_and_correct_coarse, interpolate_and_correct_fine, "mhd/godunov_fine.f90::godfine1", move1, neighborsearch, ngp_amr_gas, rt_godfine1, sink_rt_vsweep_stellar, star_rt_vsweep, sync, tsc_amr, tsc_cell, tsc_only, unbinding_neighborsearch]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 2
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 100.0
-              covered: 39
-              total: 39
-          - file: amr/nbors_utils.f90
-            name: get3cubepos
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [get3cubefather]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 100.0
-              covered: 10
-              total: 10
-          - file: amr/nbors_utils.f90
-            name: getnborgrids_check
-            phase: step
-            role: private
-            scope: global
-            depth: 5
-            callers: [init_boundary_fine]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 100.0
-              covered: 6
-              total: 6
-          - file: amr/nbors_utils.f90
-            name: get3cubefather_grids
-            phase: step
-            role: private
-            scope: global
-            depth: 5
-            callers: [build_parent_comms_mg]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 2
-              recorded: "yes"
-              note: threadprivate save
-            coverage:
-              pct: 23.1
-              covered: 9
-              total: 39
-          - file: amr/nbors_utils.f90
-            name: getnborfather
-            phase: step
+          - file: io/dump_utils.f90
+            name: dump_header_info
+            phase: output
             role: shared
             scope: global
             depth: 5
-            callers: [diffine1, gather_stencil_amr, "mhd/godunov_fine.f90::godfine1", move_gas_tracer, rt_godfine1]
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
             omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
+              state: unthreaded
+              progress: na
             coverage:
-              pct: 52.9
-              covered: 27
-              total: 51
-          - file: amr/nbors_utils.f90
-            name: get_grids_of_nbor_cells
-            phase: step
+              pct: 100.0
+              covered: 3
+              total: 3
+          - file: io/dump_utils.f90
+            name: int16dump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 5
+          - file: io/dump_utils.f90
+            name: int32dump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 5
+              total: 5
+          - file: io/dump_utils.f90
+            name: int64dump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 5
+          - file: io/dump_utils.f90
+            name: int8dump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 5
+              total: 5
+          - file: io/dump_utils.f90
+            name: logicaldump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 5
+          - file: io/dump_utils.f90
+            name: real32dump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 5
+          - file: io/dump_utils.f90
+            name: real64dump
+            phase: output
+            role: shared
+            scope: global
+            depth: 5
+            callers: [backup_hydro, backup_part, rt_backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 5
+              total: 5
+          - file: io/dump_utils.f90
+            name: dump_var_info
+            phase: output
             role: shared
             scope: area
             depth: 6
-            callers: [get3cubefather_grids, get3cubepos]
+            callers: [int16dump, int32dump, int64dump, int8dump, logicaldump, real32dump, real64dump]
             omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: threadprivate save
+              state: unthreaded
+              progress: na
             coverage:
               pct: 100.0
-              covered: 30
-              total: 30
+              covered: 2
+              total: 2
       - id: communication
         title: MPI communication
         note: "Utilities area: routines stay here even when they have a single caller."
