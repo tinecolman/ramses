@@ -1,0 +1,476 @@
+<title>RAMSES Feature Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap">
+<style>
+:root{
+  --ground:#f4f6f8; --surface:#ffffff; --surface-2:#eaeef2; --surface-3:#f0f3f6;
+  --ink:#131a21; --ink-2:#56626e; --ink-3:#8792a0;
+  --rule:#dbe1e8; --rule-2:#c6cfd8;
+  --accent:#1b5c73; --accent-ink:#ffffff; --accent-soft:#e0ecf1;
+  --ok:#2c6e49; --warn:#8f5f10; --bad:#a3423c; --branch:#45539c; --idle:#97a2ae;
+  --flag:#a04a1c; --flag-soft:#fbeee7; --flag-rule:#e6c4ac;
+  --shadow:0 1px 2px rgba(19,26,33,.06),0 8px 24px -14px rgba(19,26,33,.28);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#10141a; --surface:#171d25; --surface-2:#1f2731; --surface-3:#1b222b;
+    --ink:#e3e9f0; --ink-2:#9aa6b3; --ink-3:#6c7885;
+    --rule:#28313c; --rule-2:#36414e;
+    --accent:#6fb4cd; --accent-ink:#0d1218; --accent-soft:#152e39;
+    --ok:#5fb383; --warn:#cf9c44; --bad:#df8079; --branch:#8d99df; --idle:#6c7885;
+    --flag:#e0925f; --flag-soft:#2b1f16; --flag-rule:#4d3826;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#10141a; --surface:#171d25; --surface-2:#1f2731; --surface-3:#1b222b;
+  --ink:#e3e9f0; --ink-2:#9aa6b3; --ink-3:#6c7885;
+  --rule:#28313c; --rule-2:#36414e;
+  --accent:#6fb4cd; --accent-ink:#0d1218; --accent-soft:#152e39;
+  --ok:#5fb383; --warn:#cf9c44; --bad:#df8079; --branch:#8d99df; --idle:#6c7885;
+  --flag:#e0925f; --flag-soft:#2b1f16; --flag-rule:#4d3826;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -16px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace}
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif;font-weight:600;
+  text-wrap:balance;margin:0}
+a{color:var(--accent)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- masthead ---------- */
+.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1500px;margin:0 auto;padding:22px 26px 0;
+  display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start;justify-content:space-between}
+.brand h1{font-size:25px;letter-spacing:-.01em}
+.brand p{margin:5px 0 0;color:var(--ink-2);max-width:62ch}
+.figures{display:flex;gap:26px;flex-wrap:wrap}
+.fig{display:flex;flex-direction:column;gap:1px}
+.fig b{font-family:"IBM Plex Mono",monospace;font-size:21px;font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.fig span{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3)}
+
+/* ---------- controls ---------- */
+.controls{max-width:1500px;margin:0 auto;padding:16px 26px 15px;
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search{flex:1 1 240px;min-width:200px;position:relative}
+.search input{width:100%;padding:8px 11px 8px 32px;border:1px solid var(--rule-2);
+  border-radius:6px;background:var(--ground);color:var(--ink);font-size:13px}
+.search input::placeholder{color:var(--ink-3)}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:2}
+.seg{display:flex;border:1px solid var(--rule-2);border-radius:6px;
+  overflow-x:auto;max-width:100%;scrollbar-width:thin}
+.pick{display:flex;align-items:center;gap:7px;border:1px solid var(--rule-2);
+  border-radius:6px;padding:0 9px 0 11px;max-width:100%}
+.pick>b{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-3);font-weight:600;white-space:nowrap}
+.pick select{border:none;background:none;color:var(--ink);font:inherit;
+  font-size:12.5px;padding:7px 2px;max-width:190px;cursor:pointer}
+.pick[data-on="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.pick[data-on="true"]>b{color:var(--accent)}
+.seg button{padding:7px 11px;font-size:12.5px;color:var(--ink-2);
+  border-right:1px solid var(--rule-2);white-space:nowrap}
+.seg button:last-child{border-right:none}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:500}
+.legbox{max-width:1500px;margin:0 auto;padding:0 26px 14px}
+.legbox>summary{cursor:pointer;font-size:10.5px;font-weight:600;color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.09em;padding:2px 0;width:fit-content}
+.legbox>summary:hover{color:var(--ink-2)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;align-items:center;
+  padding:11px 0 0;font-size:11.5px;color:var(--ink-2)}
+.legend b{font-weight:500;color:var(--ink-3);text-transform:uppercase;
+  letter-spacing:.08em;font-size:10.5px}
+.lg{display:inline-flex;align-items:center;gap:5px}
+.lgroup{display:contents}
+
+/* ---------- shell ---------- */
+.shell{max-width:1500px;margin:0 auto;padding:22px 26px 80px;
+  display:grid;grid-template-columns:238px minmax(0,1fr);gap:26px;align-items:start}
+@media (max-width:980px){.shell{grid-template-columns:1fr}.rail{position:static!important}}
+
+/* ---------- rail ---------- */
+.rail{position:sticky;top:14px;display:flex;flex-direction:column;gap:2px}
+.rail h2{font-size:10.5px;font-family:"IBM Plex Sans",sans-serif;font-weight:600;
+  text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);
+  padding:0 8px 8px}
+.rl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  padding:6px 8px;border-radius:5px;text-decoration:none;color:var(--ink);width:100%;text-align:left}
+.rl:hover{background:var(--surface-2)}
+.rl .nm{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-weight:500}
+.rl .ct{font-family:"IBM Plex Mono",monospace;font-size:11px;
+  color:var(--ink-3);font-variant-numeric:tabular-nums}
+.bar{grid-column:1/-1;height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+
+/* ---------- questions ---------- */
+.qs{background:var(--surface);border:1px solid var(--rule);border-radius:9px;
+  padding:14px 20px;margin-bottom:22px;box-shadow:var(--shadow)}
+.qs>summary{cursor:pointer;font-size:12.5px;color:var(--ink-2);list-style-position:outside}
+.qs>summary b{font-family:"IBM Plex Sans",sans-serif;font-size:10.5px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);margin-right:6px}
+.qs[open]>summary{margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+.qs>p{margin:0 0 14px;color:var(--ink-2);font-size:13px;max-width:70ch}
+.q{border-top:1px solid var(--rule);padding:12px 0 12px 30px;position:relative}
+.q h3{font-size:13.5px;font-family:"IBM Plex Sans",sans-serif;font-weight:600;margin-bottom:3px}
+.q p{margin:0;color:var(--ink-2);font-size:12.5px;max-width:78ch}
+.q code{font-size:11.5px;background:var(--surface-2);padding:1px 4px;border-radius:3px}
+.ap{display:inline-block;font-size:11.5px;background:var(--accent-soft);color:var(--accent);
+  border-radius:3px;padding:1px 7px;margin:0 5px 5px 0}
+.qlede{font-size:12.5px}
+.wtc{color:var(--flag)}
+.q.waiting{background:var(--flag-soft);border-left:3px solid var(--flag);
+  padding-left:27px;margin-left:-0px;border-radius:0 5px 5px 0}
+.q.waiting .fb{left:4px}
+.qid{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:400;
+  color:var(--ink-3);margin-left:8px}
+.wt{font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+  background:var(--flag);color:#fff;border-radius:3px;padding:1px 6px;margin-left:8px;
+  vertical-align:1px}
+.yn,.rp{display:flex;gap:8px;margin-top:7px;font-size:12.5px;color:var(--ink-2)}
+.yn b,.rp b{font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  font-weight:600;white-space:nowrap;padding-top:2px}
+.yn b{color:var(--flag)}
+.rp b{color:var(--accent)}
+.yn span{border-left:2px solid var(--flag-rule);padding-left:9px}
+.rp span{border-left:2px solid var(--rule-2);padding-left:9px}
+.ans{border-top:1px solid var(--rule);margin-top:12px;padding-top:10px}
+.ans summary{cursor:pointer;font-size:12px;color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.ans .q{opacity:.72}
+.qs>p{margin-bottom:10px}
+
+/* ---------- feature blocks ---------- */
+.feat{margin-bottom:11px;scroll-margin-top:14px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:9px;box-shadow:var(--shadow)}
+.feat-h{display:grid;grid-template-columns:15px minmax(0,1fr);gap:0 10px;
+  padding:13px 16px;cursor:pointer;border-radius:9px}
+.feat-h:hover{background:var(--surface-3)}
+.feat[data-open="true"]>.feat-h{border-bottom:1px solid var(--rule);
+  border-radius:9px 9px 0 0}
+.cr{font-size:11px;color:var(--accent);line-height:1.55;user-select:none;
+  font-weight:600}
+.area-h .cr{font-size:9.5px;color:var(--ink-3);line-height:1.6}
+.ft{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ft h2{font-size:17px}
+.ft .sp{margin-left:auto;display:flex;gap:12px;align-items:baseline;
+  font-size:11.5px;color:var(--ink-2);font-family:"IBM Plex Mono",monospace;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.lec{font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:1px 6px;
+  border-radius:3px;background:var(--accent-soft);color:var(--accent);
+  text-decoration:none;white-space:nowrap}
+.lec:hover{text-decoration:underline}
+.lec.gap{background:transparent;color:var(--ink-3);
+  border:1px dashed var(--rule-2);cursor:help}
+.sum{display:block;margin:7px 0 0;font-size:13px;color:var(--ink-2);max-width:88ch}
+.deps{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;
+  margin-top:9px;font-size:11.5px;align-items:baseline}
+.deps b{font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-3);font-weight:600;white-space:nowrap}
+.deps em{font-style:normal;font-family:"IBM Plex Mono",monospace;color:var(--ink-2);
+  cursor:help}
+.deps i{font-style:normal;font-size:10.5px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums}
+.bars{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
+.dim{display:flex;gap:7px;align-items:center}
+.dim>u{text-decoration:none;font-size:10px;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ink-3);font-weight:600}
+.feat-body{padding:2px 16px 14px}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:2px 6px;
+  border-radius:3px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.mods{padding:9px 0 0;font-size:11.5px;color:var(--ink-3);overflow-wrap:anywhere}
+.mods span{font-family:"IBM Plex Mono",monospace}
+
+.area{background:var(--ground);border:1px solid var(--rule);border-radius:7px;
+  margin-top:10px;overflow:hidden}
+.area-h{display:grid;grid-template-columns:13px minmax(0,1fr);gap:0 9px;
+  padding:9px 12px;cursor:pointer}
+.area-h:hover{background:var(--surface-3)}
+.area[data-open="true"]>.area-h{border-bottom:1px solid var(--rule);
+  background:var(--surface-3)}
+.at-row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.at-row .an{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-weight:600}
+.at-row .at{font-size:12.5px;color:var(--ink-2)}
+.at-row .ac{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  color:var(--ink-3);white-space:nowrap}
+.area .bars{margin-top:6px;gap:16px}
+.note{display:flex;gap:8px;padding:9px 14px;background:var(--flag-soft);
+  border-bottom:1px solid var(--flag-rule);font-size:12.5px;color:var(--ink-2)}
+.note b{color:var(--flag);font-weight:600;white-space:nowrap;font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.08em;padding-top:2px}
+
+/* ---------- routine rows ---------- */
+.rows{display:flex;flex-direction:column;background:var(--surface)}
+.row{display:grid;grid-template-columns:var(--rowcols);
+  gap:12px;align-items:center;padding:5px 14px;border-bottom:1px solid var(--rule);
+  font-size:12.5px}
+.row.drv-row{box-shadow:inset 3px 0 0 var(--accent)}
+.drv{font-family:"IBM Plex Sans",sans-serif;font-size:9.5px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.07em;color:var(--accent);
+  border:1px solid var(--accent);border-radius:3px;padding:0 4px;
+  margin-left:6px;white-space:nowrap;vertical-align:1px}
+.drivers{display:flex;gap:6px;flex-wrap:wrap;align-items:baseline;
+  padding:9px 0 0;font-size:12px}
+.drivers b{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-3);font-weight:600;margin-right:2px}
+.drivers span{font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+  background:var(--accent-soft);color:var(--accent);border-radius:3px;padding:1px 6px}
+.dep{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;text-align:right}
+.role{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+  border-radius:3px;padding:1px 5px;text-align:center;justify-self:start;
+  border:1px solid currentColor;cursor:help}
+.role[data-r="driver"]{color:var(--accent)}
+.role[data-r="shared"]{color:var(--ink-2)}
+.role[data-r="private"]{color:var(--ink-3);border-color:var(--rule-2)}
+.role[data-r="unused"]{color:var(--bad);border-style:dashed}
+.role[data-r="recursive"]{color:var(--warn)}
+.todo{display:inline-block;font-size:9.5px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.07em;background:var(--flag);color:#fff;border-radius:3px;
+  padding:0 5px;margin-left:6px;cursor:help;vertical-align:1px}
+.rev{display:inline-block;font-size:9.5px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.07em;background:var(--branch);color:var(--surface);border-radius:3px;
+  padding:0 5px;margin-left:6px;cursor:help;vertical-align:1px}
+:root[data-theme="dark"] .rev{color:#0d1218}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rev{color:#0d1218}}
+.ft .rev,.at-row .rev{margin-left:0}
+.scope{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+  border-radius:3px;padding:1px 5px;text-align:center;justify-self:start;cursor:help}
+.scope[data-s="area"]{background:var(--surface-2);color:var(--ink-3)}
+.scope[data-s="feature"]{background:var(--accent-soft);color:var(--accent)}
+.scope[data-s="global"]{background:var(--branch);color:var(--surface)}
+:root[data-theme="dark"] .scope[data-s="global"]{color:#0d1218}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scope[data-s="global"]{color:#0d1218}}
+.row:last-child{border-bottom:none}
+.row:hover{background:var(--surface-3)}
+.row.flagged{background:var(--flag-soft)}
+.row .rn{font-family:"IBM Plex Mono",monospace;font-weight:500;
+  overflow-wrap:anywhere}
+.row .rf{font-family:"IBM Plex Mono",monospace;color:var(--ink-3);font-size:11.5px;
+  overflow-wrap:anywhere}
+.ph{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-2);
+  border:1px solid var(--rule-2);border-radius:3px;padding:1px 5px;
+  text-align:center;justify-self:start}
+.ph[data-p="init"]{color:var(--branch);border-color:var(--branch)}
+.ph[data-p="params"]{color:var(--branch);border-color:var(--branch);border-style:dashed}
+.ph[data-p="output"]{color:var(--warn);border-color:var(--warn)}
+.ph[data-p="finalise"],.ph[data-p="any"]{color:var(--ink-3)}
+.omp{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;border-radius:3px;padding:1px 0;
+  text-align:center;border:1px solid var(--rule-2);color:var(--ink-3);
+  background:transparent;justify-self:stretch;cursor:default}
+.omp[data-s="opens_region"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.omp[data-s="adapted"]{background:transparent;border-color:var(--ok);color:var(--ok)}
+.omp[data-s="stateless"]{background:var(--surface-2);border-color:var(--rule-2);color:var(--ink-2)}
+.omp[data-s="race"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.omp[data-s="unthreaded"]{border-style:dashed;color:var(--ink-3)}
+.omp[data-p="todo"]{box-shadow:inset 3px 0 0 var(--warn)}
+.omp.na{opacity:.55}
+:root[data-theme="dark"] .omp[data-s="opens_region"],
+:root[data-theme="dark"] .omp[data-s="race"]{color:#0d1218}
+@media (prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) .omp[data-s="opens_region"],
+ :root:not([data-theme="light"]) .omp[data-s="race"]{color:#0d1218}}
+/* test coverage of the routine's own lines */
+.cov{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;
+  text-align:center;padding:2px 0;border:1px solid var(--rule-2);border-radius:3px;
+  color:var(--ink-2)}
+.cov[data-l="none"]{background:var(--bad);border-color:var(--bad);color:#fff}
+.cov[data-l="low"]{border-color:var(--bad);color:var(--bad)}
+.cov[data-l="mid"]{border-color:var(--warn);color:var(--warn)}
+.cov[data-l="high"]{border-color:var(--ok);color:var(--ok)}
+.cov[data-l="full"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.cov[data-l="na"]{border-style:dashed;color:var(--ink-3)}
+:root[data-theme="dark"] .cov[data-l="none"],
+:root[data-theme="dark"] .cov[data-l="full"]{color:#0d1218}
+@media (prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) .cov[data-l="none"],
+ :root:not([data-theme="light"]) .cov[data-l="full"]{color:#0d1218}}
+/* documentation state of the routine -- not yet collected */
+.docs{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;
+  text-align:center;padding:2px 0;border:1px solid var(--rule-2);border-radius:3px;
+  color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;min-width:44px}
+.docs[data-l="documented"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.docs[data-l="partial"]{border-color:var(--warn);color:var(--warn)}
+.docs[data-l="undocumented"]{border-color:var(--bad);color:var(--bad)}
+.docs[data-l="na"]{border-style:dashed}
+:root[data-theme="dark"] .docs[data-l="documented"]{color:#0d1218}
+@media (prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) .docs[data-l="documented"]{color:#0d1218}}
+/* area / feature progress */
+.prog{display:flex;align-items:center;gap:7px;font-family:"IBM Plex Mono",monospace;
+  font-size:11px;color:var(--ink-3)}
+.pbar{width:104px;height:6px;border-radius:3px;background:var(--surface-2);
+  overflow:hidden;display:flex}
+.pbar i{display:block;height:100%}
+.pbar i.d{background:var(--ok)}
+.pbar i.t{background:var(--warn)}
+.pbar i.c{background:var(--branch)}
+.pbar i.u{background:var(--idle)}
+.pct{font-weight:600;color:var(--ink-2);min-width:34px;text-align:right}
+.pct[data-l="none"]{color:var(--bad)}
+.pct[data-l="full"]{color:var(--ok)}
+.pct[data-l="low"]{color:var(--bad)}
+.pct[data-l="mid"]{color:var(--warn)}
+.rmk{font-size:11.5px;color:var(--ink-3);overflow-wrap:anywhere}
+
+/* flag button */
+.fb{width:19px;height:19px;border:1.5px solid var(--rule-2);border-radius:4px;
+  display:grid;place-items:center;color:transparent;font-size:11px;line-height:1}
+.fb:hover{border-color:var(--flag)}
+.fb[aria-pressed="true"]{background:var(--flag);border-color:var(--flag);color:#fff}
+.q .fb{position:absolute;left:0;top:13px}
+
+/* note editor */
+.ed{grid-column:1/-1;display:flex;gap:8px;padding:7px 0 9px 36px}
+.ed textarea{flex:1;min-height:44px;padding:6px 9px;border:1px solid var(--rule-2);
+  border-radius:5px;background:var(--ground);color:var(--ink);font:inherit;
+  font-size:12.5px;resize:vertical}
+.ed .save{align-self:flex-start;padding:6px 13px;background:var(--accent);
+  color:var(--accent-ink);border-radius:5px;font-size:12.5px;font-weight:500}
+.saved{font-size:11.5px;color:var(--ok);align-self:center}
+
+/* below the width the nine-column routine grid needs, the row wraps instead
+   of overflowing: every column is still there, it just flows onto more lines */
+@media (max-width:900px){
+  .row{display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;padding:8px 12px}
+  .row .rn{flex:1 1 100%}
+  .row .rf{flex:1 1 100%}
+  .row>span:empty{display:none}
+  .omp,.cov,.docs{padding-left:5px;padding-right:5px}
+  .ed{padding-left:0}
+  .ft .sp{margin-left:0}
+  .at-row .ac{margin-left:0}
+}
+.empty{padding:44px;text-align:center;color:var(--ink-3);
+  background:var(--surface);border:1px solid var(--rule);border-radius:8px}
+.dbnote{max-width:1500px;margin:0 auto;padding:0 26px 14px;font-size:12px;color:var(--ink-3)}
+.dbnote b{color:var(--warn);font-weight:600}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="brand">
+      <h1>RAMSES Feature Inventory</h1>
+      <p>What the big parts of RAMSES are and what physics is in them. The page opens as the map:
+         nineteen features in the order a run reaches them, each with what it does, which
+         <a href="https://ramses-organisation.readthedocs.io/en/latest/dev_docs/lecture/lectures.html">developer lecture</a> covers it,
+         and which other features call into it. Open one to reach its areas, and an area to reach
+         every routine by name, with its OpenMP status and test coverage. Flag anything
+         miscategorised and leave a note; flags are saved for everyone reading this page.</p>
+    </div>
+    <div class="figures" id="figures"></div>
+  </div>
+  <div class="controls">
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="q" type="search" placeholder="Search routine, file, feature or area&hellip;" autocomplete="off">
+    </label>
+    <label class="pick" id="testf" data-on="false">
+      <b>Exercised by</b>
+      <select id="testsel" aria-label="Show only what one test reaches">
+        <option value="">any test</option>
+      </select>
+    </label>
+    <div class="seg" id="expf" role="group" aria-label="Expand level">
+      <button data-v="none" aria-pressed="true">Collapsed</button>
+      <button data-v="feat" aria-pressed="false">Areas</button>
+      <button data-v="all" aria-pressed="false">Everything</button>
+    </div>
+    <div class="seg" id="ompf" role="group" aria-label="OpenMP status filter">
+      <button data-v="all" aria-pressed="true">All</button>
+      <button data-v="opens_region" aria-pressed="false">region</button>
+      <button data-v="adapted" aria-pressed="false">adapted</button>
+      <button data-v="stateless" aria-pressed="false">stateless</button>
+      <button data-v="race" aria-pressed="false">race</button>
+      <button data-v="unthreaded" aria-pressed="false">unthreaded</button>
+      <button data-v="gap" aria-pressed="false">Gaps</button>
+      <button data-v="disagrees" aria-pressed="false">Disagrees</button>
+    </div>
+    <div class="seg" id="covf" role="group" aria-label="Test coverage filter">
+      <button data-v="all" aria-pressed="true">Any coverage</button>
+      <button data-v="none" aria-pressed="false">0%</button>
+      <button data-v="low" aria-pressed="false">&lt;50%</button>
+      <button data-v="full" aria-pressed="false">100%</button>
+      <button data-v="na" aria-pressed="false">not measured</button>
+    </div>
+    <div class="seg" id="phasef" role="group" aria-label="Phase filter">
+      <button data-v="all" aria-pressed="true">Any phase</button>
+      <button data-v="params" aria-pressed="false">params</button>
+      <button data-v="init" aria-pressed="false">init</button>
+      <button data-v="step" aria-pressed="false">step</button>
+      <button data-v="output" aria-pressed="false">output</button>
+    </div>
+    <div class="seg" id="scopef" role="group" aria-label="Caller scope filter">
+      <button data-v="all" aria-pressed="true">Any scope</button>
+      <button data-v="area" aria-pressed="false">area</button>
+      <button data-v="feature" aria-pressed="false">feature</button>
+      <button data-v="global" aria-pressed="false">global</button>
+    </div>
+    <div class="seg" id="viewf" role="group" aria-label="View filter">
+      <button data-v="all" aria-pressed="true">Everything</button>
+      <button data-v="drivers" aria-pressed="false">Drivers</button>
+      <button data-v="private" aria-pressed="false">Private</button>
+      <button data-v="unused" aria-pressed="false">Unused</button>
+      <button data-v="todo" aria-pressed="false">To check</button>
+      <button data-v="review" aria-pressed="false">Under review</button>
+      <button data-v="flagged" aria-pressed="false">Flagged</button>
+    </div>
+  </div>
+  <details class="legbox">
+  <summary>What the chips mean</summary>
+  <div class="legend">
+    <span class="lgroup" data-dim="omp"><b>OpenMP</b>
+    <span class="lg"><span class="omp" data-s="opens_region" style="width:70px">region</span> opens an OpenMP parallel region</span>
+    <span class="lg"><span class="omp" data-s="adapted" style="width:70px">adapted</span> changed to run inside one</span>
+    <span class="lg"><span class="omp" data-s="stateless" style="width:70px">stateless</span> runs inside one, keeps nothing between calls</span>
+    <span class="lg"><span class="omp" data-s="race" style="width:70px">race</span> keeps written state between calls</span>
+    <span class="lg"><span class="omp" data-s="unthreaded" style="width:70px">unthreaded</span> never runs under threads</span>
+    <span class="lg"><span class="omp" data-s="unthreaded" data-p="todo" style="width:70px">unthreaded</span> counts as a gap</span>
+    <span class="lg" style="color:var(--ink-3)">&mdash; threads only: RAMSES is MPI-parallel throughout, so these never say &ldquo;parallel&rdquo;. Derived from the <b style="font-family:'IBM Plex Mono',monospace;color:var(--ink-2)">openmp</b> branch.</span></span>
+    <span class="lgroup" data-dim="coverage"><b style="margin-left:8px">Coverage</b>
+    <span class="lg"><span class="cov" data-l="none" style="width:44px">0%</span> no test reaches it</span>
+    <span class="lg"><span class="cov" data-l="low" style="width:44px">&lt;50%</span></span>
+    <span class="lg"><span class="cov" data-l="mid" style="width:44px">&lt;85%</span></span>
+    <span class="lg"><span class="cov" data-l="high" style="width:44px">&lt;100%</span></span>
+    <span class="lg"><span class="cov" data-l="full" style="width:44px">100%</span></span>
+    <span class="lg"><span class="cov" data-l="na" style="width:44px">&ndash;</span> not measured</span>
+    <span class="lg" style="color:var(--ink-3)">&mdash; the routine&rsquo;s <i>own</i> lines: a routine that <b style="font-family:'IBM Plex Mono',monospace;color:var(--ink-2)">contains</b> others is not charged for theirs. Lines behind a preprocessor directive no build enabled count as uncovered.</span></span>
+    <span class="lgroup" data-dim="benchmark" hidden><b style="margin-left:8px">Benchmarks</b>
+    <span class="lg"><span class="cov" data-l="none" style="width:44px">0%</span> no benchmark reaches it</span>
+    <span class="lg"><span class="cov" data-l="full" style="width:44px">100%</span></span>
+    <span class="lg" style="color:var(--ink-3)">&mdash; the same measure as coverage, over the benchmark suite rather than the test suite.</span></span>
+    <span class="lgroup" data-dim="docs" hidden><b style="margin-left:8px">Docs</b>
+    <span class="lg"><span class="docs" data-l="documented">doc</span> enough to work on it without asking</span>
+    <span class="lg"><span class="docs" data-l="partial">part</span></span>
+    <span class="lg"><span class="docs" data-l="undocumented">none</span></span></span>
+    <b style="margin-left:8px">Role</b>
+    <span class="lg"><span class="role" data-r="driver">driver</span> from amr_step</span>
+    <span class="lg"><span class="role" data-r="shared">shared</span></span>
+    <span class="lg"><span class="role" data-r="private">private</span> one caller</span>
+    <span class="lg"><span class="role" data-r="recursive">recursive</span> calls itself</span>
+    <span class="lg"><span class="role" data-r="unused">unused</span> never referenced</span>
+    <span class="lg"><span class="todo">todo</span> needs checking</span>
+    <span class="lg"><span class="rev">review</span> being worked through now</span>
+    <b style="margin-left:8px">Scope</b>
+    <span class="lg"><span class="scope" data-s="area">area</span> all callers in this area</span>
+    <span class="lg"><span class="scope" data-s="feature">feature</span> within one feature</span>
+    <span class="lg"><span class="scope" data-s="global">global</span> across features</span>
+    <span class="lg" style="color:var(--ink-3)">&mdash; <b style="font-family:'IBM Plex Mono',monospace;color:var(--ink-2)">L<i>n</i></b> is call depth from the program entry point; hover a role for its callers</span>
+  </div>
+  </details>
+  <div class="dbnote" id="dbnote" hidden></div>
+</header>
+
+<div class="shell">
+  <nav class="rail" id="rail"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
