@@ -3,32 +3,32 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 36 areas; most of its lines fall in **amr_core**, **utilities**, **refinement**. 3 lines are reached by no other test in the suite.
+Reaches 43 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_core**. 3 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | turb | driving | 50 | 100% |  |
 | turb | turb_io | 24 | 100% |  |
-| amr_core | units | 10 | 100% |  |
+| utilities | units | 10 | 100% |  |
+| mesh | shutdown | 33 | 97% |  |
+| mesh | output | 97 | 87% |  |
 | turb | force_field | 161 | 79% | 3 |
+| hydrodynamics | hydro_courant | 92 | 77% |  |
 | hydrodynamics | hydro_core | 68 | 76% |  |
-| amr_core | shutdown | 51 | 75% |  |
 | turb | setup | 160 | 75% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | hydrodynamics | hydro_source_terms | 85 | 67% |  |
-| amr_core | output | 235 | 65% |  |
+| amr_core | output | 140 | 66% |  |
+| mesh | setup | 281 | 63% |  |
 | hydrodynamics | output | 69 | 56% |  |
-| refinement | grid_linked_list | 372 | 54% |  |
+| mesh | refinement | 372 | 54% |  |
 | utilities | file | 16 | 53% |  |
-| amr_core | main_loop | 419 | 53% |  |
 | utilities | communication | 303 | 53% |  |
-| amr_core | grid_setup | 130 | 52% |  |
-| utilities | neighbour_search | 66 | 34% |  |
-| hydrodynamics | setup | 223 | 31% |  |
-| amr_core | dump_helpers | 10 | 25% |  |
+| mesh | memory_management | 194 | 50% |  |
+| amr_core | main_loop | 195 | 46% |  |
 
-16 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
+23 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 
 <sub>Generated from `coverage_features_overview_2026-09-10_7b6d29b8` by `doc/features_overview/annotate_test_readmes.py`. *share* is of the area's executable lines; *only* counts lines no other test reaches.</sub>
 

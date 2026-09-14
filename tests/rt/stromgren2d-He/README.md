@@ -8,32 +8,32 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 40 areas; most of its lines fall in **amr_core**, **rt**, **cooling**. 5 lines are reached by no other test in the suite.
+Reaches 48 areas; most of its lines fall in **mesh**, **rt**, **hydrodynamics**. 5 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
-| domains | boundary_setup | 119 | 100% |  |
-| amr_core | units | 10 | 100% |  |
+| mesh | boundaries | 119 | 100% |  |
+| utilities | units | 10 | 100% |  |
+| mesh | shutdown | 33 | 97% |  |
+| mesh | output | 100 | 89% |  |
 | hydrodynamics | hydro_core | 68 | 76% |  |
 | rt | boundaries | 47 | 76% |  |
-| amr_core | shutdown | 51 | 75% |  |
 | rt | output | 98 | 74% |  |
+| hydrodynamics | hydro_courant | 88 | 73% |  |
 | cooling | rt_cooling | 565 | 72% | 5 |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
-| amr_core | output | 239 | 66% |  |
+| mesh | setup | 297 | 67% |  |
+| amr_core | output | 141 | 67% |  |
+| rt | interpolation | 38 | 64% |  |
 | hydrodynamics | output | 77 | 63% |  |
 | rt | transport | 200 | 62% |  |
-| refinement | grid_linked_list | 419 | 61% |  |
-| amr_core | main_loop | 458 | 58% |  |
+| mesh | refinement | 419 | 61% |  |
+| mesh | memory_management | 235 | 60% |  |
 | utilities | communication | 313 | 54% |  |
 | utilities | file | 16 | 53% |  |
-| amr_core | grid_setup | 129 | 52% |  |
-| rt | rt | 366 | 48% |  |
-| hydrodynamics | setup | 292 | 40% |  |
-| hydrodynamics | hydro_source_terms | 50 | 40% |  |
 
-20 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
+28 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 
 <sub>Generated from `coverage_features_overview_2026-09-10_7b6d29b8` by `doc/features_overview/annotate_test_readmes.py`. *share* is of the area's executable lines; *only* counts lines no other test reaches.</sub>
 

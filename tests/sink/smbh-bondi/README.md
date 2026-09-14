@@ -10,32 +10,32 @@ WARNING: This test uses the `experimental_sink` patch. To be adjusted after it i
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 54 areas; most of its lines fall in **particles**, **gravity**, **sinks**. 90 lines are reached by no other test in the suite.
+Reaches 64 areas; most of its lines fall in **mesh**, **particles**, **gravity**. 90 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
-| domains | boundary_setup | 119 | 100% |  |
-| amr_core | units | 10 | 100% |  |
+| mesh | boundaries | 119 | 100% |  |
+| particles | time_step | 19 | 100% |  |
+| utilities | units | 10 | 100% |  |
+| mesh | shutdown | 33 | 97% |  |
+| gravity | interpolation | 50 | 94% |  |
+| mesh | output | 102 | 91% |  |
 | gravity | boundaries | 88 | 90% |  |
-| amr_core | shutdown | 61 | 90% |  |
 | hydrodynamics | hydro_source_terms | 111 | 88% |  |
 | gravity | output | 40 | 82% |  |
 | gravity | force_calculation | 108 | 81% |  |
 | gravity | multigrid | 894 | 80% |  |
+| mesh | memory_management | 308 | 79% |  |
 | hydrodynamics | hydro_core | 68 | 76% |  |
+| hydrodynamics | hydro_courant | 91 | 76% |  |
 | particles | output | 93 | 76% |  |
 | sinks | update | 249 | 74% | 54 |
 | sinks | accretion | 389 | 72% | 15 |
-| amr_core | output | 253 | 70% |  |
+| amr_core | output | 153 | 72% |  |
+| domains | load_balancing | 329 | 70% |  |
 | utilities | memory | 27 | 69% |  |
-| utilities | timer | 63 | 68% |  |
-| refinement | grid_linked_list | 442 | 64% |  |
-| utilities | rng | 82 | 64% |  |
-| sinks | setup | 176 | 63% | 11 |
-| utilities | file | 18 | 60% |  |
-| utilities | neighbour_search | 111 | 58% |  |
 
-34 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
+44 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 
 <sub>Generated from `coverage_features_overview_2026-09-10_7b6d29b8` by `doc/features_overview/annotate_test_readmes.py`. *share* is of the area's executable lines; *only* counts lines no other test reaches.</sub>
 

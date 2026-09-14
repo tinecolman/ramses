@@ -3,29 +3,32 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 31 areas; most of its lines fall in **refinement**, **amr_core**, **utilities**, and no line is reached by this test alone.
+Reaches 39 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_core**, and no line is reached by this test alone.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
-| domains | boundary_setup | 119 | 100% |  |
-| amr_core | units | 10 | 100% |  |
-| amr_core | shutdown | 51 | 75% |  |
-| refinement | grid_linked_list | 515 | 75% |  |
+| mesh | boundaries | 119 | 100% |  |
+| utilities | units | 10 | 100% |  |
+| mesh | shutdown | 33 | 97% |  |
+| mesh | output | 100 | 89% |  |
+| mesh | refinement | 515 | 75% |  |
+| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
-| amr_core | output | 232 | 64% |  |
-| amr_core | main_loop | 453 | 58% |  |
+| mesh | setup | 286 | 65% |  |
+| amr_core | output | 134 | 63% |  |
 | hydrodynamics | output | 70 | 57% |  |
+| hydrodynamics | hydro_interpolation | 135 | 55% |  |
+| mesh | flagging | 200 | 55% |  |
+| mesh | memory_management | 213 | 55% |  |
 | utilities | communication | 313 | 54% |  |
 | utilities | file | 16 | 53% |  |
-| amr_core | grid_setup | 123 | 49% |  |
-| utilities | neighbour_search | 94 | 49% |  |
+| amr_core | main_loop | 219 | 51% |  |
+| mesh | neighbour_search | 94 | 49% |  |
 | hydrodynamics | hydro_core | 41 | 46% |  |
-| refinement | flagging | 293 | 40% |  |
-| hydrodynamics | setup | 271 | 37% |  |
-| amr_core | dump_helpers | 10 | 25% |  |
+| domains | hilbert_decomposition | 26 | 38% |  |
 
-14 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
+19 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 
 <sub>Generated from `coverage_features_overview_2026-09-10_7b6d29b8` by `doc/features_overview/annotate_test_readmes.py`. *share* is of the area's executable lines; *only* counts lines no other test reaches.</sub>
 
