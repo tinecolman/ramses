@@ -2170,11 +2170,9 @@ features:
             depth: 5
             callers: [velocity_fine]
             omp:
-              state: race
-              progress: todo
-              unprotected: [yy, zz]
+              state: stateless
+              progress: done
               recorded: "yes"
-              disagrees: true
             coverage:
               pct: 100.0
               covered: 13
@@ -3808,11 +3806,9 @@ features:
             depth: 6
             callers: [mag_unsplit]
             omp:
-              state: race
-              progress: todo
-              unprotected: [check_switch_solver]
+              state: stateless
+              progress: done
               recorded: "yes"
-              disagrees: true
             coverage:
               pct: 88.3
               covered: 53
@@ -6547,9 +6543,8 @@ features:
             depth: 5
             callers: [cmp_equilibrium_abundances]
             omp:
-              state: race
-              progress: todo
-              unprotected: [a_hei, a_heii, a_hi, az_h2, b_h2h2, b_h2hi, b_hei, b_heii, b_hi, c_h2, c_heiii, c_hii, d_h2, d_hei, f_dust, f_h2, f_hei, f_heiii, f_hii, g_h2, g_hei, g_heii, g_hi]
+              state: stateless
+              progress: done
             coverage:
               pct: 100.0
               covered: 67
@@ -7464,9 +7459,9 @@ features:
             depth: 5
             callers: [getnphotonsemitted, update_sed_group_props]
             omp:
-              state: race
-              progress: todo
-              unprotected: [da, da0, da1, dz, dz0, dz1, ia, iz]
+              state: adapted
+              progress: done
+              threadprivate: 1
             coverage:
               pct: 0.0
               covered: 0
@@ -7479,9 +7474,8 @@ features:
             depth: 5
             callers: [star_rt_vsweep, update_sed_group_props]
             omp:
-              state: race
-              progress: todo
-              unprotected: [scale_init, scale_t_gyr]
+              state: stateless
+              progress: done
               recorded: "-"
               note: nothing to do
             coverage:
@@ -11098,9 +11092,8 @@ features:
             depth: 5
             callers: [perform_my_selection]
             omp:
-              state: race
-              progress: todo
-              unprotected: [xplmax, xplmin, yplmax, yplmin, zplmax, zplmin]
+              state: stateless
+              progress: done
             coverage:
               pct: 0.0
               covered: 0
