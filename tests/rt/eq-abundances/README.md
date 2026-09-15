@@ -10,7 +10,6 @@ Reaches 36 areas; most of its lines fall in **cooling**, **mesh**, **amr_core**.
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 95 | 85% |  |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | timer | 63 | 68% |  |
 | cooling | rt_cooling | 530 | 68% |  |
 | amr_core | output | 141 | 67% |  |
@@ -23,6 +22,7 @@ Reaches 36 areas; most of its lines fall in **cooling**, **mesh**, **amr_core**.
 | amr_core | main_loop | 145 | 34% |  |
 | amr_core | setup | 120 | 29% |  |
 | utilities | communication | 169 | 29% |  |
+| hydrodynamics | courant | 88 | 28% |  |
 | utilities | dump_helpers | 10 | 25% |  |
 | rt | rt | 170 | 22% | 21 |
 

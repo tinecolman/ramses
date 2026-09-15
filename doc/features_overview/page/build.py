@@ -81,7 +81,12 @@ if os.path.exists(TM):
     d["stats"]["untested"]=len(rs)-len(tm["routines"])
 
 QUESTIONS=json.load(open(D+"/questions.json"))
-APPLIED=["init_time is the setup dispatcher; 10 routines were phase step, not init",
+APPLIED=["hydrodynamics splits three ways: the update, hydro_amr and hydro_ic",
+ "flagging, interpolation and boundaries become hydro_amr, 28 routines",
+ "the hydro/mhd build alternatives now share one area: 17 areas become 13",
+ "init_flow_fine is the IC dispatcher; it and init_flow left setup for the ICs",
+ "input.rst attached to hydrodynamics",
+ "init_time is the setup dispatcher; 10 routines were phase step, not init",
  "expansion moved into Program core under setup; cosmo dissolved",
  "timestepping dissolved: clock to Program core, Courant to hydro/mhd",
  "new cosmo feature holds the Friedmann machinery",

@@ -3,14 +3,13 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 37 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_core**. 14 lines are reached by no other test in the suite.
+Reaches 37 areas; most of its lines fall in **mesh**, **amr_core**, **utilities**. 14 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 93 | 83% |  |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | mesh | setup | 278 | 63% |  |
@@ -22,11 +21,12 @@ Reaches 37 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_c
 | utilities | communication | 303 | 53% |  |
 | amr_core | main_loop | 219 | 51% |  |
 | mesh | memory_management | 194 | 50% |  |
-| hydrodynamics | hydro_core | 41 | 46% |  |
 | mesh | neighbour_search | 84 | 44% |  |
-| hydrodynamics | hydro_interpolation | 83 | 34% |  |
+| hydrodynamics | setup | 132 | 34% |  |
 | amr_core | setup | 123 | 30% |  |
-| hydrodynamics | setup | 206 | 28% |  |
+| hydro_amr | flagging | 79 | 28% |  |
+| hydrodynamics | courant | 88 | 28% |  |
+| utilities | dump_helpers | 10 | 25% |  |
 
 17 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

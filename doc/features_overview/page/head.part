@@ -359,7 +359,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
     <div class="brand">
       <h1>RAMSES Feature Inventory</h1>
       <p>What the big parts of RAMSES are and what physics is in them. The page opens as the map:
-         nineteen features in the order a run reaches them, each with what it does, which
+         twenty-two features in the order a run reaches them, each with what it does, which
          <a href="https://ramses-organisation.readthedocs.io/en/latest/dev_docs/lecture/lectures.html">developer lecture</a> covers it,
          and which other features call into it. Open one to reach its areas, and an area to reach
          every routine by name, with its OpenMP status and test coverage. Flag anything

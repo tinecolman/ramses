@@ -3,14 +3,13 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 42 areas; most of its lines fall in **mesh**, **particles**, **hydrodynamics**. 74 lines are reached by no other test in the suite.
+Reaches 42 areas; most of its lines fall in **mesh**, **particles**, **amr_core**. 74 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 95 | 85% |  |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | memory | 27 | 69% |  |
 | particles | output | 85 | 69% |  |
 | utilities | timer | 63 | 68% |  |
@@ -27,6 +26,7 @@ Reaches 42 areas; most of its lines fall in **mesh**, **particles**, **hydrodyna
 | utilities | file | 16 | 53% |  |
 | utilities | communication | 303 | 53% |  |
 | utilities | dump_helpers | 20 | 50% |  |
+| domains | hilbert_decomposition | 26 | 38% |  |
 
 22 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

@@ -3,15 +3,13 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 38 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_core**. 36 lines are reached by no other test in the suite.
+Reaches 39 areas; most of its lines fall in **mesh**, **amr_core**, **utilities**. 36 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 97 | 87% |  |
-| hydrodynamics | hydro_core | 68 | 76% |  |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | amr_core | output | 135 | 64% |  |
@@ -23,12 +21,14 @@ Reaches 38 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_c
 | mesh | memory_management | 194 | 50% |  |
 | domains | hilbert_decomposition | 30 | 44% |  |
 | amr_core | main_loop | 183 | 43% |  |
-| hydrodynamics | hydro_source_terms | 51 | 40% |  |
-| hydrodynamics | setup | 282 | 39% | 5 |
+| hydrodynamics | update_driver | 68 | 38% |  |
+| hydrodynamics | setup | 138 | 35% |  |
 | mesh | neighbour_search | 66 | 34% |  |
 | amr_core | setup | 129 | 32% | 1 |
+| hydrodynamics | courant | 88 | 28% |  |
+| utilities | dump_helpers | 10 | 25% |  |
 
-18 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
+19 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 
 <sub>Generated from `coverage_features_overview_2026-09-10_7b6d29b8` by `doc/features_overview/annotate_test_readmes.py`. *share* is of the area's executable lines; *only* counts lines no other test reaches.</sub>
 

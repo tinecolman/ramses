@@ -20,7 +20,6 @@ Reaches 44 areas; most of its lines fall in **mesh**, **rt**, **cooling**, and n
 | rt | transport | 243 | 76% |  |
 | rt | output | 98 | 74% |  |
 | utilities | memory | 27 | 69% |  |
-| hydrodynamics | hydro_core | 61 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | cooling | rt_cooling | 527 | 67% |  |
 | mesh | setup | 297 | 67% |  |
@@ -31,6 +30,7 @@ Reaches 44 areas; most of its lines fall in **mesh**, **rt**, **cooling**, and n
 | mesh | memory_management | 235 | 60% |  |
 | utilities | communication | 313 | 54% |  |
 | utilities | file | 16 | 53% |  |
+| hydrodynamics | setup | 208 | 53% |  |
 | amr_core | main_loop | 213 | 50% |  |
 
 24 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).

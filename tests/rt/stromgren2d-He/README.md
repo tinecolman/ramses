@@ -8,7 +8,7 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 48 areas; most of its lines fall in **mesh**, **rt**, **hydrodynamics**. 5 lines are reached by no other test in the suite.
+Reaches 48 areas; most of its lines fall in **mesh**, **rt**, **cooling**. 5 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
@@ -16,10 +16,8 @@ Reaches 48 areas; most of its lines fall in **mesh**, **rt**, **hydrodynamics**.
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 100 | 89% |  |
-| hydrodynamics | hydro_core | 68 | 76% |  |
 | rt | boundaries | 47 | 76% |  |
 | rt | output | 98 | 74% |  |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | cooling | rt_cooling | 565 | 72% | 5 |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
@@ -31,7 +29,9 @@ Reaches 48 areas; most of its lines fall in **mesh**, **rt**, **hydrodynamics**.
 | mesh | refinement | 419 | 61% |  |
 | mesh | memory_management | 235 | 60% |  |
 | utilities | communication | 313 | 54% |  |
+| hydrodynamics | setup | 209 | 53% |  |
 | utilities | file | 16 | 53% |  |
+| amr_core | main_loop | 215 | 50% |  |
 
 28 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

@@ -21,19 +21,19 @@ Reaches 64 areas; most of its lines fall in **mesh**, **particles**, **gravity**
 | gravity | interpolation | 50 | 94% |  |
 | mesh | output | 102 | 91% |  |
 | gravity | boundaries | 88 | 90% |  |
-| hydrodynamics | hydro_source_terms | 111 | 88% |  |
 | gravity | output | 40 | 82% |  |
 | gravity | force_calculation | 108 | 81% |  |
 | gravity | multigrid | 894 | 80% |  |
 | mesh | memory_management | 308 | 79% |  |
-| hydrodynamics | hydro_core | 68 | 76% |  |
-| hydrodynamics | hydro_courant | 91 | 76% |  |
 | particles | output | 93 | 76% |  |
 | sinks | update | 249 | 74% | 54 |
 | sinks | accretion | 389 | 72% | 15 |
 | amr_core | output | 153 | 72% |  |
 | domains | load_balancing | 329 | 70% |  |
 | utilities | memory | 27 | 69% |  |
+| utilities | timer | 63 | 68% |  |
+| amr_core | main_loop | 289 | 68% |  |
+| mesh | refinement | 442 | 64% |  |
 
 44 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

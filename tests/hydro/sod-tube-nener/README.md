@@ -11,7 +11,6 @@ Reaches 41 areas; most of its lines fall in **mesh**, **hydrodynamics**, **utili
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 98 | 88% |  |
-| hydrodynamics | hydro_courant | 100 | 83% |  |
 | mesh | refinement | 477 | 69% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
@@ -20,13 +19,14 @@ Reaches 41 areas; most of its lines fall in **mesh**, **hydrodynamics**, **utili
 | amr_core | output | 133 | 63% |  |
 | utilities | communication | 350 | 61% |  |
 | mesh | memory_management | 213 | 55% |  |
-| hydrodynamics | hydro_interpolation | 133 | 54% |  |
 | mesh | flagging | 198 | 54% |  |
 | utilities | file | 16 | 53% |  |
 | amr_core | main_loop | 220 | 52% |  |
+| hydrodynamics | setup | 185 | 47% |  |
 | mesh | neighbour_search | 90 | 47% |  |
-| hydrodynamics | hydro_core | 41 | 46% |  |
 | hydrodynamics | screen_diagnostics | 123 | 40% | 115 |
+| hydro_amr | flagging | 101 | 35% |  |
+| hydrodynamics | courant | 100 | 31% |  |
 
 21 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

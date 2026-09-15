@@ -3,7 +3,7 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 40 areas; most of its lines fall in **mesh**, **hydrodynamics**, **mhd_solver**. 305 lines are reached by no other test in the suite.
+Reaches 40 areas; most of its lines fall in **mesh**, **mhd_solver**, **hydro_amr**. 305 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
@@ -22,11 +22,11 @@ Reaches 40 areas; most of its lines fall in **mesh**, **hydrodynamics**, **mhd_s
 | mesh | flagging | 198 | 54% |  |
 | utilities | file | 16 | 53% |  |
 | amr_core | main_loop | 224 | 53% |  |
-| hydrodynamics | mhd_interpolation | 335 | 52% |  |
-| hydrodynamics | mhd_courant | 101 | 51% |  |
 | hydrodynamics | screen_diagnostics | 146 | 48% | 1 |
 | mesh | neighbour_search | 90 | 47% |  |
-| hydrodynamics | mhd_core | 41 | 45% |  |
+| hydro_amr | boundaries | 120 | 38% |  |
+| hydro_amr | interpolation | 335 | 37% |  |
+| hydro_amr | flagging | 105 | 37% |  |
 
 20 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

@@ -8,14 +8,13 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 39 areas; most of its lines fall in **mesh**, **hydrodynamics**, **mhd_solver**. 13 lines are reached by no other test in the suite.
+Reaches 39 areas; most of its lines fall in **mesh**, **mhd_solver**, **hydrodynamics**. 13 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 97 | 87% |  |
-| hydrodynamics | mhd_courant | 149 | 75% |  |
 | utilities | timer | 63 | 68% |  |
 | utilities | memory | 26 | 67% |  |
 | hydrodynamics | output | 81 | 66% |  |
@@ -26,11 +25,12 @@ Reaches 39 areas; most of its lines fall in **mesh**, **hydrodynamics**, **mhd_s
 | utilities | file | 16 | 53% |  |
 | utilities | communication | 303 | 53% |  |
 | mesh | memory_management | 194 | 50% |  |
-| hydrodynamics | mhd_core | 41 | 45% |  |
+| hydrodynamics | courant | 149 | 47% |  |
 | domains | hilbert_decomposition | 30 | 44% |  |
 | amr_core | main_loop | 186 | 44% |  |
 | mhd_solver | godunov_solver | 717 | 43% |  |
 | hydrodynamics | diffusion | 166 | 41% |  |
+| hydrodynamics | setup | 155 | 40% |  |
 | hydrodynamics | velocity_profiles | 13 | 36% | 13 |
 
 19 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).

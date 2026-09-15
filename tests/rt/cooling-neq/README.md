@@ -10,7 +10,6 @@ Reaches 37 areas; most of its lines fall in **mesh**, **cooling**, **amr_core**,
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 95 | 85% |  |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | cooling | rt_cooling | 572 | 73% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
@@ -22,9 +21,10 @@ Reaches 37 areas; most of its lines fall in **mesh**, **cooling**, **amr_core**,
 | rt | output | 53 | 40% |  |
 | domains | hilbert_decomposition | 26 | 38% |  |
 | amr_core | main_loop | 161 | 38% |  |
-| hydrodynamics | setup | 231 | 32% |  |
+| hydrodynamics | setup | 147 | 38% |  |
 | amr_core | setup | 125 | 31% |  |
 | utilities | communication | 169 | 29% |  |
+| hydrodynamics | courant | 88 | 28% |  |
 | utilities | dump_helpers | 10 | 25% |  |
 
 18 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).

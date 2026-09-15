@@ -1628,26 +1628,117 @@ features:
               covered: 0
               total: 9
   - id: hydrodynamics
-    title: "Hydrodynamics and MHD: drivers, boundaries and initial conditions"
+    title: "Hydrodynamics and MHD: the gas update"
     review: >-
       basic hydro with AMR -- the 116 routines that tests/hydro/implosion
-      exercises; pass started 2026-09-14
+      exercises; placement pass done 2026-09-15, see q25-hydromhd and
+      q26-hydrosplit
     lecture: hydro.rst
     summary: >-
       Solves the Euler equations for mass, momentum and total energy in
       conservative form, with the induction equation alongside for MHD. This
-      feature holds the update driver, the source terms, the boundary
-      conditions and the initial conditions; the scheme that computes the
-      fluxes is in hydro_solver and mhd_solver.
+      feature is the update itself -- the driver that advances `uold`, the
+      Courant condition that sets the step, the gravity and PdV source terms,
+      the MHD diffusion -- together with the parameters and the restart read
+      that set `uold` up, and the snapshot and screen diagnostics that read it
+      back out. The scheme that computes the fluxes is in hydro_solver and
+      mhd_solver; prolongation, ghost cells and refinement criteria are in
+      hydro_amr; the initial state is in hydro_ic.
+      `mhd/` is not a second solver tree but nine override files over `hydro/`
+      -- condinit, courant_fine, godunov_fine, godunov_utils, hydro_boundary,
+      interpol_hydro, umuscl, uplmde, write_screen -- and bin/Makefile puts
+      `../$(SOLVER)` ahead of `../hydro` on VPATH, so exactly one of each pair
+      is ever compiled. Every other file is compiled by both builds. The two
+      alternatives are deliberately listed side by side inside one area, not
+      split into hydro_*/mhd_* areas, so that a routine appearing twice is
+      visible as duplication to be merged.
     tests: [tests/hydro, tests/mhd]
     modules:          # declaration-only modules owned by this feature
-      - amr/dice_commons.f90
       - hydro/collapse_parameters.f90
       - hydro/hydro_commons.f90
       - hydro/hydro_parameters.f90
     areas:
-      - id: hydro_core
-        title: hydro update driver
+      - id: setup
+        title: parameters, array allocation and restart read
+        routines:
+          - file: hydro/read_hydro_params.f90
+            name: read_hydro_params
+            phase: params
+            role: private
+            scope: global
+            depth: 2
+            callers: [read_params]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "maybe todo?"
+              disagrees: true
+            coverage:
+              pct: 82.4
+              covered: 187
+              total: 227
+              notbuilt: 3
+          - file: hydro/init_hydro.f90
+            name: init_hydro
+            phase: init
+            role: driver
+            scope: global
+            depth: 2
+            driver: adaptive_loop
+            callers: [adaptive_loop]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "todo?"
+              disagrees: true
+            coverage:
+              pct: 68.3
+              covered: 95
+              total: 139
+          - file: hydro/init_hydro.f90
+            name: scatter_conservative_to_uold
+            phase: init
+            role: private
+            scope: area
+            depth: 3
+            callers: [init_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 3
+              total: 3
+          - file: hydro/init_hydro.f90
+            name: scatter_primitive_to_uold
+            phase: init
+            role: private
+            scope: area
+            depth: 3
+            callers: [init_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 6
+              total: 6
+          - file: hydro/init_hydro.f90
+            name: calc_total_energy_from_thermal_pressure
+            phase: init
+            role: private
+            scope: area
+            depth: 3
+            callers: [init_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 93.8
+              covered: 15
+              total: 16
+      - id: update_driver
+        title: gas update driver (hydro and MHD alternatives)
         routines:
           - file: hydro/godunov_fine.f90
             name: set_unew
@@ -1668,6 +1759,25 @@ features:
               covered: 31
               total: 41
               notbuilt: 4
+          - file: mhd/godunov_fine.f90
+            name: set_unew
+            phase: step
+            role: driver
+            scope: global
+            depth: 3
+            driver: amr_step
+            callers: [amr_step, diffusion]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 2
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 80.0
+              covered: 32
+              total: 40
+              notbuilt: 4
           - file: hydro/godunov_fine.f90
             name: godunov_fine
             phase: step
@@ -1683,6 +1793,24 @@ features:
               threadprivate: 1
               recorded: "Yes"
               note: omp on main nvector loop threadprivate save variables openmp slower than mpi-only on unigrid
+            coverage:
+              pct: 100.0
+              covered: 10
+              total: 10
+          - file: mhd/godunov_fine.f90
+            name: godunov_fine
+            phase: step
+            role: driver
+            scope: global
+            depth: 3
+            driver: amr_step
+            callers: [amr_step]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
             coverage:
               pct: 100.0
               covered: 10
@@ -1704,46 +1832,6 @@ features:
               pct: 78.9
               covered: 30
               total: 38
-      - id: mhd_core
-        title: MHD update driver
-        routines:
-          - file: mhd/godunov_fine.f90
-            name: set_unew
-            phase: step
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step, diffusion]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 2
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 80.0
-              covered: 32
-              total: 40
-              notbuilt: 4
-          - file: mhd/godunov_fine.f90
-            name: godunov_fine
-            phase: step
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 10
-              total: 10
           - file: mhd/godunov_fine.f90
             name: set_uold
             phase: step
@@ -1761,8 +1849,8 @@ features:
               pct: 78.6
               covered: 33
               total: 42
-      - id: hydro_courant
-        title: hydro Courant condition
+      - id: courant
+        title: Courant condition, plus MHD comoving field rescaling
         routines:
           - file: hydro/courant_fine.f90
             name: courant_fine
@@ -1782,24 +1870,6 @@ features:
               covered: 64
               total: 68
               notbuilt: 4
-          - file: hydro/courant_fine.f90
-            name: cmpdt
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: ["hydro/courant_fine.f90::courant_fine"]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-            coverage:
-              pct: 82.7
-              covered: 43
-              total: 52
-      - id: mhd_courant
-        title: MHD Courant condition and comoving field rescaling
-        routines:
           - file: mhd/courant_fine.f90
             name: courant_fine
             phase: step
@@ -1852,6 +1922,21 @@ features:
               covered: 0
               total: 11
               notbuilt: 1
+          - file: hydro/courant_fine.f90
+            name: cmpdt
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: ["hydro/courant_fine.f90::courant_fine"]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+            coverage:
+              pct: 82.7
+              covered: 43
+              total: 52
           - file: mhd/courant_fine.f90
             name: cmpdt
             phase: step
@@ -1883,8 +1968,8 @@ features:
               pct: 0.0
               covered: 0
               total: 13
-      - id: hydro_source_terms
-        title: hydro source terms
+      - id: source_terms
+        title: gravity and PdV source terms
         routines:
           - file: hydro/synchro_hydro_fine.f90
             name: synchro_hydro_fine
@@ -1921,6 +2006,23 @@ features:
               pct: 100.0
               covered: 25
               total: 25
+          - file: mhd/godunov_fine.f90
+            name: add_gravity_source_terms
+            phase: step
+            role: driver
+            scope: global
+            depth: 3
+            driver: amr_step
+            callers: [amr_step]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 25
+              total: 25
           - file: hydro/godunov_fine.f90
             name: add_pdv_source_terms
             phase: step
@@ -1939,43 +2041,6 @@ features:
               pct: 96.7
               covered: 58
               total: 60
-          - file: hydro/synchro_hydro_fine.f90
-            name: synchydrofine1
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [synchro_hydro_fine]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-              note: called by synchro_hydro_fine
-            coverage:
-              pct: 92.3
-              covered: 24
-              total: 26
-      - id: mhd_source_terms
-        title: MHD source terms
-        routines:
-          - file: mhd/godunov_fine.f90
-            name: add_gravity_source_terms
-            phase: step
-            role: driver
-            scope: global
-            depth: 3
-            driver: amr_step
-            callers: [amr_step]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 25
-              total: 25
           - file: mhd/godunov_fine.f90
             name: add_pdv_source_terms
             phase: step
@@ -1994,17 +2059,49 @@ features:
               pct: 96.9
               covered: 62
               total: 64
-      - id: hydro_interpolation
-        title: hydro prolongation into new cells
+          - file: hydro/synchro_hydro_fine.f90
+            name: synchydrofine1
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [synchro_hydro_fine]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+              note: called by synchro_hydro_fine
+            coverage:
+              pct: 92.3
+              covered: 24
+              total: 26
+      - id: diffusion
+        title: ambipolar and ohmic diffusion (MHD only)
         routines:
-          - file: hydro/interpol_hydro.f90
-            name: upload_fine
+          - file: mhd/uplmde.f90
+            name: diffusion
             phase: step
             role: driver
             scope: global
-            depth: 2
+            depth: 3
             driver: amr_step
-            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
+            callers: [amr_step]
+            omp:
+              state: unthreaded
+              progress: done
+              recorded: "-"
+            coverage:
+              pct: 100.0
+              covered: 34
+              total: 34
+          - file: mhd/uplmde.f90
+            name: diffusion_fine
+            phase: step
+            role: private
+            scope: area
+            depth: 4
+            callers: [diffusion]
             omp:
               state: opens_region
               progress: done
@@ -2013,485 +2110,224 @@ features:
               recorded: "yes"
             coverage:
               pct: 100.0
-              covered: 25
-              total: 25
-          - file: hydro/interpol_hydro.f90
-            name: upl
+              covered: 9
+              total: 9
+          - file: mhd/uplmde.f90
+            name: diffine1
             phase: step
             role: private
             scope: area
-            depth: 3
-            callers: ["hydro/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 64.9
-              covered: 50
-              total: 77
-          - file: hydro/interpol_hydro.f90
-            name: interpol_hydro
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 97.1
-              covered: 68
-              total: 70
-          - file: hydro/interpol_hydro.f90
-            name: compute_limiter_minmod
-            phase: step
-            role: shared
-            scope: global
             depth: 5
-            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            todo: >-
-              byte-identical to the copy in mhd/interpol_hydro.f90. Only one of the
-              two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
-              ../hydro on VPATH -- so this is duplicated source, not a shared
-              routine. Candidate for hoisting into a shared module the way
-              slope_types.f90 already is.
+            callers: [diffusion_fine]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              sync: 72
+              recorded: "yes"
+            coverage:
+              pct: 95.2
+              covered: 318
+              total: 334
+          - file: mhd/uplmde.f90
+            name: cmp_current
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [diffine1]
             omp:
               state: stateless
               progress: done
+              recorded: "-"
             coverage:
               pct: 100.0
-              covered: 9
-              total: 9
-          - file: hydro/interpol_hydro.f90
-            name: compute_limiter_central
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            todo: >-
-              byte-identical to the copy in mhd/interpol_hydro.f90. Only one of the
-              two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
-              ../hydro on VPATH -- so this is duplicated source, not a shared
-              routine. Candidate for hoisting into a shared module the way
-              slope_types.f90 already is.
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-            coverage:
-              pct: 100.0
-              covered: 60
-              total: 60
-          - file: hydro/interpol_hydro.f90
-            name: compute_central
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            todo: >-
-              The mhd copy of this routine uses 0.5d0 where this one uses 0.25d0 for
-              the same central difference. See the todo on
-              mhd/interpol_hydro.f90::compute_central.
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 100.0
-              covered: 4
-              total: 4
-      - id: mhd_interpolation
-        title: MHD prolongation, divergence-free on faces
+              covered: 31
+              total: 31
+      - id: velocity_profiles
+        title: analytic velocity fields (MHD only)
         routines:
-          - file: mhd/interpol_hydro.f90
-            name: upload_fine
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: amr_step
-            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 2
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 95
-              total: 95
-          - file: mhd/interpol_hydro.f90
-            name: upl
+          - file: mhd/condinit.f90
+            name: velana_ponomarenko
             phase: step
             role: private
-            scope: area
-            depth: 3
-            callers: ["mhd/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 72.0
-              covered: 85
-              total: 118
-          - file: mhd/interpol_hydro.f90
-            name: upl_left
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: ["mhd/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 17
-              total: 17
-          - file: mhd/interpol_hydro.f90
-            name: upl_right
-            phase: step
-            role: private
-            scope: area
-            depth: 3
-            callers: ["mhd/interpol_hydro.f90::upload_fine"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 17
-              total: 17
-          - file: mhd/interpol_hydro.f90
-            name: interpol_hydro
-            phase: step
-            role: shared
-            scope: global
-            depth: 4
-            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 92.2
-              covered: 71
-              total: 77
-          - file: mhd/interpol_hydro.f90
-            name: compute_limiter_minmod
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            todo: >-
-              byte-identical to the copy in hydro/interpol_hydro.f90. Only one of
-              the two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
-              ../hydro on VPATH -- so this is duplicated source, not a shared
-              routine. Candidate for hoisting into a shared module the way
-              slope_types.f90 already is.
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 9
-              total: 9
-          - file: mhd/interpol_hydro.f90
-            name: compute_limiter_central
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            todo: >-
-              byte-identical to the copy in hydro/interpol_hydro.f90. Only one of
-              the two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
-              ../hydro on VPATH -- so this is duplicated source, not a shared
-              routine. Candidate for hoisting into a shared module the way
-              slope_types.f90 already is.
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 60
-              total: 60
-          - file: mhd/interpol_hydro.f90
-            name: compute_central
-            phase: step
-            role: shared
-            scope: global
-            depth: 5
-            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
-            todo: >-
-              Uses 0.5d0 where hydro/interpol_hydro.f90 and this file's own
-              compute_limiter_central both use 0.25d0 for the same central
-              difference. xc and the u2 = u2 + w*xc reconstruction are identical in
-              the two files, so nothing downstream compensates: interpol_type=3
-              gives twice the hydro slope. The header comment also reads 'MinMod
-              slope', copied from compute_limiter_minmod. 0% covered, reached by no
-              test, and interpol_type=3 appears in no shipped namelist. Likely a
-              bug, but needs someone who knows MHD prolongation to confirm it is not
-              a deliberate normalisation.
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 4
-          - file: mhd/interpol_hydro.f90
-            name: interpol_mag
-            phase: step
-            role: shared
             scope: feature
             depth: 5
-            callers: [diffine1, "mhd/interpol_hydro.f90::interpol_hydro"]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 18
-              total: 18
-          - file: mhd/interpol_hydro.f90
-            name: interpol_faces
-            phase: step
-            role: private
-            scope: area
-            depth: 6
-            callers: [interpol_mag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 100.0
-              covered: 88
-              total: 88
-          - file: mhd/interpol_hydro.f90
-            name: copy_from_refined_faces
-            phase: step
-            role: private
-            scope: area
-            depth: 6
-            callers: [interpol_mag]
+            callers: [velocity_fine]
             omp:
               state: stateless
               progress: done
               recorded: "yes"
             coverage:
               pct: 100.0
-              covered: 46
-              total: 46
-          - file: mhd/interpol_hydro.f90
-            name: cmp_central_faces
+              covered: 23
+              total: 23
+          - file: mhd/condinit.f90
+            name: velana
             phase: step
             role: private
-            scope: area
-            depth: 6
-            callers: [interpol_mag]
+            scope: feature
+            depth: 5
+            callers: [velocity_fine]
             omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
+              state: race
+              progress: todo
+              unprotected: [yy, zz]
               recorded: "yes"
+              disagrees: true
             coverage:
               pct: 100.0
-              covered: 56
-              total: 56
-          - file: mhd/interpol_hydro.f90
-            name: compute_1d_tvd
-            phase: step
-            role: private
-            scope: area
-            depth: 7
-            callers: [interpol_faces]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 68.8
-              covered: 11
-              total: 16
-          - file: mhd/interpol_hydro.f90
-            name: compute_2d_tvd
-            phase: step
-            role: private
-            scope: area
-            depth: 7
-            callers: [interpol_faces]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "yes"
-            coverage:
-              pct: 69.0
-              covered: 20
-              total: 29
-      - id: flagging
-        title: refinement criteria on the gas state
+              covered: 13
+              total: 13
+      - id: screen_diagnostics
+        title: screen diagnostics
         routines:
-          - file: hydro/hydro_flag.f90
-            name: hydro_flag
+          - file: hydro/write_screen.f90
+            name: write_screen
             phase: step
             role: private
             scope: global
             depth: 4
-            callers: [userflag_fine]
+            callers: [dump_all]
             omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
+              state: unthreaded
+              progress: na
+              na: screen diagnostics on the output path (dump_all)
             coverage:
-              pct: 98.5
-              covered: 64
-              total: 65
-          - file: hydro/godunov_utils.f90
-            name: hydro_refine
+              pct: 89.2
+              covered: 124
+              total: 139
+              notbuilt: 1
+          - file: mhd/write_screen.f90
+            name: write_screen
             phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [dump_all]
+            omp:
+              state: unthreaded
+              progress: na
+              na: screen diagnostics on the output path (dump_all)
+            coverage:
+              pct: 94.0
+              covered: 157
+              total: 167
+              notbuilt: 1
+      - id: output
+        title: hydro output
+        routines:
+          - file: hydro/output_hydro.f90
+            name: backup_hydro
+            phase: output
+            role: private
+            scope: global
+            depth: 4
+            callers: [dump_all]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 76.0
+              covered: 76
+              total: 100
+          - file: hydro/output_hydro.f90
+            name: gather_conservative_from_uold
+            phase: output
             role: private
             scope: area
             depth: 5
-            callers: [hydro_flag]
+            callers: [backup_hydro]
             omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 81.8
-              covered: 54
-              total: 66
-          - file: mhd/godunov_utils.f90
-            name: hydro_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [hydro_flag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "-"
-            coverage:
-              pct: 62.6
-              covered: 67
-              total: 107
-          - file: hydro/hydro_flag.f90
-            name: jeans_length_refine
-            phase: step
-            role: private
-            scope: area
-            depth: 5
-            callers: [hydro_flag]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "-"
-              note: called by hydro_flag
+              state: unthreaded
+              progress: na
             coverage:
               pct: 100.0
-              covered: 18
-              total: 18
-          - file: hydro/hydro_flag.f90
-            name: collapse_jeans_length_refine
-            phase: step
+              covered: 3
+              total: 3
+          - file: hydro/output_hydro.f90
+            name: gather_primitive_from_uold
+            phase: output
             role: private
             scope: area
             depth: 5
-            callers: [hydro_flag]
+            callers: [backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 6
+              total: 6
+          - file: hydro/output_hydro.f90
+            name: calc_thermal_pressure_from_total_energy
+            phase: output
+            role: private
+            scope: area
+            depth: 5
+            callers: [backup_hydro]
+            omp:
+              state: unthreaded
+              progress: na
+            coverage:
+              pct: 100.0
+              covered: 14
+              total: 14
+  - id: hydro_ic
+    title: "Initial conditions for the gas"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; placement pass done 2026-09-15, see q25-hydromhd and
+      q26-hydrosplit
+    lecture: input.rst
+    summary: >-
+      How the gas starts. `init_flow_fine` is the dispatcher: it reads grid
+      files written by a separate IC generator, or calls `condinit` for an
+      analytic setup, or hands over to the DICE reader for an equilibrium
+      galaxy. `region_condinit` builds the state from the `init_params`
+      namelist regions. The analytic `condinit` is the routine a user
+      overrides to start a new simulation, which is why it exists in both
+      `hydro/` and `mhd/`. Particle initial conditions are separate and live
+      in particles; `load_dice` is there too, so DICE spans both features.
+    tests: [tests/hydro, tests/mhd]
+    modules:          # declaration-only modules owned by this feature
+      - amr/dice_commons.f90
+    areas:
+      - id: initial_conditions
+        title: "initial conditions: drivers and analytic setups"
+        routines:
+          - file: hydro/init_flow_fine.f90
+            name: init_flow
+            phase: init
+            role: private
+            scope: global
+            depth: 3
+            callers: [init_refine]
+            omp:
+              state: unthreaded
+              progress: na
+              recorded: "-"
+            coverage:
+              pct: 40.0
+              covered: 10
+              total: 25
+          - file: hydro/init_flow_fine.f90
+            name: init_flow_fine
+            phase: init
+            role: shared
+            scope: global
+            depth: 3
+            callers: [init_flow, init_refine_2]
             omp:
               state: adapted
               progress: done
               threadprivate: 1
+              recorded: "todo"
+              disagrees: true
             coverage:
-              pct: 0.0
-              covered: 0
-              total: 29
-      - id: boundaries
-        title: hydro/MHD boundary conditions
-        routines:
-          - file: hydro/hydro_boundary.f90
-            name: make_boundary_hydro
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: amr_step
-            callers: [adaptive_loop, amr_step, create_sink, init_flow, init_refine_2, load_balance, "mhd/courant_fine.f90::courant_fine"]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 90.1
-              covered: 91
-              total: 101
-          - file: mhd/hydro_boundary.f90
-            name: make_boundary_hydro
-            phase: step
-            role: driver
-            scope: global
-            depth: 2
-            driver: amr_step
-            callers: [adaptive_loop, amr_step, create_sink, init_flow, init_refine_2, load_balance, "mhd/courant_fine.f90::courant_fine"]
-            omp:
-              state: opens_region
-              progress: done
-              regions: 1
-              threadprivate: 1
-              recorded: "yes"
-            coverage:
-              pct: 57.4
-              covered: 120
-              total: 209
-          - file: hydro/boundana.f90
-            name: boundana
-            phase: step
-            role: shared
-            scope: area
-            depth: 3
-            callers: ["hydro/hydro_boundary.f90::make_boundary_hydro", "mhd/hydro_boundary.f90::make_boundary_hydro"]
-            omp:
-              state: stateless
-              progress: done
-            coverage:
-              pct: 0.0
-              covered: 0
-              total: 4
-      - id: initial_conditions
-        title: analytic initial conditions
-        routines:
+              pct: 78.9
+              covered: 202
+              total: 256
           - file: hydro/condinit.f90
             name: condinit
             phase: init
@@ -2588,6 +2424,21 @@ features:
               pct: 62.5
               covered: 70
               total: 112
+          - file: hydro/init_flow_fine.f90
+            name: region_condinit
+            phase: init
+            role: shared
+            scope: area
+            depth: 5
+            callers: [ana_disk_potential_condinit, "hydro/condinit.f90::condinit", "mhd/condinit.f90::condinit"]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "-"
+            coverage:
+              pct: 96.6
+              covered: 57
+              total: 59
           - file: mhd/condinit.f90
             name: mag_screw
             phase: init
@@ -2782,252 +2633,36 @@ features:
               pct: 0.0
               covered: 0
               total: 18
-      - id: setup
-        title: parameters and field setup
+  - id: hydro_amr
+    title: "Hydrodynamics on the AMR grid"
+    review: >-
+      basic hydro with AMR -- the 116 routines that tests/hydro/implosion
+      exercises; placement pass done 2026-09-15, see q25-hydromhd and
+      q26-hydrosplit
+    lecture: none
+    summary: >-
+      What hydrodynamics does for the mesh rather than for the fluid: fill the
+      gas values in cells the solver never computes, and decide which cells the
+      mesh should refine. Prolongation carries the state into newly refined
+      cells and restriction carries it back up, divergence-free on the faces
+      for MHD; the boundary routines fill the ghost regions outside the domain;
+      the flagging routines apply the density, pressure and Jeans-length
+      refinement criteria to the gas state. It is the part of hydrodynamics
+      other features reach into most -- rt, sinks, subgrid, both solvers and
+      the mesh itself all call in here.
+    tests: [tests/hydro, tests/mhd]
+    areas:
+      - id: interpolation
+        title: prolongation into new cells, divergence-free on faces for MHD
         routines:
-          - file: hydro/read_hydro_params.f90
-            name: read_hydro_params
-            phase: params
-            role: private
-            scope: global
-            depth: 2
-            callers: [read_params]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "maybe todo?"
-              disagrees: true
-            coverage:
-              pct: 82.4
-              covered: 187
-              total: 227
-              notbuilt: 3
-          - file: hydro/init_hydro.f90
-            name: init_hydro
-            phase: init
-            role: driver
-            scope: global
-            depth: 2
-            driver: adaptive_loop
-            callers: [adaptive_loop]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "todo?"
-              disagrees: true
-            coverage:
-              pct: 68.3
-              covered: 95
-              total: 139
-          - file: hydro/init_hydro.f90
-            name: scatter_conservative_to_uold
-            phase: init
-            role: private
-            scope: area
-            depth: 3
-            callers: [init_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 3
-              total: 3
-          - file: hydro/init_hydro.f90
-            name: scatter_primitive_to_uold
-            phase: init
-            role: private
-            scope: area
-            depth: 3
-            callers: [init_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 6
-              total: 6
-          - file: hydro/init_hydro.f90
-            name: calc_total_energy_from_thermal_pressure
-            phase: init
-            role: private
-            scope: area
-            depth: 3
-            callers: [init_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 93.8
-              covered: 15
-              total: 16
-          - file: hydro/init_flow_fine.f90
-            name: init_flow
-            phase: init
-            role: private
-            scope: global
-            depth: 3
-            callers: [init_refine]
-            omp:
-              state: unthreaded
-              progress: na
-              recorded: "-"
-            coverage:
-              pct: 40.0
-              covered: 10
-              total: 25
-          - file: hydro/init_flow_fine.f90
-            name: init_flow_fine
-            phase: init
-            role: shared
-            scope: global
-            depth: 3
-            callers: [init_flow, init_refine_2]
-            omp:
-              state: adapted
-              progress: done
-              threadprivate: 1
-              recorded: "todo"
-              disagrees: true
-            coverage:
-              pct: 78.9
-              covered: 202
-              total: 256
-          - file: hydro/init_flow_fine.f90
-            name: region_condinit
-            phase: init
-            role: shared
-            scope: feature
-            depth: 5
-            callers: [ana_disk_potential_condinit, "hydro/condinit.f90::condinit", "mhd/condinit.f90::condinit"]
-            omp:
-              state: stateless
-              progress: done
-              recorded: "-"
-            coverage:
-              pct: 96.6
-              covered: 57
-              total: 59
-      - id: output
-        title: hydro output
-        routines:
-          - file: hydro/output_hydro.f90
-            name: backup_hydro
-            phase: output
-            role: private
-            scope: global
-            depth: 4
-            callers: [dump_all]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 76.0
-              covered: 76
-              total: 100
-          - file: hydro/output_hydro.f90
-            name: gather_conservative_from_uold
-            phase: output
-            role: private
-            scope: area
-            depth: 5
-            callers: [backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 3
-              total: 3
-          - file: hydro/output_hydro.f90
-            name: gather_primitive_from_uold
-            phase: output
-            role: private
-            scope: area
-            depth: 5
-            callers: [backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 6
-              total: 6
-          - file: hydro/output_hydro.f90
-            name: calc_thermal_pressure_from_total_energy
-            phase: output
-            role: private
-            scope: area
-            depth: 5
-            callers: [backup_hydro]
-            omp:
-              state: unthreaded
-              progress: na
-            coverage:
-              pct: 100.0
-              covered: 14
-              total: 14
-      - id: screen_diagnostics
-        title: screen diagnostics
-        routines:
-          - file: hydro/write_screen.f90
-            name: write_screen
-            phase: step
-            role: private
-            scope: global
-            depth: 4
-            callers: [dump_all]
-            omp:
-              state: unthreaded
-              progress: na
-              na: screen diagnostics on the output path (dump_all)
-            coverage:
-              pct: 89.2
-              covered: 124
-              total: 139
-              notbuilt: 1
-          - file: mhd/write_screen.f90
-            name: write_screen
-            phase: step
-            role: private
-            scope: global
-            depth: 4
-            callers: [dump_all]
-            omp:
-              state: unthreaded
-              progress: na
-              na: screen diagnostics on the output path (dump_all)
-            coverage:
-              pct: 94.0
-              covered: 157
-              total: 167
-              notbuilt: 1
-      - id: diffusion
-        title: ambipolar and ohmic diffusion
-        routines:
-          - file: mhd/uplmde.f90
-            name: diffusion
+          - file: hydro/interpol_hydro.f90
+            name: upload_fine
             phase: step
             role: driver
             scope: global
-            depth: 3
+            depth: 2
             driver: amr_step
-            callers: [amr_step]
-            omp:
-              state: unthreaded
-              progress: done
-              recorded: "-"
-            coverage:
-              pct: 100.0
-              covered: 34
-              total: 34
-          - file: mhd/uplmde.f90
-            name: diffusion_fine
-            phase: step
-            role: private
-            scope: area
-            depth: 4
-            callers: [diffusion]
+            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
             omp:
               state: opens_region
               progress: done
@@ -3036,75 +2671,479 @@ features:
               recorded: "yes"
             coverage:
               pct: 100.0
-              covered: 9
-              total: 9
-          - file: mhd/uplmde.f90
-            name: diffine1
+              covered: 25
+              total: 25
+          - file: mhd/interpol_hydro.f90
+            name: upload_fine
+            phase: step
+            role: driver
+            scope: global
+            depth: 2
+            driver: amr_step
+            callers: [adaptive_loop, amr_step, create_sink, diffusion, init_flow, init_refine_2, kinetic_feedback, make_sn_stellar, rt_init_hydro]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 2
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 95
+              total: 95
+          - file: hydro/interpol_hydro.f90
+            name: upl
             phase: step
             role: private
             scope: area
-            depth: 5
-            callers: [diffusion_fine]
+            depth: 3
+            callers: ["hydro/interpol_hydro.f90::upload_fine"]
             omp:
               state: adapted
               progress: done
               threadprivate: 1
-              sync: 72
               recorded: "yes"
             coverage:
-              pct: 95.2
-              covered: 318
-              total: 334
-          - file: mhd/uplmde.f90
-            name: cmp_current
+              pct: 64.9
+              covered: 50
+              total: 77
+          - file: mhd/interpol_hydro.f90
+            name: upl
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 72.0
+              covered: 85
+              total: 118
+          - file: mhd/interpol_hydro.f90
+            name: upl_left
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 17
+              total: 17
+          - file: mhd/interpol_hydro.f90
+            name: upl_right
+            phase: step
+            role: private
+            scope: area
+            depth: 3
+            callers: ["mhd/interpol_hydro.f90::upload_fine"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 17
+              total: 17
+          - file: hydro/interpol_hydro.f90
+            name: interpol_hydro
+            phase: step
+            role: shared
+            scope: global
+            depth: 4
+            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 97.1
+              covered: 68
+              total: 70
+          - file: mhd/interpol_hydro.f90
+            name: interpol_hydro
+            phase: step
+            role: shared
+            scope: global
+            depth: 4
+            callers: [gather_stencil_amr, make_grid_fine, "mhd/godunov_fine.f90::godfine1"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 92.2
+              covered: 71
+              total: 77
+          - file: hydro/interpol_hydro.f90
+            name: compute_limiter_minmod
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in mhd/interpol_hydro.f90. Only one of the
+              two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 9
+              total: 9
+          - file: mhd/interpol_hydro.f90
+            name: compute_limiter_minmod
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in hydro/interpol_hydro.f90. Only one of
+              the two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 9
+              total: 9
+          - file: hydro/interpol_hydro.f90
+            name: compute_limiter_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in mhd/interpol_hydro.f90. Only one of the
+              two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+            coverage:
+              pct: 100.0
+              covered: 60
+              total: 60
+          - file: mhd/interpol_hydro.f90
+            name: compute_limiter_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              byte-identical to the copy in hydro/interpol_hydro.f90. Only one of
+              the two is ever compiled -- bin/Makefile puts ../$(SOLVER) ahead of
+              ../hydro on VPATH -- so this is duplicated source, not a shared
+              routine. Candidate for hoisting into a shared module the way
+              slope_types.f90 already is.
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 60
+              total: 60
+          - file: hydro/interpol_hydro.f90
+            name: compute_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["hydro/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              The mhd copy of this routine uses 0.5d0 where this one uses 0.25d0 for
+              the same central difference. See the todo on
+              mhd/interpol_hydro.f90::compute_central.
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 100.0
+              covered: 4
+              total: 4
+          - file: mhd/interpol_hydro.f90
+            name: compute_central
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: ["mhd/interpol_hydro.f90::interpol_hydro", rt_interpol_hydro]
+            todo: >-
+              Uses 0.5d0 where hydro/interpol_hydro.f90 and this file's own
+              compute_limiter_central both use 0.25d0 for the same central
+              difference. xc and the u2 = u2 + w*xc reconstruction are identical in
+              the two files, so nothing downstream compensates: interpol_type=3
+              gives twice the hydro slope. The header comment also reads 'MinMod
+              slope', copied from compute_limiter_minmod. 0% covered, reached by no
+              test, and interpol_type=3 appears in no shipped namelist. Likely a
+              bug, but needs someone who knows MHD prolongation to confirm it is not
+              a deliberate normalisation.
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 4
+          - file: mhd/interpol_hydro.f90
+            name: interpol_mag
+            phase: step
+            role: shared
+            scope: global
+            depth: 5
+            callers: [diffine1, "mhd/interpol_hydro.f90::interpol_hydro"]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 18
+              total: 18
+          - file: mhd/interpol_hydro.f90
+            name: interpol_faces
             phase: step
             role: private
             scope: area
             depth: 6
-            callers: [diffine1]
+            callers: [interpol_mag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 88
+              total: 88
+          - file: mhd/interpol_hydro.f90
+            name: copy_from_refined_faces
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [interpol_mag]
             omp:
               state: stateless
               progress: done
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 46
+              total: 46
+          - file: mhd/interpol_hydro.f90
+            name: cmp_central_faces
+            phase: step
+            role: private
+            scope: area
+            depth: 6
+            callers: [interpol_mag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 100.0
+              covered: 56
+              total: 56
+          - file: mhd/interpol_hydro.f90
+            name: compute_1d_tvd
+            phase: step
+            role: private
+            scope: area
+            depth: 7
+            callers: [interpol_faces]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 68.8
+              covered: 11
+              total: 16
+          - file: mhd/interpol_hydro.f90
+            name: compute_2d_tvd
+            phase: step
+            role: private
+            scope: area
+            depth: 7
+            callers: [interpol_faces]
+            omp:
+              state: stateless
+              progress: done
+              recorded: "yes"
+            coverage:
+              pct: 69.0
+              covered: 20
+              total: 29
+      - id: boundaries
+        title: hydro/MHD boundary conditions
+        routines:
+          - file: hydro/hydro_boundary.f90
+            name: make_boundary_hydro
+            phase: step
+            role: driver
+            scope: global
+            depth: 2
+            driver: amr_step
+            callers: [adaptive_loop, amr_step, create_sink, init_flow, init_refine_2, load_balance, "mhd/courant_fine.f90::courant_fine"]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 90.1
+              covered: 91
+              total: 101
+          - file: mhd/hydro_boundary.f90
+            name: make_boundary_hydro
+            phase: step
+            role: driver
+            scope: global
+            depth: 2
+            driver: amr_step
+            callers: [adaptive_loop, amr_step, create_sink, init_flow, init_refine_2, load_balance, "mhd/courant_fine.f90::courant_fine"]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 57.4
+              covered: 120
+              total: 209
+          - file: hydro/boundana.f90
+            name: boundana
+            phase: step
+            role: shared
+            scope: area
+            depth: 3
+            callers: ["hydro/hydro_boundary.f90::make_boundary_hydro", "mhd/hydro_boundary.f90::make_boundary_hydro"]
+            omp:
+              state: stateless
+              progress: done
+            coverage:
+              pct: 0.0
+              covered: 0
+              total: 4
+      - id: flagging
+        title: refinement criteria on the gas state
+        routines:
+          - file: hydro/hydro_flag.f90
+            name: hydro_flag
+            phase: step
+            role: private
+            scope: global
+            depth: 4
+            callers: [userflag_fine]
+            omp:
+              state: opens_region
+              progress: done
+              regions: 1
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 98.5
+              covered: 64
+              total: 65
+          - file: hydro/godunov_utils.f90
+            name: hydro_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [hydro_flag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
+              recorded: "yes"
+            coverage:
+              pct: 81.8
+              covered: 54
+              total: 66
+          - file: mhd/godunov_utils.f90
+            name: hydro_refine
+            phase: step
+            role: private
+            scope: area
+            depth: 5
+            callers: [hydro_flag]
+            omp:
+              state: adapted
+              progress: done
+              threadprivate: 1
               recorded: "-"
             coverage:
-              pct: 100.0
-              covered: 31
-              total: 31
-      - id: velocity_profiles
-        title: analytic velocity fields
-        routines:
-          - file: mhd/condinit.f90
-            name: velana_ponomarenko
+              pct: 62.6
+              covered: 67
+              total: 107
+          - file: hydro/hydro_flag.f90
+            name: jeans_length_refine
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 5
-            callers: [velocity_fine]
+            callers: [hydro_flag]
             omp:
-              state: stateless
+              state: adapted
               progress: done
-              recorded: "yes"
+              threadprivate: 1
+              recorded: "-"
+              note: called by hydro_flag
             coverage:
               pct: 100.0
-              covered: 23
-              total: 23
-          - file: mhd/condinit.f90
-            name: velana
+              covered: 18
+              total: 18
+          - file: hydro/hydro_flag.f90
+            name: collapse_jeans_length_refine
             phase: step
             role: private
-            scope: feature
+            scope: area
             depth: 5
-            callers: [velocity_fine]
+            callers: [hydro_flag]
             omp:
-              state: race
-              progress: todo
-              unprotected: [yy, zz]
-              recorded: "yes"
-              disagrees: true
+              state: adapted
+              progress: done
+              threadprivate: 1
             coverage:
-              pct: 100.0
-              covered: 13
-              total: 13
+              pct: 0.0
+              covered: 0
+              total: 29
   - id: hydro_solver
     title: "Hydrodynamics: Godunov solver"
     review: >-

@@ -13,20 +13,20 @@ Reaches 69 areas; most of its lines fall in **mesh**, **particles**, **sinks**. 
 | sinks | hii_feedback | 114 | 97% | 114 |
 | mesh | shutdown | 33 | 97% |  |
 | gravity | interpolation | 48 | 91% |  |
-| hydrodynamics | hydro_source_terms | 111 | 88% |  |
 | mesh | output | 97 | 87% |  |
 | rt | output | 111 | 84% | 15 |
 | amr_core | main_loop | 351 | 82% | 4 |
 | gravity | force_calculation | 108 | 81% |  |
-| hydrodynamics | hydro_core | 70 | 79% |  |
 | gravity | output | 38 | 78% |  |
 | mesh | memory_management | 299 | 77% |  |
 | amr_core | output | 162 | 76% |  |
-| hydrodynamics | hydro_courant | 91 | 76% |  |
 | sinks | accretion | 399 | 74% | 3 |
 | gravity | multigrid | 822 | 74% |  |
 | particles | output | 91 | 74% |  |
 | sinks | update | 243 | 72% |  |
+| domains | load_balancing | 334 | 71% | 4 |
+| amr_core | time_step | 59 | 69% |  |
+| utilities | timer | 63 | 68% |  |
 
 49 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

@@ -8,7 +8,7 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 40 areas; most of its lines fall in **hydrodynamics**, **mesh**, **mhd_solver**. 394 lines are reached by no other test in the suite.
+Reaches 40 areas; most of its lines fall in **mesh**, **mhd_solver**, **hydrodynamics**. 394 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
@@ -16,8 +16,6 @@ Reaches 40 areas; most of its lines fall in **hydrodynamics**, **mesh**, **mhd_s
 | mesh | shutdown | 33 | 97% |  |
 | hydrodynamics | diffusion | 392 | 96% | 226 |
 | mesh | output | 97 | 87% |  |
-| hydrodynamics | mhd_interpolation | 538 | 83% | 63 |
-| hydrodynamics | mhd_courant | 151 | 76% | 2 |
 | utilities | timer | 63 | 68% |  |
 | utilities | memory | 26 | 67% |  |
 | hydrodynamics | output | 81 | 66% |  |
@@ -25,6 +23,7 @@ Reaches 40 areas; most of its lines fall in **hydrodynamics**, **mesh**, **mhd_s
 | domains | load_balancing | 303 | 64% |  |
 | hydrodynamics | velocity_profiles | 23 | 64% | 23 |
 | amr_core | output | 135 | 64% |  |
+| hydro_amr | interpolation | 538 | 60% | 63 |
 | mhd_solver | godunov_solver | 978 | 58% |  |
 | mesh | refinement | 401 | 58% |  |
 | amr_core | main_loop | 241 | 57% |  |
@@ -32,6 +31,7 @@ Reaches 40 areas; most of its lines fall in **hydrodynamics**, **mesh**, **mhd_s
 | utilities | communication | 303 | 53% |  |
 | mesh | memory_management | 194 | 50% |  |
 | mesh | flagging | 180 | 49% |  |
+| mesh | neighbour_search | 92 | 48% |  |
 
 20 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

@@ -12,12 +12,9 @@ Reaches 59 areas; most of its lines fall in **mesh**, **particles**, **gravity**
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | gravity | interpolation | 48 | 91% |  |
-| hydrodynamics | hydro_source_terms | 111 | 88% |  |
 | mesh | output | 97 | 87% |  |
 | gravity | force_calculation | 108 | 81% |  |
 | gravity | output | 38 | 78% |  |
-| hydrodynamics | hydro_courant | 91 | 76% |  |
-| hydrodynamics | hydro_core | 67 | 75% |  |
 | particles | output | 91 | 74% |  |
 | sinks | accretion | 395 | 74% |  |
 | amr_core | output | 155 | 73% |  |
@@ -27,6 +24,9 @@ Reaches 59 areas; most of its lines fall in **mesh**, **particles**, **gravity**
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | amr_core | main_loop | 290 | 68% |  |
+| utilities | rng | 87 | 68% |  |
+| amr_core | time_step | 55 | 64% |  |
+| sinks | stellars | 105 | 62% | 1 |
 
 39 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

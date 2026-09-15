@@ -8,30 +8,30 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 38 areas; most of its lines fall in **mesh**, **hydrodynamics**, **amr_core**. 84 lines are reached by no other test in the suite.
+Reaches 38 areas; most of its lines fall in **mesh**, **amr_core**, **utilities**. 84 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 97 | 87% |  |
-| hydrodynamics | hydro_courant | 100 | 83% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | mesh | refinement | 447 | 65% |  |
 | amr_core | output | 135 | 64% |  |
 | hydrodynamics | output | 78 | 63% |  |
 | mesh | flagging | 224 | 61% |  |
-| hydrodynamics | hydro_interpolation | 148 | 60% | 12 |
 | amr_core | main_loop | 231 | 54% |  |
 | utilities | file | 16 | 53% |  |
 | utilities | communication | 303 | 53% |  |
 | mesh | memory_management | 194 | 50% |  |
 | mesh | neighbour_search | 92 | 48% |  |
-| hydrodynamics | hydro_core | 41 | 46% |  |
 | domains | hilbert_decomposition | 30 | 44% |  |
-| hydrodynamics | hydro_source_terms | 50 | 40% |  |
 | mesh | setup | 174 | 39% |  |
+| hydro_amr | flagging | 99 | 35% |  |
+| amr_core | setup | 128 | 31% |  |
+| hydrodynamics | courant | 100 | 31% |  |
+| hydro_solver | godunov_solver | 313 | 30% | 26 |
 
 18 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

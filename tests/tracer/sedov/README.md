@@ -3,7 +3,7 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 44 areas; most of its lines fall in **mesh**, **particles**, **hydrodynamics**. 439 lines are reached by no other test in the suite.
+Reaches 44 areas; most of its lines fall in **mesh**, **particles**, **amr_core**. 439 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
@@ -13,7 +13,6 @@ Reaches 44 areas; most of its lines fall in **mesh**, **particles**, **hydrodyna
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 95 | 85% |  |
 | particles | output | 92 | 75% | 8 |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | utilities | rng | 87 | 68% |  |
@@ -27,6 +26,7 @@ Reaches 44 areas; most of its lines fall in **mesh**, **particles**, **hydrodyna
 | amr_core | main_loop | 235 | 55% | 7 |
 | mesh | flagging | 200 | 55% |  |
 | utilities | file | 16 | 53% |  |
+| utilities | communication | 303 | 53% |  |
 
 24 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

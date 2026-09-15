@@ -3,7 +3,7 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 38 areas; most of its lines fall in **mesh**, **hydrodynamics**, **hydro_solver**. 213 lines are reached by no other test in the suite.
+Reaches 38 areas; most of its lines fall in **mesh**, **hydro_solver**, **amr_core**. 213 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
@@ -11,8 +11,6 @@ Reaches 38 areas; most of its lines fall in **mesh**, **hydrodynamics**, **hydro
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
 | mesh | output | 98 | 88% |  |
-| hydrodynamics | hydro_interpolation | 202 | 82% | 8 |
-| hydrodynamics | hydro_courant | 88 | 73% |  |
 | utilities | timer | 66 | 72% |  |
 | hydro_solver | riemann_solvers | 306 | 71% | 171 |
 | mesh | refinement | 477 | 69% |  |
@@ -24,9 +22,11 @@ Reaches 38 areas; most of its lines fall in **mesh**, **hydrodynamics**, **hydro
 | utilities | file | 16 | 53% |  |
 | amr_core | main_loop | 206 | 48% |  |
 | mesh | neighbour_search | 90 | 47% |  |
-| hydrodynamics | hydro_core | 41 | 46% |  |
 | hydro_solver | slope_types | 50 | 38% | 26 |
 | mesh | setup | 163 | 37% |  |
+| hydro_amr | flagging | 91 | 32% |  |
+| amr_core | setup | 119 | 29% |  |
+| hydrodynamics | courant | 88 | 28% |  |
 
 18 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

@@ -3,17 +3,14 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 44 areas; most of its lines fall in **mesh**, **cooling**, **hydrodynamics**. 61 lines are reached by no other test in the suite.
+Reaches 44 areas; most of its lines fall in **mesh**, **cooling**, **amr_core**. 61 lines are reached by no other test in the suite.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
 | utilities | units | 10 | 100% |  |
 | mesh | shutdown | 33 | 97% |  |
-| hydrodynamics | hydro_source_terms | 107 | 85% |  |
 | mesh | output | 95 | 85% |  |
 | gravity | output | 38 | 78% |  |
-| hydrodynamics | hydro_courant | 91 | 76% |  |
-| hydrodynamics | hydro_core | 66 | 74% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | gravity | setup | 87 | 68% | 7 |
@@ -25,8 +22,11 @@ Reaches 44 areas; most of its lines fall in **mesh**, **cooling**, **hydrodynami
 | utilities | communication | 309 | 54% |  |
 | utilities | file | 16 | 53% |  |
 | mesh | refinement | 361 | 52% |  |
+| hydrodynamics | source_terms | 107 | 50% |  |
 | gravity | force_calculation | 66 | 50% | 18 |
 | amr_core | main_loop | 193 | 45% |  |
+| domains | hilbert_decomposition | 26 | 38% |  |
+| hydrodynamics | update_driver | 66 | 36% |  |
 
 24 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 

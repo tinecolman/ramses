@@ -3,7 +3,7 @@
 <!-- BEGIN feature-coverage -->
 ## Feature areas covered by this test
 
-Reaches 45 areas; most of its lines fall in **mesh**, **gravity**, **hydrodynamics**, and no line is reached by this test alone.
+Reaches 45 areas; most of its lines fall in **mesh**, **gravity**, **amr_core**, and no line is reached by this test alone.
 
 | feature | area | lines | share of area | only this test |
 |---|---|---:|---:|---:|
@@ -14,7 +14,6 @@ Reaches 45 areas; most of its lines fall in **mesh**, **gravity**, **hydrodynami
 | gravity | multigrid | 901 | 81% |  |
 | gravity | force_calculation | 107 | 80% |  |
 | gravity | output | 38 | 78% |  |
-| hydrodynamics | hydro_courant | 91 | 76% |  |
 | utilities | memory | 27 | 69% |  |
 | utilities | timer | 63 | 68% |  |
 | amr_core | output | 138 | 65% |  |
@@ -26,7 +25,8 @@ Reaches 45 areas; most of its lines fall in **mesh**, **gravity**, **hydrodynami
 | utilities | communication | 309 | 54% |  |
 | utilities | file | 16 | 53% |  |
 | mesh | flagging | 171 | 47% |  |
-| hydrodynamics | hydro_core | 41 | 46% |  |
+| mesh | setup | 165 | 37% |  |
+| hydro_amr | flagging | 99 | 35% |  |
 
 25 further areas exercised more lightly (under 10 lines or 25% of the area, and shared with other tests).
 
