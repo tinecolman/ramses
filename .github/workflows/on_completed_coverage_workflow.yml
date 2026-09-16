@@ -1,0 +1,49 @@
+name: on PR coverage (completed)
+
+# Posts the coverage comment made by "Coverage (PR)" on the pull request.
+# Same pattern as on_completed_pr_workflow.yml: a workflow_run has the
+# permission to comment that a pull_request from a fork does not.
+
+on:
+  workflow_run:
+    workflows: ['Coverage (PR)']
+    types:
+      - completed
+
+jobs:
+  comment_with_coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the comment artifact
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.payload.workflow_run.id,
+            });
+            let matching = allArtifacts.data.artifacts.filter((a) => a.name == "coverage-comment");
+            if (matching.length == 0) {
+              core.setFailed("no coverage-comment artifact");
+              return;
+            }
+            let download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: matching[0].id,
+              archive_format: 'zip',
+            });
+            require('fs').writeFileSync(`${process.env.GITHUB_WORKSPACE}/coverage-comment.zip`, Buffer.from(download.data));
+      - run: unzip -o coverage-comment.zip -d .
+      - name: Read PR number
+        id: read_pr
+        run: echo "pr_number=$(cat pr_number.txt)" >> "$GITHUB_OUTPUT"
+      - name: Comment on the PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          file-path: coverage_comment.md
+          comment-tag: coverage_report
+          mode: recreate
+          create-if-not-exists: true
+          pr-number: ${{ steps.read_pr.outputs.pr_number }}

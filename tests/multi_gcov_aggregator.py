@@ -498,6 +498,13 @@ class GCovParser:
         with open(os.path.join(output_directory, "coverage_tests.json"), 'w') as file:
             json.dump(which_tests, file, separators=(",", ":"), sort_keys=True)
 
+        # which tests compiled which file, whether or not they ran any of it:
+        # the tests to re-run when a file with no executed line changes
+        which_builds = {source_file: sorted({label for label, _run in builds})
+                        for source_file, builds in self.built_by.items()}
+        with open(os.path.join(output_directory, "coverage_built.json"), 'w') as file:
+            json.dump(which_builds, file, separators=(",", ":"), sort_keys=True)
+
         # what the preprocessor kept out of every build
         self.save_notbuilt_report(output_directory, notbuilt_rows, full_code_notbuilt)
 

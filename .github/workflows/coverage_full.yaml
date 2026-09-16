@@ -1,0 +1,119 @@
+name: Coverage (full)
+
+# Full coverage run of the test suite on dev: every test, gcov build (-O0).
+# Publishes the result as the coverage baseline of the commit (replacing the
+# rolling one made by "Coverage (dev)" for the same commit) and reports how far
+# the rolling baseline had drifted from it. Monthly, or by hand.
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  run:
+    name: "Coverage ${{ matrix.test-family }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-family: [hydro, mhd, poisson, rt, sink, star, turb, tracer]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenMPI and FFTW
+        run: sudo apt-get install -y openmpi-bin libopenmpi-dev libfftw3-bin libfftw3-dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - run: pip install -r .github/workflows/requirements.txt
+      - uses: wtfjoke/setup-tectonic@v3
+        with:
+          tectonic-version: 0.15.0
+      - uses: pyvista/setup-headless-display-action@v3
+      - name: "Run tests ${{ matrix.test-family }} with coverage"
+        run: |
+          cd tests
+          bash run_test_suite.sh -s -p 2 -v -t ${{ matrix.test-family }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "coverage-run-${{ matrix.test-family }}"
+          path: tests/coverage_*/**
+          include-hidden-files: true
+
+  publish:
+    name: Aggregate and publish
+    needs: run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-run-*
+          path: runs
+      - name: Aggregate the families
+        run: |
+          mkdir -p tests/full/gcov_per_test tests/full/build_records
+          for d in $(find runs -type d -name gcov_per_test); do
+            cp -r "$d"/* tests/full/gcov_per_test/
+            for f in "$(dirname "$d")"/build_records/*.txt; do
+              cat "$f" >> tests/full/build_records/$(basename "$f")
+            done
+            cp "$(dirname "$d")"/test_results_*.pdf "$(dirname "$d")"/test_suite_*.log tests/full/ 2>/dev/null || true
+          done
+          cd tests
+          {
+            echo "# Full coverage run of the test suite (workflow Coverage (full))."
+            echo ""
+            echo "date          : $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "kind          : full"
+            echo "branch        : ${GITHUB_REF_NAME}"
+            echo "commit        : ${GITHUB_SHA}"
+            echo "commit_short  : ${GITHUB_SHA:0:8}"
+            echo "commit_date   : $(git log -1 --format=%cd --date=format:%Y-%m-%d)"
+            echo "repository    : ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            echo "ntests        : $(ls -d full/gcov_per_test/*/ | wc -l)"
+            echo "gcov          : $(gcov --version | head -1)"
+            echo "compiler      : $(gfortran --version | head -1)"
+          } > full/coverage_metadata.txt
+          python3 multi_gcov_aggregator.py full/gcov_per_test/*/ full --build-records full/build_records
+          tail -3 full/coverage_report.txt
+      - name: Drift of the rolling baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd tests
+          if found=$(bash coverage_baseline.sh find "${GITHUB_SHA}"); then
+            sha=${found%% *}; lag=${found##* }
+            bash coverage_baseline.sh fetch "$sha" rolling
+            {
+              echo "## Rolling baseline vs this full run"
+              echo "Rolling baseline of ${sha:0:10}, ${lag} commit(s) before this one. Its difference from the full run is the error of the incremental updates since the last full run."
+              echo ""
+              python3 coverage_diff.py rolling full --markdown
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No rolling baseline to compare with." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Publish as the baseline of this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd tests
+          bash coverage_baseline.sh publish full "${GITHUB_SHA}" full
+          bash coverage_baseline.sh prune

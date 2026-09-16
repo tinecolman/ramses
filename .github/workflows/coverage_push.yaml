@@ -1,0 +1,142 @@
+name: Coverage (dev)
+
+# Rolling coverage baseline of dev: on every push, re-run in coverage mode
+# only the tests the pushed changes can affect, merge them into the baseline
+# of the previous commit and publish the result as the baseline of this one.
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coverage-dev
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  select:
+    name: Select tests
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      ntests: ${{ steps.select.outputs.ntests }}
+      base: ${{ steps.select.outputs.base }}
+      removed: ${{ steps.select.outputs.removed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get install -y zstd
+      - name: Fetch the previous baseline and select the tests
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd tests
+          if ! found=$(bash coverage_baseline.sh find "${GITHUB_SHA}~1"); then
+            echo "::error::No coverage baseline among the ancestors of ${GITHUB_SHA}: run the workflow Coverage (full) first."
+            exit 1
+          fi
+          sha=${found%% *}; lag=${found##* }
+          echo "baseline ${sha:0:10}, ${lag} commit(s) before the parent of this push"
+          bash coverage_baseline.sh fetch "$sha" baseline
+          python3 coverage_select.py --baseline baseline --base "$sha" --head "${GITHUB_SHA}" \
+              --output select.json --summary
+          echo "matrix=$(python3 -c 'import json; print(json.dumps(json.load(open("select.json"))["matrix"]))')" >> "$GITHUB_OUTPUT"
+          echo "ntests=$(python3 -c 'import json; print(len(json.load(open("select.json"))["tests"]))')" >> "$GITHUB_OUTPUT"
+          echo "removed=$(python3 -c 'import json; print(",".join(json.load(open("select.json"))["removed_tests"]))')" >> "$GITHUB_OUTPUT"
+          echo "base=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-baseline
+          path: |
+            tests/baseline
+            tests/select.json
+          include-hidden-files: true
+
+  run:
+    name: "Coverage ${{ matrix.family }}"
+    needs: select
+    if: needs.select.outputs.ntests != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenMPI and FFTW
+        run: sudo apt-get install -y openmpi-bin libopenmpi-dev libfftw3-bin libfftw3-dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - run: pip install -r .github/workflows/requirements.txt
+      - uses: wtfjoke/setup-tectonic@v3
+        with:
+          tectonic-version: 0.15.0
+      - uses: pyvista/setup-headless-display-action@v3
+      - name: "Run ${{ matrix.tests }} with coverage"
+        run: |
+          cd tests
+          bash run_test_suite.sh -s -p 2 -v -t ${{ matrix.tests }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "coverage-run-${{ matrix.family }}"
+          path: tests/coverage_*/**
+          include-hidden-files: true
+
+  publish:
+    name: Merge and publish
+    needs: [select, run]
+    # runs when no test was needed (run skipped) and when every run passed
+    if: always() && needs.select.result == 'success' && (needs.run.result == 'success' || needs.run.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get install -y zstd
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-baseline
+          path: tests
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-run-*
+          path: runs
+      - name: Merge into the baseline
+        run: |
+          cd tests
+          runs=$(find ../runs -type d -name gcov_per_test -exec dirname {} \; 2>/dev/null | tr '\n' ' ')
+          python3 coverage_merge.py --baseline baseline --runs $runs --out merged \
+              --commit "${GITHUB_SHA}" --removed-tests "${{ needs.select.outputs.removed }}"
+          {
+            echo "## Coverage of dev at ${GITHUB_SHA:0:10}"
+            echo "Baseline ${{ needs.select.outputs.base }}; tests re-run: $(python3 -c 'import json; print(", ".join(json.load(open("select.json"))["tests"]) or "none")')"
+            echo ""
+            python3 coverage_diff.py baseline merged --base "${{ needs.select.outputs.base }}" --head "${GITHUB_SHA}" --markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish as the baseline of this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd tests
+          bash coverage_baseline.sh publish merged "${GITHUB_SHA}"
+          bash coverage_baseline.sh prune

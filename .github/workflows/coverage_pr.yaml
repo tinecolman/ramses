@@ -1,0 +1,180 @@
+name: Coverage (PR)
+
+# How a pull request changes the coverage of the test suite: re-run in
+# coverage mode only the tests the change can affect, merge them into the
+# baseline of the base branch, and compare. The comment on the PR is posted by
+# "on PR coverage (completed)" from the artifact made here, so that it also
+# works for pull requests from forks.
+
+on: [pull_request]
+
+concurrency:
+  group: coverage-${{ github.ref }}-${{ github.event.pull_request.number || github.run_number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+
+  select:
+    name: Select tests
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      ntests: ${{ steps.select.outputs.ntests }}
+      base: ${{ steps.select.outputs.base }}
+      lag: ${{ steps.select.outputs.lag }}
+      removed: ${{ steps.select.outputs.removed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get install -y zstd
+      - name: Fetch the baseline of the base branch and select the tests
+        id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          cd tests
+          echo "$PR_NUMBER" > pr_number.txt
+          # HEAD is the merge of the PR into its base branch: its first
+          # parent chain is the base branch, where the baselines are
+          if ! found=$(bash coverage_baseline.sh find "HEAD^1"); then
+            echo "No coverage baseline among the ancestors of the base branch." > no_baseline.txt
+            echo "ntests=0" >> "$GITHUB_OUTPUT"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sha=${found%% *}; lag=${found##* }
+          bash coverage_baseline.sh fetch "$sha" baseline
+          python3 coverage_select.py --baseline baseline --base "$sha" --head HEAD \
+              --output select.json --summary
+          echo "matrix=$(python3 -c 'import json; print(json.dumps(json.load(open("select.json"))["matrix"]))')" >> "$GITHUB_OUTPUT"
+          echo "ntests=$(python3 -c 'import json; print(len(json.load(open("select.json"))["tests"]))')" >> "$GITHUB_OUTPUT"
+          echo "removed=$(python3 -c 'import json; print(",".join(json.load(open("select.json"))["removed_tests"]))')" >> "$GITHUB_OUTPUT"
+          echo "base=$sha" >> "$GITHUB_OUTPUT"
+          echo "lag=$lag" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-baseline
+          path: |
+            tests/baseline
+            tests/select.json
+            tests/pr_number.txt
+            tests/no_baseline.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  run:
+    name: "Coverage ${{ matrix.family }}"
+    needs: select
+    if: needs.select.outputs.ntests != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.select.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenMPI and FFTW
+        run: sudo apt-get install -y openmpi-bin libopenmpi-dev libfftw3-bin libfftw3-dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+      - run: pip install -r .github/workflows/requirements.txt
+      - uses: wtfjoke/setup-tectonic@v3
+        with:
+          tectonic-version: 0.15.0
+      - uses: pyvista/setup-headless-display-action@v3
+      - name: "Run ${{ matrix.tests }} with coverage"
+        run: |
+          cd tests
+          bash run_test_suite.sh -s -p 2 -v -t ${{ matrix.tests }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "coverage-run-${{ matrix.family }}"
+          path: tests/coverage_*/**
+          include-hidden-files: true
+
+  report:
+    name: Merge and compare
+    needs: [select, run]
+    if: always() && needs.select.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-baseline
+          path: tests
+      - uses: actions/download-artifact@v4
+        if: needs.select.outputs.ntests != '0'
+        with:
+          pattern: coverage-run-*
+          path: runs
+      - name: Merge, compare, write the comment
+        env:
+          BASE: ${{ needs.select.outputs.base }}
+          LAG: ${{ needs.select.outputs.lag }}
+          REMOVED: ${{ needs.select.outputs.removed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cd tests
+          if [ -f no_baseline.txt ]; then
+            {
+              echo "## Test-suite coverage"
+              echo "$(cat no_baseline.txt) Run the workflow Coverage (full) on the base branch first."
+            } > coverage_comment.md
+            exit 0
+          fi
+          runs=$(find ../runs -type d -name gcov_per_test -exec dirname {} \; 2>/dev/null | tr '\n' ' ')
+          tests=$(python3 -c 'import json; print(", ".join(json.load(open("select.json"))["tests"]) or "none")')
+          status=""
+          if [ -n "$runs" ]; then
+            nfail=$(cat ../runs/*/test_suite_*.log 2>/dev/null | grep -c '\[FAIL\]' || true)
+            npass=$(cat ../runs/*/test_suite_*.log 2>/dev/null | grep -c '\[ OK \]' || true)
+            status=" (${npass} passed, ${nfail} failed)"
+          fi
+          notes=(--note "Baseline: base branch at ${BASE:0:10}$([ "$LAG" != "0" ] && echo ", ${LAG} commit(s) behind the merge base")."
+                 --note "Tests re-run in coverage mode: ${tests}${status}. [Workflow run](${RUN_URL}).")
+          if python3 coverage_merge.py --baseline baseline --runs $runs --out merged --commit HEAD \
+                 --removed-tests "${REMOVED}" > merge.log 2> merge.err; then
+            python3 coverage_diff.py baseline merged --base "${BASE}" --head HEAD --markdown \
+                "${notes[@]}" --output coverage_comment.md
+          else
+            {
+              echo "## Test-suite coverage: could not be computed"
+              for n in "${notes[@]}"; do [ "$n" != "--note" ] && echo "$n  "; done
+              echo ""
+              echo '```'
+              grep -v "^Warning: cannot evaluate" merge.err | tail -20
+              echo '```'
+            } > coverage_comment.md
+          fi
+          cat coverage_comment.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-comment
+          path: |
+            tests/coverage_comment.md
+            tests/pr_number.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-merged
+          path: tests/merged
+          if-no-files-found: ignore

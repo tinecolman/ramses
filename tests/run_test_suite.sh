@@ -21,10 +21,15 @@
 #       ./run_test_suite.sh -t 3-5,10
 #   - Run all tests in mhd directory:
 #       ./run_test_suite.sh -t mhd
+#   - Select tests by name (can be mixed with directories):
+#       ./run_test_suite.sh -t hydro/sedov3d,sink/smbh-bondi,rt
 #   - Run quick test suite:
 #       ./run_test_suite.sh -q
 #   - Run test suite with coverage:
 #       ./run_test_suite.sh -s
+#     The result goes to tests/coverage_<branch>_<date>_<commit>/. To measure
+#     a change without a full run, see coverage_select.py, coverage_merge.py
+#     and coverage_diff.py (doc/wiki/Testing.md, section 4).
 #   - Restart behaviour:
 #       By default, only tests that opt in via their config.txt
 #       (a line "RESTART: true") are run through the restart mechanism.
@@ -193,7 +198,8 @@ if $SELECTTEST ; then
    testsegs=( $s1 );
    nseg=${#testsegs[@]};
 
-   # Check if entire directory is submitted
+   # Check if entire directory (e.g. mhd) or a test name (e.g. hydro/sedov3d)
+   # is submitted
    dir_list="";
    for ((n=0;n<$nseg;n++)); do
       for ((m=0;m<$nseg_all;m++)); do
@@ -201,6 +207,11 @@ if $SELECTTEST ; then
             dir_list="${dir_list} ${testsegs[n]}/*";
          fi
       done
+      case ${testsegs[n]} in
+         */*)
+            dir_list="${dir_list} ${testsegs[n]}";
+         ;;
+      esac
    done
 
    # Split list of directories into array
@@ -210,14 +221,27 @@ if $SELECTTEST ; then
    ntests=0;
    if [ ${nsubs} -gt 0 ] ; then
       for ((n=0;n<$nsubs;n++)); do
+         found=false;
          for ((m=0;m<$ntestsall;m++)); do
             # If directory requested is found in global test list,
-            # add it to the current test list
+            # add it to the current test list (once)
             if [ ${submit_dirs[n]} == ${testname[m]} ] ; then
-               testnum[${ntests}]=$m;
-               ntests=$((ntests + 1));
+               found=true;
+               already=false;
+               for ((k=0;k<$ntests;k++)); do
+                  if [ ${testnum[k]} -eq $m ] ; then
+                     already=true;
+                  fi
+               done
+               if ! $already ; then
+                  testnum[${ntests}]=$m;
+                  ntests=$((ntests + 1));
+               fi
             fi
          done
+         if ! $found ; then
+            echo "Selected test ${submit_dirs[n]} does not exist! Ignoring test" | tee -a $LOGFILE;
+         fi
       done
 
    else

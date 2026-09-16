@@ -54,7 +54,11 @@ Once the tests have completed, a report is generated in a `.pdf` file named `tes
 ```
 ./run_test_suite.sh -t mhd
 ```
-- Run test suite with coverage:
+- Select tests by name (can be mixed with directories):
+```
+./run_test_suite.sh -t hydro/sedov3d,sink/smbh-bondi,rt
+```
+- Run test suite with coverage (see section 4):
 ```
 ./run_test_suite.sh -s
 ```
@@ -162,3 +166,69 @@ and add your new directory separated from the previous one by a comma, i.e.
 # List of directories to scan
 testlist="hydro,mhd,rt,sink,sedov";
 ```
+
+## 4. Coverage of the test suite
+
+With `-s`, the code is built with gcov instrumentation (`GCOV=1`, which also
+sets `-O0`) and the lines each test executes are collected. The result goes to
+`tests/coverage_<branch>_<date>_<commit>/`:
+
+- `coverage_report.txt`: per source file, the executable lines that ran over
+  all tests, and the lines no build of the run compiled at all (they sit
+  behind a preprocessor directive no test enables; `coverage_notbuilt.txt`
+  breaks them down by directive).
+- `gcov_files/`: one aggregated gcov file per source, with every line's count.
+- `coverage_tests.json` and `coverage_built.json`: which tests executed each
+  line, and which tests' builds compiled each file.
+- `gcov_per_test/` and `build_records/`: the raw data of each test and how it
+  was built, so the report can be regenerated or added to.
+
+A full run takes a few hours, so the coverage is not recomputed from scratch
+for every change. Instead, a full run is kept as a **baseline** and a change is
+measured by re-running only the tests it can affect:
+
+```
+cd tests
+python3 coverage_select.py --baseline <baseline dir> --base <baseline commit> --head HEAD --summary
+./run_test_suite.sh -s -p 2 -t <the tests it lists>
+python3 coverage_merge.py --baseline <baseline dir> --runs coverage_<...> --out merged
+python3 coverage_diff.py <baseline dir> merged --base <baseline commit> --head HEAD
+```
+
+`coverage_select.py` looks every touched source file up in the baseline: the
+tests that executed it are re-run. A file whose executable statements did not
+change (comments, blank lines, formatting, declarations without a value)
+selects nothing. A new file selects nothing by itself, since it can only run
+through an existing file that now uses it, and that file's tests are selected.
+A change to a test's directory selects that test; a change to the compiler
+flags of `bin/Makefile` or to the runner scripts selects every test.
+
+`coverage_merge.py` builds a complete coverage directory for the new source:
+changed files come from the new runs, unchanged files keep the baseline's lines
+(covered when a baseline test that was not re-run reached them, or a re-run
+test reached them now). It refuses to mix runs made from another version of
+the source. `coverage_diff.py` then reports, with `C`/`D` the lines
+covered/executable in the baseline and `A`/`B` the lines newly covered/added:
+
+    coverage gain = (C+A)/(D+B) - C/D
+
+together with the files whose numbers changed and the executable lines the
+change added that no test executes.
+
+### On GitHub
+
+Three workflows automate this (`.github/workflows/coverage_*.yaml`):
+
+- **Coverage (full)** runs every test with coverage, monthly or by hand, and
+  publishes the result as an asset of the rolling release `coverage-baseline`
+  (`tests/coverage_baseline.sh` wraps `gh` for this). It also reports how far
+  the rolling baseline had drifted from the full run.
+- **Coverage (dev)**, on every push to `dev`, re-runs the selected tests,
+  merges them into the baseline of the previous commit and publishes the
+  result as the baseline of the new commit.
+- **Coverage (PR)** does the same for a pull request against the baseline of
+  its base branch, and the completed-workflow hook posts the comparison as a
+  comment on the PR.
+
+The first baseline has to be made by running **Coverage (full)** by hand
+(Actions tab, "Run workflow").
