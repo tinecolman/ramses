@@ -144,11 +144,11 @@ def select(baseline, base, head, tests, repo=REPO_DIR, force_all=False):
     # the fewest tests that still execute every line of the changed routines
     chosen = set(set_cover(universe, baseline.runtimes()))
     not_rerun = {}
-    for source, tests in candidates.items():
+    for source, reaching in candidates.items():
         why = f"{source[3:]} changed in {', '.join(routines_hit.get(source, ['?']))}"
-        for t in tests & chosen:
+        for t in reaching & chosen:
             reasons[t].add(why)
-        kept = sorted(tests - chosen)
+        kept = sorted(reaching - chosen)
         if kept:
             not_rerun[source] = kept
 
