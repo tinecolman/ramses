@@ -22,34 +22,86 @@ import os
 import sys
 from collections import defaultdict
 
-from coverage_common import (RUNNER_FILES, Baseline, REPO_DIR, family_of,
-                             git_lines, is_cosmetic, list_tests,
+from coverage_common import (RUNNER_FILES, Baseline, REPO_DIR, diff_hunks,
+                             enclosing_routines, family_of, git_lines,
+                             is_cosmetic, list_tests,
                              makefile_is_object_lists_only, name_status,
-                             resolve_rev, source_path, test_to_label)
+                             old_lines_touched, resolve_rev, source_path,
+                             test_to_label)
+
+
+def set_cover(universe, runtimes):
+    """
+    Greedy weighted set cover: the tests to re-run so that every line of
+    `universe` ({(source, line): tests that executed it}) is executed by at
+    least one of them, preferring tests that cover many lines per second
+    of run time. Tests without a known run time cost the median known
+    time. Returns the chosen tests in the order they were chosen.
+    """
+    lines_of = {}
+    for key, tests in universe.items():
+        for t in tests:
+            lines_of.setdefault(t, set()).add(key)
+    known = sorted(runtimes.get(t) for t in lines_of if runtimes.get(t))
+    default = known[len(known) // 2] if known else 1
+    cost = {t: max(runtimes.get(t) or default, 1) for t in lines_of}
+    uncovered, chosen = set(universe), []
+    while uncovered:
+        best = max(lines_of, key=lambda t: (len(lines_of[t] & uncovered) / cost[t], -cost[t], t))
+        gain = lines_of[best] & uncovered
+        if not gain:
+            break
+        chosen.append(best)
+        uncovered -= gain
+    return chosen
 
 
 def select(baseline, base, head, tests, repo=REPO_DIR, force_all=False):
     reasons = defaultdict(set)
     changed, cosmetic, new, deleted, removed_tests, notes = [], [], [], [], [], []
     everything = None
+    universe = {}          # (source, old line): tests that executed it
+    candidates = {}        # source: tests that executed its changed routines
+    routines_hit = {}      # source: names of the changed routines
 
     def select_all(why):
         nonlocal everything
         everything = everything or why
 
-    def tests_of(source, why):
-        reaching = baseline.tests_reaching(source)
-        if not reaching:
-            compiling = baseline.tests_compiling(source)
-            if compiling is None:
-                notes.append(f"{source}: no test executed it and the baseline has no "
-                             "coverage_built.json; selecting every test")
-                select_all(f"{source} has no per-test build information")
-                return
-            reaching = compiling
-            why += " (compiled, never executed)"
-        for t in reaching:
-            reasons[t].add(why)
+    def changed_routines(source, path, old_lines):
+        """
+        Register the lines of the routines the diff touches: the tests
+        that executed them are the candidates, and the set cover below
+        picks the fewest of them that still execute every such line.
+        """
+        touched = old_lines_touched(diff_hunks(base, head, path, repo))
+        found, outside = enclosing_routines(old_lines, touched)
+        if outside:
+            notes.append(f"{path}: lines {sorted(outside)[:6]} changed outside any routine; "
+                         "no test selected for them")
+        if not found:
+            return
+        routines_hit[source] = [name for _s, _e, name in found]
+        covered = (baseline.covered_by or {}).get(source, {})
+        tests = set()
+        for start, end, _name in found:
+            for n in range(start, end + 1):
+                if n in covered:
+                    universe[(source, n)] = set(covered[n])
+                    tests |= set(covered[n])
+        if tests:
+            candidates[source] = tests
+            return
+        compiling = baseline.tests_compiling(source)
+        if compiling is None:
+            notes.append(f"{path}: no test executed it and the baseline has no "
+                         "coverage_built.json; selecting every test")
+            select_all(f"{path} has no per-test build information")
+        elif compiling:
+            notes.append(f"{path}: no test executes {', '.join(routines_hit[source])}; "
+                         f"re-running one of the {len(compiling)} tests that compile it")
+            universe[(source, 0)] = set(compiling)
+            candidates[source] = set(compiling)
 
     for status, old_path, new_path in name_status(base, head, repo):
         path = new_path if status != "D" else old_path
@@ -57,11 +109,11 @@ def select(baseline, base, head, tests, repo=REPO_DIR, force_all=False):
 
         if status == "D" and src_old:
             deleted.append(src_old)
-            tests_of(src_old, f"{old_path} deleted")
+            notes.append(f"{old_path} deleted: covered through the changed files that used it")
         elif status == "R":
             deleted.append(src_old)
             new.append(src_new)
-            tests_of(src_old, f"{old_path} renamed to {new_path}")
+            notes.append(f"{old_path} renamed to {new_path}: covered through the changed files that use it")
         elif status == "A" and src_new:
             new.append(src_new)
             notes.append(f"{new_path} is new: covered through the changed files that use it")
@@ -72,7 +124,7 @@ def select(baseline, base, head, tests, repo=REPO_DIR, force_all=False):
                 cosmetic.append(src_new)
             else:
                 changed.append(src_new)
-                tests_of(src_new, f"{new_path} changed")
+                changed_routines(src_new, new_path, old_lines or [])
         elif path.startswith("bin/Makefile"):
             old_lines = git_lines(base, old_path, repo) or []
             new_lines = git_lines(head, new_path, repo) or []
@@ -88,6 +140,17 @@ def select(baseline, base, head, tests, repo=REPO_DIR, force_all=False):
                 reasons[f"{parts[1]}/{parts[2]}"].add(f"{path} {'added' if status == 'A' else 'changed'}")
             elif len(parts) >= 4 and status == "D":
                 removed_tests.append(f"{parts[1]}/{parts[2]}")
+
+    # the fewest tests that still execute every line of the changed routines
+    chosen = set(set_cover(universe, baseline.runtimes()))
+    not_rerun = {}
+    for source, tests in candidates.items():
+        why = f"{source[3:]} changed in {', '.join(routines_hit.get(source, ['?']))}"
+        for t in tests & chosen:
+            reasons[t].add(why)
+        kept = sorted(tests - chosen)
+        if kept:
+            not_rerun[source] = kept
 
     if force_all:
         select_all("requested")
@@ -118,6 +181,9 @@ def select(baseline, base, head, tests, repo=REPO_DIR, force_all=False):
         "new_sources": sorted(set(new)),
         "deleted_sources": sorted(set(deleted)),
         "removed_tests": removed_tests,
+        "routines": routines_hit,
+        "not_rerun": {} if everything else not_rerun,
+        "estimate": bool(not_rerun) and not everything,
         "reasons": {t: sorted(r) for t, r in sorted(reasons.items())},
         "notes": notes,
     }
@@ -135,6 +201,10 @@ def summary(result):
                  (": " + " ".join(result["tests"]) if result["tests"] else ""))
     if result["removed_tests"]:
         lines.append(f"  removed tests: {', '.join(result['removed_tests'])}")
+    for source, names in result["routines"].items():
+        lines.append(f"  {source[3:]}: changed in {', '.join(names)}")
+    for source, tests in result["not_rerun"].items():
+        lines.append(f"  {source[3:]}: not re-run (estimate): {', '.join(tests)}")
     for n in result["notes"]:
         lines.append(f"  note: {n}")
     return "\n".join(lines)

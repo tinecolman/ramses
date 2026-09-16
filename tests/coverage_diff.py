@@ -135,6 +135,19 @@ def render(cmp, added, old_dir, new_dir, notes, markdown):
         out.append(f"Test-suite coverage: {cmp['old_pct']:.2f}% -> {cmp['new_pct']:.2f}% ({sign}{gain:.2f} points)")
     for n in notes:
         out.append(f"{n}  " if markdown else n)
+    rerun = new_meta.get("tests_rerun", "").split()
+    kept = [k for k in new_meta.get("tests_kept", "").split() if "=" in k]
+    if new_meta.get("kind") == "incremental":
+        text = ("**This is an estimate.** " if markdown else "This is an estimate. ") + \
+            f"Only {len(rerun)} test(s) were re-run: those that executed the changed routines in the baseline"
+        if kept:
+            text += ". The other tests that reached a changed file keep their baseline coverage of the " \
+                    "lines that still exist and are taken not to reach the added lines"
+            for item in kept:
+                source, tests = item.split("=", 1)
+                text += f"; {source[3:]}: {tests.replace(',', ', ')}"
+        text += ". The monthly full run measures the error of these estimates."
+        out.append(text + ("  " if markdown else ""))
     out.append("")
     table = [("lines newly covered (A)", f"{cmp['A']:+d}"),
              ("executable lines added (B)", f"{cmp['B']:+d}"),

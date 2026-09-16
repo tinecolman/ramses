@@ -195,20 +195,29 @@ python3 coverage_merge.py --baseline <baseline dir> --runs coverage_<...> --out 
 python3 coverage_diff.py <baseline dir> merged --base <baseline commit> --head HEAD
 ```
 
-`coverage_select.py` looks every touched source file up in the baseline: the
-tests that executed it are re-run. A file whose executable statements did not
-change (comments, blank lines, formatting, declarations without a value)
-selects nothing. A new file selects nothing by itself, since it can only run
-through an existing file that now uses it, and that file's tests are selected.
-A change to a test's directory selects that test; a change to the compiler
-flags of `bin/Makefile` or to the runner scripts selects every test.
+`coverage_select.py` finds the routines the diff touches and, from the
+baseline, the tests that executed lines of those routines. It then keeps the
+fewest of them that still execute every such line, preferring tests with a
+short run time (recorded in the baseline's `build_records/`). A file whose
+executable statements did not change (comments, blank lines, formatting,
+declarations without a value) selects nothing. A new file selects nothing by
+itself, since it can only run through an existing file that now uses it, and
+that file's tests are selected. A change to a test's directory selects that
+test; a change to the compiler flags of `bin/Makefile` or to the runner
+scripts selects every test.
 
 `coverage_merge.py` builds a complete coverage directory for the new source:
 changed files come from the new runs, unchanged files keep the baseline's lines
 (covered when a baseline test that was not re-run reached them, or a re-run
-test reached them now). It refuses to mix runs made from another version of
-the source. `coverage_diff.py` then reports, with `C`/`D` the lines
-covered/executable in the baseline and `A`/`B` the lines newly covered/added:
+test reached them now). A test that reached a changed file but was not re-run
+keeps its coverage of the lines that still exist, matched by their text, and
+is taken not to reach the added lines. The result is therefore an estimate:
+tests not re-run are assumed to execute the same lines as before, and to skip
+new ones. The merge notes this in its metadata, the report says so, and the
+monthly full run measures the error. The merge refuses to mix runs made from
+another version of the source. `coverage_diff.py` then reports, with `C`/`D`
+the lines covered/executable in the baseline and `A`/`B` the lines newly
+covered/added:
 
     coverage gain = (C+A)/(D+B) - C/D
 
@@ -222,7 +231,10 @@ Three workflows automate this (`.github/workflows/coverage_*.yaml`):
 - **Coverage (full)** runs every test with coverage, monthly or by hand, and
   publishes the result as an asset of the rolling release `coverage-baseline`
   (`tests/coverage_baseline.sh` wraps `gh` for this). It also reports how far
-  the rolling baseline had drifted from the full run.
+  the rolling baseline had drifted from the full run, and posts the number on
+  the issue "Test-suite coverage tracking": subscribe to it to get the monthly
+  number by mail, or put GitHub handles to mention in the repository variable
+  `COVERAGE_NOTIFY` (Settings, Secrets and variables, Actions, Variables).
 - **Coverage (dev)**, on every push to `dev`, re-runs the selected tests,
   merges them into the baseline of the previous commit and publishes the
   result as the baseline of the new commit.

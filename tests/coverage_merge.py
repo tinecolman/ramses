@@ -14,8 +14,11 @@ change between the baseline's commit and the current source. Per source file:
   cosmetic    same, after moving the counts to the lines the statements now
               sit on (only comments, blank lines, formatting or declarations
               differ; checked, a mismatch is refused)
-  changed     the runs only; refused unless every baseline test that reached
-              the file is in T, since the baseline's lines no longer apply
+  changed     the runs for the tests of T; a baseline test outside T that
+              reached the file keeps its coverage of the lines that still
+              exist (matched by text), and is taken not to reach the added
+              lines. That makes the result an estimate, noted in the
+              metadata (tests_kept), which the monthly full run corrects.
   new         the runs only
   deleted     dropped
 
@@ -33,7 +36,7 @@ from glob import glob
 
 from coverage_common import (BIN_DIR, Baseline, REPO_DIR, list_tests,
                              label_to_test, statement_line_map,
-                             test_to_label)
+                             test_to_label, text_line_map)
 from multi_gcov_aggregator import (NOT_COVERABLE, GCovParser, build_records,
                                    distinct, is_declaration)
 
@@ -61,6 +64,7 @@ class Merge:
         self.allow_missing = allow_missing
         self.errors = []
         self.status = defaultdict(list)   # unchanged/cosmetic/changed/new/deleted -> sources
+        self.kept = {}                    # changed source -> baseline tests not re-run
 
         self.new = GCovParser(source_root)
         run_dirs = []
@@ -137,19 +141,34 @@ class Merge:
                     out[new] = self.merged_line(source, old, base_lines[old][0], src[new-1], new)
             return True
 
-        # a real change: the runs must hold every test that knew the file
-        missing = self.baseline.tests_reaching(source) - self.T
-        if missing:
-            self.errors.append(f"{source} changed, but baseline tests {sorted(missing)} "
-                               "that reached it were not re-run")
-            if not self.allow_missing:
-                return False
+        # a real change: the runs give the file's lines; a baseline test
+        # that reached the file but was not re-run keeps what it covered
+        # on the lines that still exist, matched by their text
         if source not in self.new.coverage_data:
             self.errors.append(f"{source} changed, but no run compiled it")
             return False
         self.status["changed"].append(source)
         for n, entry in self.new.coverage_data[source].items():
             out[n] = entry
+        missing = self.baseline.tests_reaching(source) - self.T
+        if missing:
+            self.kept[source] = sorted(missing)
+            line_map = text_line_map(old_text, src)
+            for old, (count, _content) in base_lines.items():
+                # an executable line of the baseline (a count, 0 included)
+                # that still exists: the builds of the tests not re-run
+                # still compile it, and those tests still reach it or not
+                if not isinstance(count, int) or old not in line_map:
+                    continue
+                keep = [t for t in self.baseline.covered_by.get(source, {}).get(old, []) if t in missing]
+                new_line = line_map[old]
+                new_count, content, dirs = out[new_line]
+                if not isinstance(new_count, int):
+                    if new_line not in self.new.coverage_data[source]:
+                        continue      # not a line of the new gcov files
+                    new_count = 0     # compiled only by a build not re-run
+                dirs = list(dirs) + [self.label(t) for t in keep if self.label(t) not in dirs]
+                out[new_line] = (max(new_count, 1 if keep else 0), content, dirs)
         return True
 
     def run(self):
@@ -226,6 +245,8 @@ def write_metadata(out_dir, baseline, merge, commit, runs):
         print(f"tests_removed : {' '.join(sorted(merge.T - merge.rerun))}", file=f)
         for key in ("changed", "cosmetic", "new", "deleted"):
             print(f"files_{key:8s}: {' '.join(merge.status.get(key, []))}", file=f)
+        # the estimate: tests that reached a changed file but were not re-run
+        print("tests_kept    : " + " ".join(f"{s}={','.join(t)}" for s, t in sorted(merge.kept.items())), file=f)
         print(f"ntests        : {len(baseline.all_tests() - merge.T | merge.rerun)}", file=f)
 
 
@@ -238,7 +259,7 @@ if __name__ == "__main__":
     p.add_argument("--commit", help="commit the merged coverage describes (default: git HEAD)")
     p.add_argument("--removed-tests", default="", help="comma-separated tests deleted since the baseline")
     p.add_argument("--allow-missing", action="store_true",
-                   help="merge even when a changed file's baseline tests were not all re-run")
+                   help="merge even when a changed file was compiled by no run")
     a = p.parse_args()
 
     tests = list_tests()
@@ -262,4 +283,6 @@ if __name__ == "__main__":
         elif n:
             print(f"{key:9s} {n:4d}")
     print(f"re-run tests: {' '.join(sorted(merge.rerun))}")
+    for source, tests in sorted(merge.kept.items()):
+        print(f"estimate: {source} kept the baseline coverage of {' '.join(tests)} (not re-run)")
     print(f"Merged coverage saved in directory: {a.out}")

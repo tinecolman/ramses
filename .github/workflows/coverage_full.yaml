@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 defaults:
   run:
@@ -140,3 +141,35 @@ jobs:
           cd tests
           bash coverage_baseline.sh publish full "${GITHUB_SHA}" full
           bash coverage_baseline.sh prune
+      # The number goes to a tracking issue, so that its subscribers (and the
+      # handles in the repository variable COVERAGE_NOTIFY, e.g. "@someone")
+      # get it by mail and the issue keeps the history.
+      - name: Report on the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTIFY: ${{ vars.COVERAGE_NOTIFY }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cd tests
+          title="Test-suite coverage tracking"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+                   -q ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ -z "$number" ]; then
+            number=$(gh issue create --title "$title" \
+                --body "Monthly result of the full coverage run of the test suite (workflow Coverage (full)). Subscribe to this issue to get the number by mail." \
+                | grep -o '[0-9]*$')
+          fi
+          {
+            echo "Full coverage run of ${GITHUB_REF_NAME} at ${GITHUB_SHA:0:10} ([run](${RUN_URL})):"
+            echo ""
+            echo '```'
+            tail -1 full/coverage_report.txt
+            echo '```'
+            if [ -d rolling ]; then
+              echo ""
+              python3 coverage_diff.py rolling full --markdown | sed -n '1p'
+              echo "(rolling baseline vs this full run: the error of the incremental updates)"
+            fi
+            [ -n "$NOTIFY" ] && echo "" && echo "$NOTIFY"
+          } > issue_comment.md
+          gh issue comment "$number" --body-file issue_comment.md

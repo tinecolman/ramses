@@ -466,6 +466,9 @@ for ((i=0;i<$ntests;i++)); do
    minutes_test[${i}]=$minutes;
    seconds_test[${i}]=$seconds;
    echo " ${hours_test[i]}h${minutes_test[i]}m${seconds_test[i]}s" | tee -a $LOGFILE;
+   if ${COVERAGE} ; then
+      echo "  runtime_s : $((milliseconds / 1000))" >> ${RECORDS_TMP}/${testname[n]//\//_}.txt;
+   fi
 
    # Plot and analyse results
    echo "Plotting and analysing results" | tee -a $LOGFILE;

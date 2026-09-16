@@ -178,6 +178,85 @@ def statement_line_map(old_lines, new_lines):
     return {o: n for (o, _), (n, _) in zip(old, new)}
 
 
+ROUTINE_START = re.compile(
+    r"^\s*(?:(?:recursive|pure|elemental|impure|module)\s+)*"
+    r"(?:(?:integer|real|double\s*precision|logical|character|complex|type)\s*(?:\([^)]*\))?\s*"
+    r"(?:(?:recursive|pure|elemental|impure)\s+)*)?"
+    r"(subroutine|function|program)\s+(\w+)", re.I)
+ROUTINE_END = re.compile(r"^\s*end\s*(subroutine|function|program)?\b\s*(\w+)?\s*$", re.I)
+
+
+def routines(lines):
+    """
+    [(first line, last line, name)] of the procedures of a source file,
+    innermost first for internal procedures. `end` without a keyword closes
+    the innermost open procedure only when it is not an end of block.
+    """
+    out, stack = [], []
+    for number, raw in enumerate(lines, 1):
+        text = strip_comment(raw).strip()
+        if not text or text.startswith("#"):
+            continue
+        m = ROUTINE_START.match(text)
+        if m and "::" not in text.split("(")[0]:
+            stack.append((number, m.group(2)))
+            continue
+        m = ROUTINE_END.match(text)
+        if m and stack and (m.group(1) or not m.group(2)):
+            start, name = stack.pop()
+            out.append((start, number, name))
+    return out
+
+
+def enclosing_routines(lines, numbers):
+    """The routines of `lines` that contain any of the line numbers."""
+    found, rest = [], set(numbers)
+    for start, end, name in routines(lines):
+        hit = {n for n in rest if start <= n <= end}
+        if hit:
+            found.append((start, end, name))
+            rest -= hit
+    return found, rest
+
+
+def diff_hunks(base, head, path, repo=REPO_DIR):
+    """[(old start, old count, new start, new count)] of git diff -U0."""
+    args = ["diff", "-U0", base] + ([] if head == "WORKTREE" else [head]) + ["--", path]
+    out = []
+    for line in git(args, repo).splitlines():
+        m = re.match(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
+        if m:
+            out.append((int(m.group(1)), int(m.group(2)) if m.group(2) is not None else 1,
+                        int(m.group(3)), int(m.group(4)) if m.group(4) is not None else 1))
+    return out
+
+
+def old_lines_touched(hunks):
+    """
+    The lines of the old file a diff touches: the deleted or replaced
+    lines, and for a pure insertion the two lines it sits between.
+    """
+    touched = set()
+    for old_start, old_count, _new_start, _new_count in hunks:
+        if old_count:
+            touched.update(range(old_start, old_start + old_count))
+        else:
+            touched.update({old_start, old_start + 1})
+    return touched
+
+
+def text_line_map(old_lines, new_lines):
+    """{old line: new line} for the lines difflib matches between two versions."""
+    import difflib
+    a = [l.rstrip() for l in old_lines]
+    b = [l.rstrip() for l in new_lines]
+    out = {}
+    for i, j, n in difflib.SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks():
+        for k in range(n):
+            out[i + k + 1] = j + k + 1
+    return out
+
+
 def makefile_is_object_lists_only(old_lines, new_lines):
     """
     Whether two versions of bin/Makefile differ only in the object lists
@@ -343,6 +422,27 @@ class Baseline:
             if source:
                 out[source] = lines
         return out
+
+    def runtimes(self):
+        """{test: seconds} from the build records, for the tests that have it."""
+        out = {}
+        path = os.path.join(self.dir, "build_records")
+        if not os.path.isdir(path):
+            return out
+        for f in glob(os.path.join(path, "*.txt")):
+            test = None
+            for line in open(f, errors="replace"):
+                m = re.match(r"^test\s*:\s*(\S+)", line)
+                if m:
+                    test = m.group(1)
+                m = re.match(r"^\s+runtime_s\s*:\s*(\d+)", line)
+                if m and test:
+                    out[test] = max(out.get(test, 0), int(m.group(1)))
+        return out
+
+    def lines_of(self, source, test):
+        """The lines of `source` the test executed in the baseline."""
+        return {n for n, names in (self.covered_by or {}).get(source, {}).items() if test in names}
 
     def records(self):
         """The build records, from build_records/ or an old metadata file."""
