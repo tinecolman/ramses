@@ -57,6 +57,9 @@ jobs:
   publish:
     name: Aggregate and publish
     needs: run
+    # A test that fails its comparison still leaves valid coverage data, and
+    # the test workflows report failures; only a cancelled run is not published.
+    if: always() && needs.run.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -97,6 +100,16 @@ jobs:
           } > full/coverage_metadata.txt
           python3 multi_gcov_aggregator.py full/gcov_per_test/*/ full --build-records full/build_records
           tail -3 full/coverage_report.txt
+          {
+            echo "## Full coverage of ${GITHUB_REF_NAME} at ${GITHUB_SHA:0:10}"
+            echo "Families with data: $(ls -d ../runs/*/ | xargs -n1 basename | sed 's/coverage-run-//' | tr '\n' ' ') (expected 8)"
+            echo "Tests: $(ls -d full/gcov_per_test/*/ | wc -l); failed comparisons: $(cat full/test_suite_*.log | grep -c '\[FAIL\]' || true)"
+            cat full/test_suite_*.log | grep '\[FAIL\]' | sed 's/^/    /' || true
+            echo ""
+            echo '```'
+            tail -1 full/coverage_report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Drift of the rolling baseline
         env:
           GH_TOKEN: ${{ github.token }}

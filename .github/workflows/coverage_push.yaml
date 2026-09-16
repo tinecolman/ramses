@@ -102,8 +102,10 @@ jobs:
   publish:
     name: Merge and publish
     needs: [select, run]
-    # runs when no test was needed (run skipped) and when every run passed
-    if: always() && needs.select.result == 'success' && (needs.run.result == 'success' || needs.run.result == 'skipped')
+    # runs when no test was needed (run skipped) and whatever the tests'
+    # verdicts: a failed comparison still leaves valid coverage data, and a
+    # crash makes coverage_merge.py refuse the merge for the files it touched
+    if: always() && needs.select.result == 'success' && needs.run.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,6 +132,7 @@ jobs:
           {
             echo "## Coverage of dev at ${GITHUB_SHA:0:10}"
             echo "Baseline ${{ needs.select.outputs.base }}; tests re-run: $(python3 -c 'import json; print(", ".join(json.load(open("select.json"))["tests"]) or "none")')"
+            cat ../runs/*/test_suite_*.log 2>/dev/null | grep '\[FAIL\]' | sed 's/^/    failed: /' || true
             echo ""
             python3 coverage_diff.py baseline merged --base "${{ needs.select.outputs.base }}" --head "${GITHUB_SHA}" --markdown
           } >> "$GITHUB_STEP_SUMMARY"
