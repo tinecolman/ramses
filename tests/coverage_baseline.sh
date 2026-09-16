@@ -22,6 +22,8 @@
 set -euo pipefail
 
 TAG="${COVERAGE_RELEASE:-coverage-baseline}"
+# the repository this script lives in, for the git commands whatever the cwd
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -n "${COVERAGE_REPO:-}" ]; then
    REPO_OPT=(-R "${COVERAGE_REPO}")
 else
@@ -36,12 +38,15 @@ assets() {
 }
 
 ensure_release() {
+   # $1: the commit the release tag is put on, when the release has to be created
+   local target;
    if ! gh release view "${TAG}" "${REPO_OPT[@]}" > /dev/null 2>&1; then
-      echo "Creating release ${TAG}";
+      target=$(git -C "${REPO_DIR}" rev-parse "${1:-HEAD}");
+      echo "Creating release ${TAG} on ${target:0:10}";
       gh release create "${TAG}" "${REPO_OPT[@]}" --prerelease --latest=false \
          --title "Test-suite coverage baselines" \
          --notes "Rolling store of coverage baselines, one per commit of dev, written by the coverage workflows. Not a release of the code." \
-         --target "${2:-HEAD}";
+         --target "${target}";
    fi
 }
 
@@ -71,7 +76,7 @@ cmd_find() {
    [ $# -ge 1 ] || usage;
    local rev="$1" max="${2:-500}" have lag=0 sha;
    have=$(assets);
-   for sha in $(git rev-list --first-parent -n "${max}" "${rev}"); do
+   for sha in $(git -C "${REPO_DIR}" rev-list --first-parent -n "${max}" "${rev}"); do
       if grep -qx "coverage-baseline-${sha}.tar.zst" <<< "${have}"; then
          echo "${sha} ${lag}";
          return 0;

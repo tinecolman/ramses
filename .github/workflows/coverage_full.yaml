@@ -77,11 +77,15 @@ jobs:
         run: |
           mkdir -p tests/full/gcov_per_test tests/full/build_records
           for d in $(find runs -type d -name gcov_per_test); do
+            r=$(dirname "$d")
+            fam=$(basename "$(dirname "$r")"); fam=${fam#coverage-run-}
             cp -r "$d"/* tests/full/gcov_per_test/
-            for f in "$(dirname "$d")"/build_records/*.txt; do
+            for f in "$r"/build_records/*.txt; do
               cat "$f" >> tests/full/build_records/$(basename "$f")
             done
-            cp "$(dirname "$d")"/test_results_*.pdf "$(dirname "$d")"/test_suite_*.log tests/full/ 2>/dev/null || true
+            # the families started within the same second: name their logs
+            for f in "$r"/test_suite_*.log; do cp "$f" "tests/full/test_suite_${fam}_${f##*test_suite_}"; done
+            for f in "$r"/test_results_*.pdf; do cp "$f" "tests/full/test_results_${fam}_${f##*test_results_}"; done
           done
           cd tests
           {
@@ -110,6 +114,12 @@ jobs:
             tail -1 full/coverage_report.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+      # kept so that a failed publish can be redone by hand from the artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-full
+          path: tests/full
+          include-hidden-files: true
       - name: Drift of the rolling baseline
         env:
           GH_TOKEN: ${{ github.token }}
