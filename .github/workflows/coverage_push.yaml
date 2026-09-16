@@ -132,7 +132,7 @@ jobs:
           {
             echo "## Coverage of dev at ${GITHUB_SHA:0:10}"
             echo "Baseline ${{ needs.select.outputs.base }}; tests re-run: $(python3 -c 'import json; print(", ".join(json.load(open("select.json"))["tests"]) or "none")')"
-            cat ../runs/*/test_suite_*.log 2>/dev/null | grep '\[FAIL\]' | sed 's/^/    failed: /' || true
+            find ../runs -name 'test_suite_*.log' -exec cat {} + 2>/dev/null | grep '\[FAIL\]' | sed 's/^/    failed: /' || true
             echo ""
             python3 coverage_diff.py baseline merged --base "${{ needs.select.outputs.base }}" --head "${GITHUB_SHA}" --markdown
           } >> "$GITHUB_STEP_SUMMARY"

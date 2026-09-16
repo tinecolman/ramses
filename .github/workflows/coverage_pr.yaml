@@ -144,8 +144,8 @@ jobs:
           tests=$(python3 -c 'import json; print(", ".join(json.load(open("select.json"))["tests"]) or "none")')
           status=""
           if [ -n "$runs" ]; then
-            nfail=$(cat ../runs/*/test_suite_*.log 2>/dev/null | grep -c '\[FAIL\]' || true)
-            npass=$(cat ../runs/*/test_suite_*.log 2>/dev/null | grep -c '\[ OK \]' || true)
+            nfail=$(find ../runs -name 'test_suite_*.log' -exec cat {} + 2>/dev/null | grep -c '\[FAIL\]' || true)
+            npass=$(find ../runs -name 'test_suite_*.log' -exec cat {} + 2>/dev/null | grep -c '\[ OK \]' || true)
             status=" (${npass} passed, ${nfail} failed)"
           fi
           notes=(--note "Baseline: base branch at ${BASE:0:10}$([ "$LAG" != "0" ] && echo ", ${LAG} commit(s) behind the merge base")."
