@@ -9,6 +9,10 @@ on:
   schedule:
     - cron: '0 3 1 * *'
   workflow_dispatch:
+  # temporary, to make the first baseline on the fork; reverted afterwards
+  push:
+    branches:
+      - continuous_coverage_update
 
 permissions:
   contents: write
