@@ -135,10 +135,17 @@ def render(cmp, added, old_dir, new_dir, notes, markdown, texts=None):
     out.append(f"## {title}" if markdown else title)
     for n in notes:
         out.append(f"{n}  " if markdown else n)
+    kept_section = []
     if new_meta.get("kind") == "incremental":
         rerun = new_meta.get("tests_rerun", "").split()
         text = f"This is an estimate based on {len(rerun)} selected test(s)."
         out.append(f"**{text}**  " if markdown else text)
+        # the tests that reached a changed file but were not re-run: their
+        # baseline coverage of the lines that still exist was kept
+        kept = [k for k in new_meta.get("tests_kept", "").split() if "=" in k]
+        for item in kept:
+            source, tests = item.split("=", 1)
+            kept_section.append((source[3:], tests.replace(",", ", ")))
     out.append("")
 
     rows = [("covered lines C", f"{C}", f"{C + dC}", f"{dC:+d}"),
@@ -178,6 +185,17 @@ def render(cmp, added, old_dir, new_dir, notes, markdown, texts=None):
         out.append("No file changed its numbers.")
         out.append("")
 
+    if kept_section:
+        title = "Tests not re-run, whose baseline coverage of the changed files was kept"
+        if markdown:
+            out.append(f"<details><summary>{title}</summary>\n")
+            out += [f"- `{source}`: {tests}" for source, tests in kept_section]
+            out.append("\n</details>\n")
+        else:
+            out.append(title + ":")
+            out += [f"  {source}: {tests}" for source, tests in kept_section]
+            out.append("")
+
     if added is not None:
         exe = sum(v[0] for v in added.values() if v)
         run = sum(v[1] for v in added.values() if v)
@@ -199,11 +217,11 @@ def render(cmp, added, old_dir, new_dir, notes, markdown, texts=None):
                     else:
                         items.append(f"  {where}  {text}" + (f" (+{last - first} more lines)" if last > first else ""))
             if markdown:
-                out.append(f"\n<details><summary>Added executable lines that no test executed ({len(items)})</summary>\n")
+                out.append(f"\n<details><summary>Added uncovered lines ({len(items)})</summary>\n")
                 out += items
                 out.append("\n</details>")
             else:
-                out.append("Added executable lines that no test executed:")
+                out.append("Added uncovered lines:")
                 out += items
         if uncompiled:
             out.append(("\n" if markdown else "") + "Added files no build of the runs compiled: "
