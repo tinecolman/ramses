@@ -63,4 +63,6 @@ jobs:
         if: steps.download.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh pr edit "${{ steps.read_pr.outputs.pr_number }}" -R "${{ github.repository }}" --remove-label coverage
+        # the REST endpoint: `gh pr edit --remove-label` currently fails on a
+        # deprecated GraphQL field
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${{ steps.read_pr.outputs.pr_number }}/labels/coverage" > /dev/null
