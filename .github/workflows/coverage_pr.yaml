@@ -2,11 +2,16 @@ name: Coverage (PR)
 
 # How a pull request changes the coverage of the test suite: re-run in
 # coverage mode only the tests the change can affect, merge them into the
-# baseline of the base branch, and compare. The comment on the PR is posted by
-# "on PR coverage (completed)" from the artifact made here, so that it also
-# works for pull requests from forks.
+# baseline of the base branch, and compare. Requested by adding the label
+# "coverage" to the pull request; the label is removed again once the result
+# is posted, so adding it again requests a new estimate. The comment on the
+# PR is posted by "on PR coverage (completed)" from the artifact made here,
+# so that it also works for pull requests from forks. The result is
+# informational: no job of this workflow fails the pull request.
 
-on: [pull_request]
+on:
+  pull_request:
+    types: [labeled]
 
 concurrency:
   group: coverage-${{ github.ref }}-${{ github.event.pull_request.number || github.run_number }}
@@ -20,6 +25,7 @@ jobs:
 
   select:
     name: Select tests
+    if: github.event.label.name == 'coverage'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
@@ -76,6 +82,8 @@ jobs:
     needs: select
     if: needs.select.outputs.ntests != '0'
     runs-on: ubuntu-latest
+    # a failed comparison is reported in the comment, not as a failed check
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -109,6 +117,7 @@ jobs:
     needs: [select, run]
     if: always() && needs.select.result == 'success'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:

@@ -144,6 +144,11 @@ jobs:
       # The number goes to a tracking issue, so that its subscribers (and the
       # handles in the repository variable COVERAGE_NOTIFY, e.g. "@someone")
       # get it by mail and the issue keeps the history.
+      # the label that requests a coverage estimate on a pull request
+      - name: Make sure the "coverage" label exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create coverage --description "Request a test-suite coverage estimate for this pull request" --color 0E8A16 --force
       - name: Report on the tracking issue
         env:
           GH_TOKEN: ${{ github.token }}

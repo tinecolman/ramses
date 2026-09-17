@@ -238,8 +238,12 @@ Three workflows automate this (`.github/workflows/coverage_*.yaml`):
   merges them into the baseline of the previous commit and publishes the
   result as the baseline of the new commit.
 - **Coverage (PR)** does the same for a pull request against the baseline of
-  its base branch, and the completed-workflow hook posts the comparison as a
-  comment on the PR.
+  its base branch, when the label `coverage` is added to the pull request
+  (typically once the branch is up to date with its base). The
+  completed-workflow hook posts the comparison as a comment on the PR and
+  removes the label; adding it again requests a new estimate. The result is
+  informational: a failing test is reported in the comment, not as a failed
+  check.
 
 The first baseline has to be made by running **Coverage (full)** by hand
 (Actions tab, "Run workflow").

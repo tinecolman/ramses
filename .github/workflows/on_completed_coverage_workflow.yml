@@ -1,8 +1,9 @@
 name: on PR coverage (completed)
 
-# Posts the coverage comment made by "Coverage (PR)" on the pull request.
-# Same pattern as on_completed_pr_workflow.yml: a workflow_run has the
-# permission to comment that a pull_request from a fork does not.
+# Posts the coverage comment made by "Coverage (PR)" on the pull request and
+# removes the "coverage" label that requested it, so that adding the label
+# again requests a new estimate. Same pattern as on_completed_pr_workflow.yml:
+# a workflow_run has the permissions that a pull_request from a fork does not.
 
 on:
   workflow_run:
@@ -10,11 +11,16 @@ on:
     types:
       - completed
 
+permissions:
+  actions: read
+  pull-requests: write
+
 jobs:
   comment_with_coverage:
     runs-on: ubuntu-latest
     steps:
       - name: Download the comment artifact
+        id: download
         uses: actions/github-script@v6
         with:
           script: |
@@ -25,9 +31,12 @@ jobs:
             });
             let matching = allArtifacts.data.artifacts.filter((a) => a.name == "coverage-comment");
             if (matching.length == 0) {
-              core.setFailed("no coverage-comment artifact");
+              // the run was not requested by the label: nothing to post
+              core.info("no coverage-comment artifact");
+              core.setOutput("found", "false");
               return;
             }
+            core.setOutput("found", "true");
             let download = await github.rest.actions.downloadArtifact({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -35,11 +44,14 @@ jobs:
               archive_format: 'zip',
             });
             require('fs').writeFileSync(`${process.env.GITHUB_WORKSPACE}/coverage-comment.zip`, Buffer.from(download.data));
-      - run: unzip -o coverage-comment.zip -d .
+      - if: steps.download.outputs.found == 'true'
+        run: unzip -o coverage-comment.zip -d .
       - name: Read PR number
+        if: steps.download.outputs.found == 'true'
         id: read_pr
         run: echo "pr_number=$(cat pr_number.txt)" >> "$GITHUB_OUTPUT"
       - name: Comment on the PR
+        if: steps.download.outputs.found == 'true'
         uses: thollander/actions-comment-pull-request@v3
         with:
           file-path: coverage_comment.md
@@ -47,3 +59,8 @@ jobs:
           mode: recreate
           create-if-not-exists: true
           pr-number: ${{ steps.read_pr.outputs.pr_number }}
+      - name: Remove the label that requested the estimate
+        if: steps.download.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit "${{ steps.read_pr.outputs.pr_number }}" -R "${{ github.repository }}" --remove-label coverage
