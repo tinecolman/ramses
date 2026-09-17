@@ -131,6 +131,8 @@ jobs:
           LAG: ${{ needs.select.outputs.lag }}
           REMOVED: ${{ needs.select.outputs.removed }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           cd tests
           if [ -f no_baseline.txt ]; then
@@ -149,8 +151,8 @@ jobs:
             status=" (${npass} passed, ${nfail} failed)"
           fi
           lagtext=""
-          if [ "${LAG:-0}" != "0" ]; then lagtext=", ${LAG} commit(s) behind the merge base"; fi
-          notes=(--note "Baseline: base branch at ${BASE:0:10}${lagtext}."
+          if [ "${LAG:-0}" != "0" ]; then lagtext=", ${LAG} commit(s) before the merge base of ${HEAD_REF} into ${BASE_REF}"; fi
+          notes=(--note "Baseline: ${BASE_REF} at ${BASE:0:10}${lagtext}."
                  --note "Tests re-run in coverage mode: ${tests}${status}. [Workflow run](${RUN_URL}).")
           if python3 coverage_merge.py --baseline baseline --runs $runs --out merged --commit HEAD \
                  --removed-tests "${REMOVED}" > merge.log 2> merge.err; then

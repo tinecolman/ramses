@@ -215,11 +215,10 @@ is taken not to reach the added lines. The result is therefore an estimate:
 tests not re-run are assumed to execute the same lines as before, and to skip
 new ones. The merge notes this in its metadata, the report says so, and the
 monthly full run measures the error. The merge refuses to mix runs made from
-another version of the source. `coverage_diff.py` then reports, with `C`/`D`
-the lines covered/executable in the baseline and `A`/`B` the lines newly
-covered/added:
+another version of the source. `coverage_diff.py` then reports, with `C`/`E`
+the covered/executable lines of the baseline and `ΔC`/`ΔE` their changes:
 
-    coverage gain = (C+A)/(D+B) - C/D
+    coverage gain = (C+ΔC)/(E+ΔE) - C/E
 
 together with the files whose numbers changed and the executable lines the
 change added that no test executes.
