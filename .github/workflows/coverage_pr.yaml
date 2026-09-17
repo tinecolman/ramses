@@ -148,7 +148,9 @@ jobs:
             npass=$(find ../runs -name 'test_suite_*.log' -exec cat {} + 2>/dev/null | grep -c '\[ OK \]' || true)
             status=" (${npass} passed, ${nfail} failed)"
           fi
-          notes=(--note "Baseline: base branch at ${BASE:0:10}$([ "$LAG" != "0" ] && echo ", ${LAG} commit(s) behind the merge base")."
+          lagtext=""
+          if [ "${LAG:-0}" != "0" ]; then lagtext=", ${LAG} commit(s) behind the merge base"; fi
+          notes=(--note "Baseline: base branch at ${BASE:0:10}${lagtext}."
                  --note "Tests re-run in coverage mode: ${tests}${status}. [Workflow run](${RUN_URL}).")
           if python3 coverage_merge.py --baseline baseline --runs $runs --out merged --commit HEAD \
                  --removed-tests "${REMOVED}" > merge.log 2> merge.err; then
