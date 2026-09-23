@@ -163,7 +163,6 @@ subroutine get3cubefather_grids(ind_cell,nbors_grids,ncell,ilevel)
   integer::i1min,i1max,j1min,j1max,k1min,k1max,ind_father
   integer,dimension(1:nvector),save::ix,iy,iz,iix,iiy,iiz
   integer,dimension(1:nvector),save::pos,ind_grid_father
-  integer,dimension(1:nvector,1:twotondim),save::nbors_grids_ok
 
   nxny=nx*ny
 
