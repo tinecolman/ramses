@@ -349,9 +349,9 @@ subroutine get_grids_of_nbor_cells(ind_grid,ind,nbors_grids,ng)
   integer::ii,iimin,iimax
   integer::jj,jjmin,jjmax
   integer::kk,kkmin,kkmax
-  integer,dimension(1:8)::iii=(/1,2,1,2,1,2,1,2/)
-  integer,dimension(1:8)::jjj=(/3,3,4,4,3,3,4,4/)
-  integer,dimension(1:8)::kkk=(/5,5,5,5,6,6,6,6/)
+  integer,dimension(1:8),parameter::iii=(/1,2,1,2,1,2,1,2/)
+  integer,dimension(1:8),parameter::jjj=(/3,3,4,4,3,3,4,4/)
+  integer,dimension(1:8),parameter::kkk=(/5,5,5,5,6,6,6,6/)
   integer,dimension(1:nvector),save::ind_grid1,ind_grid2,ind_grid3
 
   iimin=0; iimax=1
