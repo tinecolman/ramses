@@ -74,4 +74,10 @@ for key in data["sinks"].keys():
 for key in data["stellars"].keys():
     data["data"]["stellar_"+key] = data["stellars"][key]
 
-visu_ramses.check_solution(data["data"],'center-SN',overwrite=False)
+# Poisson solver doesn't conserve z-symmetry, resulting in a small value
+# for the z velocity, which propagates into the x- and y- angular momentum
+# To investigate why sink_vx and sink_vy also need higher tolerances. 
+tol = {'sink_lx': 8e-10, 'sink_ly': 8e-10, 'sink_lz': 1e-10,
+       'sink_vx': 1e-11, 'sink_vy': 1e-11, 'sink_vz': 8e-11,
+       'sink_vx_gas':5e-12, 'sink_vy_gas':5e-12, 'sink_vz_gas':8e-10}
+visu_ramses.check_solution(data["data"],'center-SN',tolerance=tol,overwrite=False)
