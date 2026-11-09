@@ -1,7 +1,9 @@
 name: on PR
 
 # Controls when the workflow will run
-on: [pull_request]
+# Disabled on the debug_ci_ubuntu26 branch: ito_diag.yml runs instead.
+# Restore 'on: [pull_request]' before merging anything from this branch.
+on: [workflow_dispatch]
 
 concurrency:
   group: ci-${{github.ref}}-${{github.event.pull_request.number || github.run_number}}

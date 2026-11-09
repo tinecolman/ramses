@@ -1,0 +1,105 @@
+name: Debug ito tracers
+
+# Diagnostic workflow for the sedov-ito-tracers failure on ubuntu-26.04 runners.
+# Runs only that test, on both runner images side by side, and keeps
+# the hardware/toolchain fingerprint, the executable and the simulation output.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ito:
+    name: "ito tracers on ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenMPI
+        run: sudo apt-get update; sudo apt-get install -y openmpi-bin libopenmpi-dev
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install python dependencies
+        run: pip install -r .github/workflows/requirements.txt
+
+      - name: Setup tectonic
+        uses: wtfjoke/setup-tectonic@v3
+        with:
+          tectonic-version: 0.15.0
+
+      - name: Hardware and toolchain fingerprint
+        run: |
+          {
+            echo "=== Runner";  echo "image: ${ImageOS:-?} ${ImageVersion:-?}"
+            echo "=== CPU";     lscpu
+            echo "=== CPU flags (selected)"
+            grep -m1 '^flags' /proc/cpuinfo | tr ' ' '\n' | grep -E -x 'sse4_2|avx|avx2|fma|avx512f|avx512vl|avx512_fp16|amx_tile' | paste -sd' '
+            echo "=== Memory";  free -h
+            echo "=== Kernel";  uname -a
+            echo "=== OS";      cat /etc/os-release
+            echo "=== glibc";   ldd --version | head -1
+            echo "=== gfortran"; which gfortran; readlink -f "$(which gfortran)"; gfortran -v 2>&1
+            echo "=== gfortran default target"; gfortran -Q --help=target 2>/dev/null | grep -E '^\s+-march=|^\s+-mtune=|^\s+-mfma\s|^\s+-mavx2\s'
+            echo "=== Predefined FP macros"; echo | gfortran -cpp -dM -E -x f95 - 2>/dev/null | grep -E '__FMA__|__AVX2__|__AVX512F__|__FP_FAST_FMA' || echo "(no FMA/AVX macros by default)"
+            echo "=== mpif90 wrapper"; mpif90 --showme
+            echo "=== Open MPI"; ompi_info | grep -E 'Open MPI:|Fort compiler|MCA op'
+            echo "=== GLIBC tunables"; (/lib64/ld-linux-x86-64.so.2 --list-tunables 2>/dev/null | grep -i hwcaps) || true
+            echo "=== Python";  python --version; pip list 2>/dev/null | grep -i -E '^(numpy|osyris|matplotlib|scipy|f90nml) '
+          } 2>&1 | tee tests/fingerprint.txt
+
+      - name: Run ito tracer test only
+        run: |
+          cd tests
+          # run_test_suite.sh only selects by number or family: find the ito test's number
+          # with the same glob order the script uses.
+          i=0
+          for d in hydro/* mhd/* poisson/* rt/* sink/* star/* turb/* tracer/*; do
+            i=$((i+1))
+            if [ "$d" = "tracer/sedov-ito-tracers" ]; then num=$i; fi
+          done
+          echo "sedov-ito-tracers is test number ${num}"
+          # -d keeps the executable and the simulation output for the artifact
+          bash run_test_suite.sh -p 2 -v -d -t ${num}
+
+      - name: Inspect executable
+        if: always()
+        run: |
+          cd bin
+          ls -l test_exe_* || exit 0
+          {
+            echo "=== sha256"; sha256sum test_exe_*
+            echo "=== linked libraries"; ldd test_exe_*
+            echo "=== FMA / AVX instruction counts"
+            for p in vfmadd vfmsub vfnmadd vfnmsub ymm zmm; do
+              printf "%-8s %s\n" "$p" "$(objdump -d test_exe_* | grep -c "$p")"
+            done
+          } 2>&1 | tee ../tests/binary_info.txt
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "ito-debug-${{ matrix.os }}"
+          path: |
+            tests/fingerprint.txt
+            tests/binary_info.txt
+            tests/test_results.pdf
+            tests/test_suite.log
+            bin/test_exe_*
+            tests/tracer/sedov-ito-tracers/output_*
+            tests/tracer/sedov-ito-tracers/*.tex
+            tests/tracer/sedov-ito-tracers/*.pdf
